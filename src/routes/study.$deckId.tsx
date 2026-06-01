@@ -80,6 +80,7 @@ function StudyPage() {
   const handleKnown = () => {
     if (!current) return;
     markCard(deck.id, current.id, true);
+    recordStreakToday();
     advance();
   };
 
