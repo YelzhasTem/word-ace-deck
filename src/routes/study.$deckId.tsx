@@ -192,22 +192,22 @@ function StudyPage() {
                 role="button"
                 aria-label="Перевернуть карточку"
               >
-                <div className="flip-face rounded-3xl bg-card border border-border shadow-xl flex flex-col items-center justify-center p-10 text-center">
-                  <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6">
+                <div className="flip-face rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
+                  <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold mb-6">
                     Слово
                   </span>
-                  <p className="font-display text-5xl md:text-6xl font-semibold leading-tight">
+                  <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-foreground">
                     {current.term}
                   </p>
                   <span className="mt-8 text-xs text-muted-foreground">
                     Нажмите карточку или пробел, чтобы перевернуть
                   </span>
                 </div>
-                <div className="flip-face flip-face--back rounded-3xl bg-foreground text-background border border-border shadow-xl flex flex-col items-center justify-center p-10 text-center">
-                  <span className="text-xs uppercase tracking-[0.2em] opacity-60 mb-6">
+                <div className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
+                  <span className="text-xs uppercase tracking-[0.2em] opacity-70 font-semibold mb-6">
                     Перевод
                   </span>
-                  <p className="font-display text-3xl md:text-4xl leading-snug">
+                  <p className="font-display text-3xl md:text-4xl font-bold leading-snug">
                     {current.definition}
                   </p>
                 </div>
