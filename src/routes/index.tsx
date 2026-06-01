@@ -17,8 +17,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { generateDeckWithAI, getTranslations } from "@/lib/ai.functions";
-import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X } from "lucide-react";
+import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
+import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
