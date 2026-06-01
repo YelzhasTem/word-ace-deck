@@ -227,25 +227,15 @@ function Home() {
 
           <div className="relative hidden md:block">
             <div className="absolute -inset-4 rounded-[2rem] bg-gradient-to-br from-accent/20 via-transparent to-primary/10 blur-2xl" />
-            <div className="relative rounded-3xl bg-card border border-border/70 p-8 shadow-[var(--shadow-card)]">
-              <div className="flex items-center justify-between mb-6">
-                <span className="text-xs uppercase tracking-widest text-muted-foreground font-medium">noun · C1</span>
-                <span className="inline-flex h-2 w-2 rounded-full bg-success" />
-              </div>
-              <p className="font-display text-4xl font-bold text-foreground">serendipity</p>
-              <p className="mt-4 text-muted-foreground leading-relaxed">
-                Счастливая случайность; способность находить хорошее без поиска.
-              </p>
-              <div className="mt-6 flex gap-2 flex-wrap">
-                <span className="text-xs px-2.5 py-1 rounded-full bg-secondary text-secondary-foreground font-medium">/ˌserənˈdɪpɪti/</span>
-                <span className="text-xs px-2.5 py-1 rounded-full bg-accent/15 text-primary font-medium">любимое</span>
-              </div>
-              <div className="mt-8 pt-6 border-t border-border/70 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Карточка 7 из 24</span>
-                <span className="font-medium text-success">+3 за сегодня</span>
-              </div>
+            <div className="relative">
+              <StreakCard />
             </div>
           </div>
+        </section>
+
+        {/* Streak — mobile */}
+        <section className="md:hidden mb-10">
+          <StreakCard />
         </section>
 
         {/* Decks */}
