@@ -140,3 +140,69 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
       cards: parsed.cards.filter((c) => c.term && c.definition),
     };
   });
+
+export const getTranslations = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      word: z.string().min(1).max(80),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
+
+    const system =
+      "Ты — англо-русский словарь. Получаешь английское слово или выражение и возвращаешь до 5 наиболее частых переводов на русский язык. " +
+      "Отвечай ТОЛЬКО валидным JSON без Markdown. Формат: " +
+      '{"translations":["перевод 1","перевод 2","перевод 3"]}. ' +
+      "Каждый перевод — короткий (1–4 слова), без пояснений в скобках, без нумерации.";
+
+    const user = `Слово: «${data.word}». Дай разные значения и оттенки смысла, если они есть.`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
+      if (res.status === 402)
+        throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
+      throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
+    }
+
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const raw = json.choices?.[0]?.message?.content?.trim() ?? "";
+    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
+
+    let parsed: { translations?: string[] };
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error("ИИ вернул невалидный ответ. Попробуйте ещё раз.");
+    }
+
+    const translations = (parsed.translations ?? [])
+      .filter((t) => typeof t === "string" && t.trim().length > 0)
+      .map((t) => t.trim())
+      .slice(0, 5);
+
+    if (translations.length === 0) {
+      throw new Error("Не удалось получить переводы. Попробуйте другое слово.");
+    }
+
+    return { translations };
+  });
