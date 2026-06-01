@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, BookOpen } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { generateDeckWithAI } from "@/lib/ai.functions";
+import { Plus, Trash2, BookOpen, Sparkles, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
