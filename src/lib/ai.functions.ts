@@ -206,3 +206,127 @@ export const getTranslations = createServerFn({ method: "POST" })
 
     return { translations };
   });
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, " ")
+    .replace(/<style[\s\S]*?<\/style>/gi, " ")
+    .replace(/<noscript[\s\S]*?<\/noscript>/gi, " ")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export const generateDeckFromUrl = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      url: z.string().url().max(2000),
+      count: z.number().int().min(3).max(40),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
+
+    // Fetch the source page
+    let pageRes: Response;
+    try {
+      pageRes = await fetch(data.url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (compatible; LingoCardsBot/1.0; +https://lovable.dev)",
+          Accept: "text/html,application/xhtml+xml",
+        },
+        redirect: "follow",
+      });
+    } catch {
+      throw new Error("Не удалось загрузить страницу. Проверьте адрес.");
+    }
+    if (!pageRes.ok) {
+      throw new Error(`Не удалось загрузить страницу (HTTP ${pageRes.status}).`);
+    }
+    const ct = pageRes.headers.get("content-type") ?? "";
+    const html = await pageRes.text();
+    const text = ct.includes("html") ? stripHtml(html) : html.replace(/\s+/g, " ").trim();
+
+    if (text.length < 200) {
+      throw new Error("На странице слишком мало текста для создания колоды.");
+    }
+
+    // Limit context to keep token usage sane
+    const excerpt = text.slice(0, 12000);
+
+    const system =
+      "Ты — лексикограф для русскоязычных студентов английского. " +
+      "На основе предоставленного фрагмента текста выбери самые полезные для изучения английские слова и выражения " +
+      "(существительные, глаголы, прилагательные, устойчивые выражения), которые действительно встречаются в тексте. " +
+      "Избегай имён собственных, чисел, дат, географических названий и слишком простых базовых слов (the, is, and и т. п.). " +
+      "Отвечай ТОЛЬКО валидным JSON без Markdown. Формат:\n" +
+      '{"name":"Название колоды","description":"Краткое описание","cards":[{"term":"слово/выражение","definition":"перевод на русский"}]}';
+
+    const user =
+      `Источник: ${data.url}\n` +
+      `Выбери ровно ${data.count} разных слов/выражений из текста ниже и дай каждому короткий перевод на русский. ` +
+      `Название колоды — на русском, краткое, по теме текста. Описание — одно предложение на русском.\n\n` +
+      `Текст:\n"""${excerpt}"""`;
+
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text();
+      if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
+      if (res.status === 402)
+        throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
+      throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
+    }
+
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    const raw = json.choices?.[0]?.message?.content?.trim() ?? "";
+    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
+
+    let parsed: { name?: string; description?: string; cards?: { term: string; definition: string }[] };
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error("ИИ вернул невалидный JSON. Попробуйте ещё раз.");
+    }
+
+    const cards = (parsed.cards ?? []).filter((c) => c && c.term && c.definition);
+    if (cards.length === 0) {
+      throw new Error("Не удалось извлечь слова из текста. Попробуйте другой источник.");
+    }
+
+    let host = "";
+    try {
+      host = new URL(data.url).hostname.replace(/^www\./, "");
+    } catch {
+      host = "источника";
+    }
+
+    return {
+      name: parsed.name ?? `Слова из ${host}`,
+      description: parsed.description ?? `Лексика, извлечённая из ${host}.`,
+      cards,
+    };
+  });
