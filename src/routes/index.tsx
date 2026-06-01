@@ -17,8 +17,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { generateDeckWithAI, getTranslations } from "@/lib/ai.functions";
-import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X } from "lucide-react";
+import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
+import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -60,6 +60,31 @@ function Home() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const genDeck = useServerFn(generateDeckWithAI);
+
+  // URL-based generation state
+  const [urlInput, setUrlInput] = useState("");
+  const [urlCount, setUrlCount] = useState(15);
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlError, setUrlError] = useState("");
+  const genDeckFromUrl = useServerFn(generateDeckFromUrl);
+
+  const handleUrlGenerate = async () => {
+    if (!urlInput.trim()) return;
+    setUrlLoading(true);
+    setUrlError("");
+    try {
+      const result = await genDeckFromUrl({
+        data: { url: urlInput.trim(), count: urlCount },
+      });
+      createDeckWithCards(result.name, result.description, result.cards);
+      setUrlInput("");
+      setOpen(false);
+    } catch (err) {
+      setUrlError(err instanceof Error ? err.message : "Не удалось создать колоду");
+    } finally {
+      setUrlLoading(false);
+    }
+  };
 
   const resetManual = () => {
     setName("");
@@ -163,10 +188,13 @@ function Home() {
                     </DialogDescription>
                   </DialogHeader>
                   <Tabs defaultValue="manual" className="mt-2">
-                    <TabsList className="w-full grid grid-cols-2">
+                    <TabsList className="w-full grid grid-cols-3">
                       <TabsTrigger value="manual">Вручную</TabsTrigger>
                       <TabsTrigger value="ai" className="gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5" /> С помощью ИИ
+                        <Sparkles className="h-3.5 w-3.5" /> ИИ
+                      </TabsTrigger>
+                      <TabsTrigger value="url" className="gap-1.5">
+                        <Link2 className="h-3.5 w-3.5" /> По ссылке
                       </TabsTrigger>
                     </TabsList>
 
@@ -342,6 +370,48 @@ function Home() {
                           ) : (
                             <>
                               <Sparkles className="h-4 w-4" /> Сгенерировать
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </TabsContent>
+
+                    <TabsContent value="url" className="mt-4 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Ссылка на материал</label>
+                        <Input
+                          autoFocus
+                          type="url"
+                          placeholder="https://en.wikipedia.org/wiki/..."
+                          value={urlInput}
+                          onChange={(e) => setUrlInput(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && !urlLoading && handleUrlGenerate()}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Вставьте адрес статьи (например, Wikipedia) — ИИ извлечёт полезные слова из текста.
+                        </p>
+                      </div>
+                      <div className="space-y-2 max-w-[160px]">
+                        <label className="text-sm font-medium">Карточек</label>
+                        <Input
+                          type="number"
+                          min={3}
+                          max={40}
+                          value={urlCount}
+                          onChange={(e) => setUrlCount(Math.min(40, Math.max(3, Number(e.target.value) || 0)))}
+                        />
+                      </div>
+                      {urlError && <p className="text-sm text-destructive">{urlError}</p>}
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+                        <Button onClick={handleUrlGenerate} disabled={urlLoading || !urlInput.trim()}>
+                          {urlLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" /> Извлекаем слова…
+                            </>
+                          ) : (
+                            <>
+                              <Link2 className="h-4 w-4" /> Создать колоду
                             </>
                           )}
                         </Button>
