@@ -226,7 +226,7 @@ function StudyPage() {
               </Button>
               <Button
                 size="lg"
-                className="rounded-full h-14 text-base bg-[color:var(--success)] text-background hover:opacity-90"
+                className="rounded-full h-14 text-base bg-success text-white hover:bg-success/90"
                 onClick={handleKnown}
               >
                 <Check className="h-5 w-5" /> Знаю
