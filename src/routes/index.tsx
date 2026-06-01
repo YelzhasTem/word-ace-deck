@@ -172,13 +172,12 @@ function Home() {
 
                     <TabsContent value="manual" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Название</label>
+                        <label className="text-sm font-medium">Название колоды</label>
                         <Input
                           autoFocus
                           placeholder="Например: IELTS — Speaking"
                           value={name}
                           onChange={(e) => setName(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && handleCreate()}
                         />
                       </div>
                       <div className="space-y-2">
@@ -187,11 +186,111 @@ function Home() {
                           placeholder="О чём эта колода?"
                           value={desc}
                           onChange={(e) => setDesc(e.target.value)}
+                          rows={2}
                         />
                       </div>
+
+                      <div className="space-y-2 pt-2 border-t border-border/60">
+                        <label className="text-sm font-medium">Добавить слово</label>
+                        {trOptions.length === 0 ? (
+                          <div className="flex gap-2">
+                            <Input
+                              placeholder="Введите английское слово"
+                              value={wordInput}
+                              onChange={(e) => setWordInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter" && !trLoading) {
+                                  e.preventDefault();
+                                  handleLookup();
+                                }
+                              }}
+                              disabled={trLoading}
+                            />
+                            <Button
+                              type="button"
+                              onClick={handleLookup}
+                              disabled={trLoading || !wordInput.trim()}
+                            >
+                              {trLoading ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                "Найти"
+                              )}
+                            </Button>
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm">
+                                Выберите перевод для{" "}
+                                <span className="font-semibold text-primary">{trWord}</span>
+                              </p>
+                              <button
+                                type="button"
+                                onClick={handleCancelLookup}
+                                className="text-xs text-muted-foreground hover:text-foreground"
+                              >
+                                Отмена
+                              </button>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {trOptions.map((t) => (
+                                <button
+                                  key={t}
+                                  type="button"
+                                  onClick={() => handlePickTranslation(t)}
+                                  className="px-3 py-1.5 rounded-full bg-card border border-border text-sm hover:border-primary hover:text-primary transition-colors"
+                                >
+                                  {t}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {trError && <p className="text-sm text-destructive">{trError}</p>}
+                      </div>
+
+                      {manualCards.length > 0 && (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">
+                            Слова в колоде ({manualCards.length})
+                          </p>
+                          <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
+                            {manualCards.map((c, i) => (
+                              <div
+                                key={i}
+                                className="flex items-center justify-between gap-2 rounded-lg bg-secondary/60 px-3 py-1.5 text-sm"
+                              >
+                                <span className="truncate">
+                                  <span className="font-medium">{c.term}</span>
+                                  <span className="text-muted-foreground"> — {c.definition}</span>
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setManualCards((prev) => prev.filter((_, j) => j !== i))
+                                  }
+                                  className="text-muted-foreground hover:text-destructive shrink-0"
+                                  aria-label="Удалить"
+                                >
+                                  <X className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
-                        <Button onClick={handleCreate}>Создать</Button>
+                        <Button variant="ghost" onClick={() => { resetManual(); setOpen(false); }}>
+                          Отмена
+                        </Button>
+                        <Button
+                          onClick={handleCreate}
+                          disabled={!name.trim() || manualCards.length === 0}
+                        >
+                          <Check className="h-4 w-4" /> Создать ({manualCards.length})
+                        </Button>
                       </DialogFooter>
                     </TabsContent>
 
