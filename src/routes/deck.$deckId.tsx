@@ -1,14 +1,39 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Trash2, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2 } from "lucide-react";
+import { generateStudyText } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
 });
+
+function renderMarkdown(text: string) {
+  // very small markdown: **bold** and line breaks
+  const parts: Array<string | { bold: string }> = [];
+  const regex = /\*\*([^*]+)\*\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(text))) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push({ bold: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.map((p, i) =>
+    typeof p === "string" ? (
+      <span key={i}>{p}</span>
+    ) : (
+      <strong key={i} className="font-semibold text-foreground bg-accent/15 px-1 rounded">
+        {p.bold}
+      </strong>
+    ),
+  );
+}
 
 function plural(n: number, forms: [string, string, string]) {
   const mod10 = n % 10;
