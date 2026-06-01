@@ -41,8 +41,17 @@ function plural(n: number, forms: [string, string, string]) {
 function Home() {
   const { decks, createDeck, createDeckWithCards, deleteDeck } = useDecks();
   const [open, setOpen] = useState(false);
+
+  // Manual creation state
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+  const [manualCards, setManualCards] = useState<{ term: string; definition: string }[]>([]);
+  const [wordInput, setWordInput] = useState("");
+  const [trLoading, setTrLoading] = useState(false);
+  const [trError, setTrError] = useState("");
+  const [trWord, setTrWord] = useState("");
+  const [trOptions, setTrOptions] = useState<string[]>([]);
+  const fetchTranslations = useServerFn(getTranslations);
 
   // AI generation state
   const [aiTopic, setAiTopic] = useState("");
@@ -52,12 +61,52 @@ function Home() {
   const [aiError, setAiError] = useState("");
   const genDeck = useServerFn(generateDeckWithAI);
 
-  const handleCreate = () => {
-    if (!name.trim()) return;
-    createDeck(name.trim(), desc.trim());
+  const resetManual = () => {
     setName("");
     setDesc("");
+    setManualCards([]);
+    setWordInput("");
+    setTrWord("");
+    setTrOptions([]);
+    setTrError("");
+  };
+
+  const handleCreate = () => {
+    if (!name.trim() || manualCards.length === 0) return;
+    createDeckWithCards(name.trim(), desc.trim(), manualCards);
+    resetManual();
     setOpen(false);
+  };
+
+  const handleLookup = async () => {
+    const w = wordInput.trim();
+    if (!w) return;
+    setTrLoading(true);
+    setTrError("");
+    setTrOptions([]);
+    try {
+      const res = await fetchTranslations({ data: { word: w } });
+      setTrWord(w);
+      setTrOptions(res.translations);
+    } catch (err) {
+      setTrError(err instanceof Error ? err.message : "Не удалось получить переводы");
+    } finally {
+      setTrLoading(false);
+    }
+  };
+
+  const handlePickTranslation = (translation: string) => {
+    setManualCards((prev) => [...prev, { term: trWord, definition: translation }]);
+    setWordInput("");
+    setTrWord("");
+    setTrOptions([]);
+    setTrError("");
+  };
+
+  const handleCancelLookup = () => {
+    setTrWord("");
+    setTrOptions([]);
+    setTrError("");
   };
 
   const handleAIGenerate = async () => {
