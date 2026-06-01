@@ -49,6 +49,31 @@ function DeckPage() {
   const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
+  const generate = useServerFn(generateStudyText);
+  const [aiText, setAiText] = useState<string>("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string>("");
+  const [aiSeed, setAiSeed] = useState(0);
+
+  const runGenerate = async (nextSeed: number) => {
+    if (!deck || deck.cards.length === 0) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const { text } = await generate({
+        data: {
+          words: deck.cards.map((c) => c.term),
+          deckName: deck.name,
+          seed: nextSeed,
+        },
+      });
+      setAiText(text);
+      setAiSeed(nextSeed);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Не удалось сгенерировать текст");
+    }
+    setAiLoading(false);
+  };
 
   if (!deck) {
     return (
