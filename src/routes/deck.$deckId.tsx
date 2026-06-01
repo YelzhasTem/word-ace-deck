@@ -5,7 +5,7 @@ import { useDeck } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/deck/$deckId")({
@@ -129,6 +129,15 @@ function DeckPage() {
               disabled={!deck.cards.length}
             >
               <RotateCcw className="h-4 w-4" /> Сбросить
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => navigate({ to: "/deep/$deckId", params: { deckId: deck.id } })}
+              disabled={deck.cards.length < 4}
+              title={deck.cards.length < 4 ? "Нужно минимум 4 карточки" : undefined}
+            >
+              <Brain className="h-4 w-4" /> Deep learning
             </Button>
             <Button
               className="rounded-full"
