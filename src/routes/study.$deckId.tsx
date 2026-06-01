@@ -17,7 +17,6 @@ function StudyPage() {
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
 
-  // Build study queue from cards that aren't known yet
   const queueSource = useMemo(
     () => (deck ? deck.cards.filter((c) => !c.known).map((c) => c.id) : []),
     [deck],
@@ -31,7 +30,6 @@ function StudyPage() {
   }, [deckId]);
 
   useEffect(() => {
-    // Append newly-unknown cards if list grows; trim removed
     setOrder((prev) => {
       const set = new Set(queueSource);
       const kept = prev.filter((id) => set.has(id));
@@ -61,8 +59,8 @@ function StudyPage() {
       <div className="min-h-screen">
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Go home</Link>
+          <h1 className="font-display text-3xl">Колода не найдена</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
         </main>
       </div>
     );
@@ -86,7 +84,6 @@ function StudyPage() {
 
   const handleAgain = () => {
     if (!current) return;
-    // Move current card to the back of the queue
     setFlipped(false);
     setTimeout(() => {
       setOrder((prev) => {
@@ -127,7 +124,7 @@ function StudyPage() {
               onClick={shuffle}
               disabled={order.length < 2}
             >
-              <Shuffle className="h-4 w-4" /> Shuffle
+              <Shuffle className="h-4 w-4" /> Перемешать
             </Button>
             <Button
               variant="ghost"
@@ -139,7 +136,7 @@ function StudyPage() {
                 setFlipped(false);
               }}
             >
-              <RotateCcw className="h-4 w-4" /> Reset
+              <RotateCcw className="h-4 w-4" /> Сбросить
             </Button>
           </div>
         </div>
@@ -150,7 +147,7 @@ function StudyPage() {
             <span>
               {finished ? total : idx + 1} / {order.length || total}
             </span>
-            <span>{knownCount} known</span>
+            <span>выучено {knownCount}</span>
           </div>
           <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
             <div
@@ -165,13 +162,13 @@ function StudyPage() {
         {finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">🎉</p>
-            <h2 className="font-display text-3xl font-semibold">Session complete</h2>
+            <h2 className="font-display text-3xl font-semibold">Подход завершён</h2>
             <p className="mt-3 text-muted-foreground">
-              You know {knownCount} of {total} cards.
+              Вы знаете {knownCount} из {total} карточек.
             </p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link>
               </Button>
               <Button
                 className="rounded-full"
@@ -181,7 +178,7 @@ function StudyPage() {
                   setFlipped(false);
                 }}
               >
-                <RotateCcw className="h-4 w-4" /> Study again
+                <RotateCcw className="h-4 w-4" /> Учить снова
               </Button>
             </div>
           </div>
@@ -193,22 +190,22 @@ function StudyPage() {
                 className={`flip-card cursor-pointer ${flipped ? "is-flipped" : ""}`}
                 onClick={() => setFlipped((f) => !f)}
                 role="button"
-                aria-label="Flip card"
+                aria-label="Перевернуть карточку"
               >
                 <div className="flip-face rounded-3xl bg-card border border-border shadow-xl flex flex-col items-center justify-center p-10 text-center">
                   <span className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-6">
-                    Term
+                    Слово
                   </span>
                   <p className="font-display text-5xl md:text-6xl font-semibold leading-tight">
                     {current.term}
                   </p>
                   <span className="mt-8 text-xs text-muted-foreground">
-                    Tap or press space to flip
+                    Нажмите карточку или пробел, чтобы перевернуть
                   </span>
                 </div>
                 <div className="flip-face flip-face--back rounded-3xl bg-foreground text-background border border-border shadow-xl flex flex-col items-center justify-center p-10 text-center">
                   <span className="text-xs uppercase tracking-[0.2em] opacity-60 mb-6">
-                    Meaning
+                    Перевод
                   </span>
                   <p className="font-display text-3xl md:text-4xl leading-snug">
                     {current.definition}
@@ -225,21 +222,21 @@ function StudyPage() {
                 className="rounded-full h-14 text-base border-border hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40"
                 onClick={handleAgain}
               >
-                <X className="h-5 w-5" /> Again
+                <X className="h-5 w-5" /> Ещё раз
               </Button>
               <Button
                 size="lg"
                 className="rounded-full h-14 text-base bg-[color:var(--success)] text-background hover:opacity-90"
                 onClick={handleKnown}
               >
-                <Check className="h-5 w-5" /> Got it
+                <Check className="h-5 w-5" /> Знаю
               </Button>
             </div>
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> flip ·{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> again ·{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">→</kbd> got it
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Пробел</kbd> — перевернуть ·{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> ещё раз ·{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">→</kbd> знаю
             </p>
           </>
         )}

@@ -15,7 +15,7 @@ export type Deck = {
   createdAt: number;
 };
 
-const STORAGE_KEY = "lingocards.decks.v1";
+const STORAGE_KEY = "lingocards.decks.v2";
 
 const uid = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -25,29 +25,46 @@ const uid = () =>
 const seedDecks = (): Deck[] => [
   {
     id: uid(),
-    name: "Everyday Essentials",
-    description: "Words you'll use every single day.",
+    name: "Повседневные слова",
+    description: "Базовая лексика для каждого дня.",
     createdAt: Date.now(),
     cards: [
-      { id: uid(), term: "ubiquitous", definition: "Present everywhere", known: false },
-      { id: uid(), term: "ephemeral", definition: "Lasting for a very short time", known: false },
-      { id: uid(), term: "candid", definition: "Truthful and straightforward", known: false },
-      { id: uid(), term: "resilient", definition: "Able to recover quickly", known: false },
-      { id: uid(), term: "meticulous", definition: "Showing great attention to detail", known: false },
+      { id: uid(), term: "breakfast", definition: "завтрак", known: false },
+      { id: uid(), term: "neighbour", definition: "сосед", known: false },
+      { id: uid(), term: "weather", definition: "погода", known: false },
+      { id: uid(), term: "tomorrow", definition: "завтра (нареч.)", known: false },
+      { id: uid(), term: "to remember", definition: "помнить, вспоминать", known: false },
+      { id: uid(), term: "busy", definition: "занятой", known: false },
     ],
   },
   {
     id: uid(),
-    name: "Business English",
-    description: "Vocabulary for meetings, emails and pitches.",
+    name: "Бизнес-английский",
+    description: "Слова для встреч, писем и презентаций.",
     createdAt: Date.now(),
     cards: [
-      { id: uid(), term: "leverage", definition: "Use something to maximum advantage", known: false },
-      { id: uid(), term: "stakeholder", definition: "A person with an interest in a project", known: false },
-      { id: uid(), term: "deliverable", definition: "A product or result that must be provided", known: false },
+      { id: uid(), term: "deadline", definition: "крайний срок", known: false },
+      { id: uid(), term: "stakeholder", definition: "заинтересованная сторона", known: false },
+      { id: uid(), term: "to leverage", definition: "использовать с выгодой", known: false },
+      { id: uid(), term: "deliverable", definition: "результат работы, продукт сдачи", known: false },
+      { id: uid(), term: "to outsource", definition: "передавать на аутсорс", known: false },
+    ],
+  },
+  {
+    id: uid(),
+    name: "Продвинутая лексика (C1)",
+    description: "Слова, которые встретятся в книгах и сериалах.",
+    createdAt: Date.now(),
+    cards: [
+      { id: uid(), term: "ubiquitous", definition: "вездесущий, повсеместный", known: false },
+      { id: uid(), term: "ephemeral", definition: "мимолётный, недолговечный", known: false },
+      { id: uid(), term: "resilient", definition: "стойкий, быстро восстанавливающийся", known: false },
+      { id: uid(), term: "meticulous", definition: "дотошный, скрупулёзный", known: false },
+      { id: uid(), term: "serendipity", definition: "счастливая случайность", known: false },
     ],
   },
 ];
+
 
 function load(): Deck[] {
   if (typeof window === "undefined") return [];

@@ -77,11 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lingo Cards — Learn English with flashcards" },
-      { name: "description", content: "A calm, focused flashcard app for learning English vocabulary." },
-      { property: "og:title", content: "Lingo Cards" },
-      { property: "og:description", content: "Learn English vocabulary with beautiful flashcards." },
+      { title: "Лингвокарточки — учим английские слова" },
+      { name: "description", content: "Спокойное приложение для изучения английских слов по карточкам." },
+      { property: "og:title", content: "Лингвокарточки" },
+      { property: "og:description", content: "Учите английские слова по карточкам — своим темпом." },
       { property: "og:type", content: "website" },
+      { property: "og:locale", content: "ru_RU" },
+
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -102,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="ru">
       <head>
         <HeadContent />
       </head>
