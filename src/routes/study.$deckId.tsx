@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
+import { recordStreakToday } from "@/lib/streak";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Check, X, Shuffle, RotateCcw } from "lucide-react";
