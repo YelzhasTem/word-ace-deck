@@ -24,8 +24,10 @@ function TypePage() {
   const [right, setRight] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [wrongIds, setWrongIds] = useState<string[]>([]);
+  const [startedAt, setStartedAt] = useState<number>(() => Date.now());
 
-  useEffect(() => { setIdx(0); setInput(""); setVerdict(null); setRight(0); setWrong(0); setWrongIds([]); }, [deckId]);
+  useEffect(() => { setIdx(0); setInput(""); setVerdict(null); setRight(0); setWrong(0); setWrongIds([]); setStartedAt(Date.now()); }, [deckId]);
+  useEffect(() => { setStartedAt(Date.now()); }, [idx]);
 
   if (!deck) {
     return (
@@ -45,9 +47,10 @@ function TypePage() {
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!current || verdict) return;
+    const elapsed = Date.now() - startedAt;
     const ok = isCloseMatch(input, current.definition);
     setVerdict(ok ? "ok" : "miss");
-    recordAnswer(deck.id, current.id, ok);
+    recordAnswer(deck.id, current.id, ok, elapsed);
     if (ok) { setRight((r) => r + 1); recordStreakToday(); }
     else { setWrong((w) => w + 1); setWrongIds((ids) => [...ids, current.id]); }
   };

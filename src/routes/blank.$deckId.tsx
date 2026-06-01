@@ -89,13 +89,17 @@ function BlankPage() {
   const total = queue.length;
   const finished = !current;
 
+  const [askedAt, setAskedAt] = useState<number>(() => Date.now());
+  useEffect(() => { setAskedAt(Date.now()); }, [current?.id, loading]);
+
   const submit = () => {
     if (!current || verdict) return;
     const answer = mode === "free" ? input : (pick ?? "");
     if (!answer) return;
+    const elapsed = Date.now() - askedAt;
     const ok = isCloseMatch(answer, current.term);
     setVerdict(ok ? "ok" : "miss");
-    recordAnswer(deck.id, current.id, ok);
+    recordAnswer(deck.id, current.id, ok, elapsed);
     if (ok) { setRight((r) => r + 1); recordStreakToday(); } else { setWrong((w) => w + 1); }
   };
   const next = () => setIdx((i) => i + 1);

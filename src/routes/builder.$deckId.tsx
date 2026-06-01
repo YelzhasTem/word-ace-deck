@@ -117,9 +117,10 @@ function BuilderPage() {
   };
   const check = () => {
     if (!current) return;
+    const elapsed = Date.now() - start;
     const ok = built.toLowerCase() === current.term.toLowerCase();
     setVerdict(ok ? "ok" : "miss");
-    recordAnswer(deck.id, current.id, ok);
+    recordAnswer(deck.id, current.id, ok, elapsed);
     if (ok) {
       const base = current.term.length * 10;
       const diffBonus = difficulty === "hard" ? 1.5 : difficulty === "easy" ? 0.7 : 1;
@@ -132,7 +133,7 @@ function BuilderPage() {
       setHadMistake(true);
     }
   };
-  const next = () => { setVerdict(null); setIdx((i) => i + 1); };
+  const next = () => { setVerdict(null); setStart(Date.now()); setIdx((i) => i + 1); };
   const tryAgain = () => { if (current) buildPool(current, difficulty); };
   const restart = () => { setIdx(0); setScore(0); setPerfect(0); setMistakes(0); setStart(Date.now()); };
 
