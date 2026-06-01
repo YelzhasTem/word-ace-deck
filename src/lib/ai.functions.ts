@@ -330,3 +330,82 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
       cards,
     };
   });
+
+async function callAI(system: string, user: string) {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: user },
+      ],
+    }),
+  });
+  if (!res.ok) {
+    const body = await res.text();
+    if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
+    if (res.status === 402)
+      throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
+    throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
+  }
+  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
+  return (json.choices?.[0]?.message?.content ?? "").trim();
+}
+
+export const generateClozeSentence = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      term: z.string().min(1).max(80),
+      definition: z.string().min(1).max(200),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const system =
+      "Ты помогаешь учить английские слова. Возвращай ТОЛЬКО JSON без Markdown. " +
+      'Формат: {"sentence":"...","explanation":"..."}. ' +
+      "sentence — короткое (8–16 слов) естественное английское предложение уровня B1, " +
+      "в котором ОБЯЗАТЕЛЬНО встречается заданное слово в его базовой или естественной форме. " +
+      "explanation — короткое пояснение на русском (1 предложение), почему это слово здесь уместно.";
+    const user = `Слово: "${data.term}" (перевод: ${data.definition}). Сделай предложение и пояснение.`;
+    const raw = await callAI(system, user);
+    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
+    let parsed: { sentence?: string; explanation?: string };
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error("ИИ вернул невалидный ответ.");
+    }
+    if (!parsed.sentence) throw new Error("Не удалось сгенерировать предложение.");
+    return { sentence: parsed.sentence, explanation: parsed.explanation ?? "" };
+  });
+
+export const generateAssociation = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      term: z.string().min(1).max(80),
+      definition: z.string().min(1).max(200),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const system =
+      "Ты создаёшь яркие мнемонические ассоциации на русском, чтобы помочь запомнить английские слова. " +
+      "Отвечай ТОЛЬКО JSON без Markdown. Формат: " +
+      '{"association":"...","story":"..."}. ' +
+      "association — 1–2 предложения: на что похоже звучание слова, какой образ возникает. " +
+      "story — короткая (2–3 предложения) история-мнемоника, связывающая образ с переводом.";
+    const user = `Слово: "${data.term}" — перевод: "${data.definition}".`;
+    const raw = await callAI(system, user);
+    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
+    let parsed: { association?: string; story?: string };
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error("ИИ вернул невалидный ответ.");
+    }
+    if (!parsed.association && !parsed.story) throw new Error("Не удалось сгенерировать ассоциацию.");
+    return { association: parsed.association ?? "", story: parsed.story ?? "" };
+  });

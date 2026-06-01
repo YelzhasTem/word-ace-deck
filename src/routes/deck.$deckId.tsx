@@ -2,10 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
+import { useDeckStats, accuracyFor, weakCardIds } from "@/lib/stats";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain } from "lucide-react";
+import {
+  ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
+  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb,
+} from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/deck/$deckId")({
@@ -47,6 +51,7 @@ function DeckPage() {
   const { deckId } = Route.useParams();
   const navigate = useNavigate();
   const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
+  const stats = useDeckStats(deckId);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
   const generate = useServerFn(generateStudyText);
@@ -148,6 +153,85 @@ function DeckPage() {
             </Button>
           </div>
         </div>
+
+        {/* Mode launcher */}
+        {deck.cards.length > 0 && (
+          <section className="mb-8 rounded-3xl border border-border bg-card p-6">
+            <h2 className="font-display text-xl mb-4 flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-accent" /> Режимы обучения
+            </h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[
+                { to: "/type/$deckId", icon: Keyboard, title: "Ввод перевода", desc: "Активное припоминание, нечёткое сравнение." },
+                { to: "/builder/$deckId", icon: Shuffle, title: "Word builder", desc: "Соберите слово из букв. 3 уровня сложности." },
+                { to: "/blank/$deckId", icon: FileQuestion, title: "Fill-in-the-blank", desc: "Слово в контексте: выбор, банк или ввод." },
+                { to: "/speed/$deckId", icon: Zap, title: "Speed challenge", desc: "30/60/120 сек. Комбо и рекорды." },
+                { to: "/assoc/$deckId", icon: Lightbulb, title: "Ассоциации", desc: "Мнемоники от ИИ и собственные." },
+                { to: "/deep/$deckId", icon: Brain, title: "Deep learning", desc: "4 варианта перевода." },
+              ].map((m) => {
+                const disabled = m.to === "/deep/$deckId" && deck.cards.length < 4;
+                return (
+                  <button
+                    key={m.to}
+                    disabled={disabled}
+                    onClick={() => navigate({ to: m.to, params: { deckId: deck.id } } as never)}
+                    className="text-left rounded-2xl border border-border bg-background hover:border-accent hover:bg-accent/5 px-4 py-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <m.icon className="h-5 w-5 text-accent mb-2" />
+                    <p className="font-semibold">{m.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{m.desc}</p>
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {/* Performance analytics */}
+        {deck.cards.length > 0 && (() => {
+          const weak = weakCardIds(deck.id).slice(0, 5);
+          const answered = Object.values(stats);
+          const totalCorrect = answered.reduce((s, x) => s + x.correct, 0);
+          const totalWrong = answered.reduce((s, x) => s + x.wrong, 0);
+          const acc = totalCorrect + totalWrong > 0 ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100) : null;
+          const mastered = answered.filter((x) => x.mastery >= 0.75).length;
+          return (
+            <section className="mb-8 rounded-3xl border border-border bg-card p-6">
+              <h2 className="font-display text-xl mb-4">Статистика</h2>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Ответов</p>
+                  <p className="font-display text-2xl">{totalCorrect + totalWrong}</p>
+                </div>
+                <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Точность</p>
+                  <p className="font-display text-2xl">{acc !== null ? `${acc}%` : "—"}</p>
+                </div>
+                <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Освоено</p>
+                  <p className="font-display text-2xl">{mastered}<span className="text-base text-muted-foreground"> / {deck.cards.length}</span></p>
+                </div>
+              </div>
+              {weak.length > 0 && (
+                <div>
+                  <p className="text-sm font-semibold mb-2">Слабые слова</p>
+                  <div className="flex flex-wrap gap-2">
+                    {weak.map((id) => {
+                      const c = deck.cards.find((x) => x.id === id);
+                      if (!c) return null;
+                      const a = accuracyFor(stats[id]);
+                      return (
+                        <span key={id} className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs">
+                          {c.term}{a !== null ? ` · ${a}%` : ""}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </section>
+          );
+        })()}
 
         {/* Add card */}
         <form
