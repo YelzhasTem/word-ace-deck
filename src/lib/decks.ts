@@ -15,7 +15,7 @@ export type Deck = {
   createdAt: number;
 };
 
-const STORAGE_KEY = "lingocards.decks.v1";
+const STORAGE_KEY = "lingocards.decks.v2";
 
 const uid = () =>
   typeof crypto !== "undefined" && "randomUUID" in crypto
