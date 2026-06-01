@@ -188,10 +188,13 @@ function Home() {
                     </DialogDescription>
                   </DialogHeader>
                   <Tabs defaultValue="manual" className="mt-2">
-                    <TabsList className="w-full grid grid-cols-2">
+                    <TabsList className="w-full grid grid-cols-3">
                       <TabsTrigger value="manual">Вручную</TabsTrigger>
                       <TabsTrigger value="ai" className="gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5" /> С помощью ИИ
+                        <Sparkles className="h-3.5 w-3.5" /> ИИ
+                      </TabsTrigger>
+                      <TabsTrigger value="url" className="gap-1.5">
+                        <Link2 className="h-3.5 w-3.5" /> По ссылке
                       </TabsTrigger>
                     </TabsList>
 
