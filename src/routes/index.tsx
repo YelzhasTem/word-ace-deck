@@ -61,6 +61,31 @@ function Home() {
   const [aiError, setAiError] = useState("");
   const genDeck = useServerFn(generateDeckWithAI);
 
+  // URL-based generation state
+  const [urlInput, setUrlInput] = useState("");
+  const [urlCount, setUrlCount] = useState(15);
+  const [urlLoading, setUrlLoading] = useState(false);
+  const [urlError, setUrlError] = useState("");
+  const genDeckFromUrl = useServerFn(generateDeckFromUrl);
+
+  const handleUrlGenerate = async () => {
+    if (!urlInput.trim()) return;
+    setUrlLoading(true);
+    setUrlError("");
+    try {
+      const result = await genDeckFromUrl({
+        data: { url: urlInput.trim(), count: urlCount },
+      });
+      createDeckWithCards(result.name, result.description, result.cards);
+      setUrlInput("");
+      setOpen(false);
+    } catch (err) {
+      setUrlError(err instanceof Error ? err.message : "Не удалось создать колоду");
+    } finally {
+      setUrlLoading(false);
+    }
+  };
+
   const resetManual = () => {
     setName("");
     setDesc("");
