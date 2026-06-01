@@ -174,7 +174,7 @@ function DeckPage() {
                   <button
                     key={m.to}
                     disabled={disabled}
-                    onClick={() => navigate({ to: m.to as never, params: { deckId: deck.id } })}
+                    onClick={() => navigate({ to: m.to, params: { deckId: deck.id } } as never)}
                     className="text-left rounded-2xl border border-border bg-background hover:border-accent hover:bg-accent/5 px-4 py-4 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <m.icon className="h-5 w-5 text-accent mb-2" />
