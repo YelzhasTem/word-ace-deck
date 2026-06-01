@@ -10,6 +10,14 @@ export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
 });
 
+function plural(n: number, forms: [string, string, string]) {
+  const mod10 = n % 10;
+  const mod100 = n % 100;
+  if (mod10 === 1 && mod100 !== 11) return forms[0];
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
+  return forms[2];
+}
+
 function DeckPage() {
   const { deckId } = Route.useParams();
   const navigate = useNavigate();
@@ -22,8 +30,8 @@ function DeckPage() {
       <div className="min-h-screen">
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Go home</Link>
+          <h1 className="font-display text-3xl">Колода не найдена</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
         </main>
       </div>
     );
@@ -37,6 +45,9 @@ function DeckPage() {
     setDef("");
   };
 
+  const total = deck.cards.length;
+  const known = deck.cards.filter((c) => c.known).length;
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -46,7 +57,7 @@ function DeckPage() {
           to="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8"
         >
-          <ArrowLeft className="h-4 w-4" /> All decks
+          <ArrowLeft className="h-4 w-4" /> Все колоды
         </Link>
 
         <div className="flex flex-wrap items-start justify-between gap-4 mb-10">
@@ -56,7 +67,8 @@ function DeckPage() {
               <p className="mt-3 text-muted-foreground max-w-xl">{deck.description}</p>
             )}
             <p className="mt-4 text-sm text-muted-foreground">
-              {deck.cards.length} cards · {deck.cards.filter((c) => c.known).length} known
+              {total} {plural(total, ["карточка", "карточки", "карточек"])} ·{" "}
+              {known} {plural(known, ["выучена", "выучено", "выучено"])}
             </p>
           </div>
           <div className="flex gap-2">
@@ -66,14 +78,14 @@ function DeckPage() {
               onClick={() => resetProgress(deck.id)}
               disabled={!deck.cards.length}
             >
-              <RotateCcw className="h-4 w-4" /> Reset
+              <RotateCcw className="h-4 w-4" /> Сбросить
             </Button>
             <Button
               className="rounded-full"
               onClick={() => navigate({ to: "/study/$deckId", params: { deckId: deck.id } })}
               disabled={!deck.cards.length}
             >
-              <Play className="h-4 w-4" /> Study
+              <Play className="h-4 w-4" /> Учить
             </Button>
           </div>
         </div>
@@ -83,20 +95,20 @@ function DeckPage() {
           onSubmit={handleAdd}
           className="rounded-3xl border border-border bg-card p-6 mb-10"
         >
-          <h2 className="font-display text-xl mb-4">Add a card</h2>
+          <h2 className="font-display text-xl mb-4">Добавить карточку</h2>
           <div className="grid md:grid-cols-[1fr_1.4fr_auto] gap-3">
             <Input
-              placeholder="English word"
+              placeholder="Английское слово"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
             />
             <Input
-              placeholder="Definition or translation"
+              placeholder="Перевод или определение"
               value={def}
               onChange={(e) => setDef(e.target.value)}
             />
             <Button type="submit" className="rounded-full">
-              <Plus className="h-4 w-4" /> Add
+              <Plus className="h-4 w-4" /> Добавить
             </Button>
           </div>
         </form>
@@ -105,7 +117,7 @@ function DeckPage() {
         <div className="space-y-3">
           {deck.cards.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">
-              Add your first card above to start studying.
+              Добавьте первую карточку выше, чтобы начать учить.
             </div>
           ) : (
             deck.cards.map((card) => (
@@ -119,13 +131,13 @@ function DeckPage() {
                 </div>
                 {card.known && (
                   <span className="text-xs px-2 py-1 rounded-full bg-[color:var(--success)]/15 text-[color:var(--success)] font-medium">
-                    Known
+                    Выучено
                   </span>
                 )}
                 <button
                   onClick={() => deleteCard(deck.id, card.id)}
                   className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                  aria-label="Delete card"
+                  aria-label="Удалить карточку"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
