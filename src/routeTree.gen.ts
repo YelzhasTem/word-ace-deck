@@ -13,6 +13,11 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
 import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
+import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
+import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
+import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
+import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
+import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +39,53 @@ const DeckDeckIdRoute = DeckDeckIdRouteImport.update({
   path: '/deck/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TypeDeckIdRoute = TypeDeckIdRouteImport.update({
+  id: '/type/$deckId',
+  path: '/type/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BuilderDeckIdRoute = BuilderDeckIdRouteImport.update({
+  id: '/builder/$deckId',
+  path: '/builder/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlankDeckIdRoute = BlankDeckIdRouteImport.update({
+  id: '/blank/$deckId',
+  path: '/blank/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
+  id: '/speed/$deckId',
+  path: '/speed/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
+  id: '/assoc/$deckId',
+  path: '/assoc/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
+  '/type/$deckId': typeof TypeDeckIdRoute
+  '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/blank/$deckId': typeof BlankDeckIdRoute
+  '/speed/$deckId': typeof SpeedDeckIdRoute
+  '/assoc/$deckId': typeof AssocDeckIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
+  '/type/$deckId': typeof TypeDeckIdRoute
+  '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/blank/$deckId': typeof BlankDeckIdRoute
+  '/speed/$deckId': typeof SpeedDeckIdRoute
+  '/assoc/$deckId': typeof AssocDeckIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +93,18 @@ export interface FileRoutesById {
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
+  '/type/$deckId': typeof TypeDeckIdRoute
+  '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/blank/$deckId': typeof BlankDeckIdRoute
+  '/speed/$deckId': typeof SpeedDeckIdRoute
+  '/assoc/$deckId': typeof AssocDeckIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId'
+  fullPaths: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId' | '/type/$deckId' | '/builder/$deckId' | '/blank/$deckId' | '/speed/$deckId' | '/assoc/$deckId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId'
-  id: '__root__' | '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId'
+  to: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId' | '/type/$deckId' | '/builder/$deckId' | '/blank/$deckId' | '/speed/$deckId' | '/assoc/$deckId'
+  id: '__root__' | '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId' | '/type/$deckId' | '/builder/$deckId' | '/blank/$deckId' | '/speed/$deckId' | '/assoc/$deckId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +112,11 @@ export interface RootRouteChildren {
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
   StudyDeckIdRoute: typeof StudyDeckIdRoute
+  TypeDeckIdRoute: typeof TypeDeckIdRoute
+  BuilderDeckIdRoute: typeof BuilderDeckIdRoute
+  BlankDeckIdRoute: typeof BlankDeckIdRoute
+  SpeedDeckIdRoute: typeof SpeedDeckIdRoute
+  AssocDeckIdRoute: typeof AssocDeckIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +149,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeckDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/type/$deckId': {
+      id: '/type/$deckId'
+      path: '/type/$deckId'
+      fullPath: '/type/$deckId'
+      preLoaderRoute: typeof TypeDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/builder/$deckId': {
+      id: '/builder/$deckId'
+      path: '/builder/$deckId'
+      fullPath: '/builder/$deckId'
+      preLoaderRoute: typeof BuilderDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blank/$deckId': {
+      id: '/blank/$deckId'
+      path: '/blank/$deckId'
+      fullPath: '/blank/$deckId'
+      preLoaderRoute: typeof BlankDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/speed/$deckId': {
+      id: '/speed/$deckId'
+      path: '/speed/$deckId'
+      fullPath: '/speed/$deckId'
+      preLoaderRoute: typeof SpeedDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assoc/$deckId': {
+      id: '/assoc/$deckId'
+      path: '/assoc/$deckId'
+      fullPath: '/assoc/$deckId'
+      preLoaderRoute: typeof AssocDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +192,11 @@ const rootRouteChildren: RootRouteChildren = {
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,
   StudyDeckIdRoute: StudyDeckIdRoute,
+  TypeDeckIdRoute: TypeDeckIdRoute,
+  BuilderDeckIdRoute: BuilderDeckIdRoute,
+  BlankDeckIdRoute: BlankDeckIdRoute,
+  SpeedDeckIdRoute: SpeedDeckIdRoute,
+  AssocDeckIdRoute: AssocDeckIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -2,10 +2,14 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
+import { useDeckStats, accuracyFor, weakCardIds } from "@/lib/stats";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain } from "lucide-react";
+import {
+  ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
+  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb,
+} from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/deck/$deckId")({
