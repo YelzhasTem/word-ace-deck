@@ -5,11 +5,11 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --font-display: "Fraunces", "Georgia", serif;
+  --font-display: "Manrope", "Inter", system-ui, sans-serif;
   --font-sans: "Inter", system-ui, sans-serif;
 
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
@@ -35,67 +35,77 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-ring-offset-background: var(--background);
-  --color-ink: var(--ink);
-  --color-cream: var(--cream);
-  --color-marigold: var(--marigold);
   --color-success: var(--success);
+  --color-warning: var(--warning);
+
+  --shadow-soft: 0 1px 2px oklch(0.4 0.05 180 / 0.04), 0 8px 24px oklch(0.4 0.05 180 / 0.06);
+  --shadow-card: 0 1px 2px oklch(0.4 0.05 180 / 0.04), 0 12px 32px oklch(0.4 0.05 180 / 0.08);
 }
 
 :root {
-  --radius: 1rem;
+  --radius: 1.125rem;
 
-  /* Warm paper cream */
-  --background: oklch(0.97 0.018 85);
-  --foreground: oklch(0.18 0.025 50);
+  /* Light mint background, deep teal ink */
+  --background: oklch(0.985 0.025 175);          /* #F0FDFA */
+  --foreground: oklch(0.32 0.045 185);           /* #134E4A */
 
-  --cream: oklch(0.97 0.018 85);
-  --ink: oklch(0.18 0.025 50);
-  --marigold: oklch(0.78 0.17 65);
-  --success: oklch(0.7 0.14 155);
+  --card: oklch(1 0 0);                          /* #FFFFFF */
+  --card-foreground: oklch(0.32 0.045 185);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.32 0.045 185);
 
-  --card: oklch(0.99 0.012 85);
-  --card-foreground: oklch(0.18 0.025 50);
-  --popover: oklch(0.99 0.012 85);
-  --popover-foreground: oklch(0.18 0.025 50);
+  /* Deep teal primary */
+  --primary: oklch(0.48 0.09 185);               /* #0F766E */
+  --primary-foreground: oklch(0.985 0.025 175);
 
-  --primary: oklch(0.18 0.025 50);
-  --primary-foreground: oklch(0.97 0.018 85);
+  --secondary: oklch(0.955 0.03 175);            /* very pale mint */
+  --secondary-foreground: oklch(0.32 0.045 185);
 
-  --secondary: oklch(0.93 0.025 80);
-  --secondary-foreground: oklch(0.22 0.03 50);
+  --muted: oklch(0.955 0.025 175);
+  --muted-foreground: oklch(0.5 0.015 250);      /* #4B5563 */
 
-  --muted: oklch(0.93 0.02 80);
-  --muted-foreground: oklch(0.48 0.025 60);
+  /* Turquoise accent */
+  --accent: oklch(0.72 0.13 185);                /* #14B8A6 */
+  --accent-foreground: oklch(1 0 0);
 
-  --accent: oklch(0.78 0.17 65);
-  --accent-foreground: oklch(0.18 0.025 50);
+  --success: oklch(0.72 0.18 145);               /* #22C55E */
+  --warning: oklch(0.78 0.16 70);                /* #F59E0B */
+  --destructive: oklch(0.65 0.21 27);            /* #EF4444 */
+  --destructive-foreground: oklch(1 0 0);
 
-  --destructive: oklch(0.6 0.21 27);
-  --destructive-foreground: oklch(0.98 0 0);
-
-  --border: oklch(0.88 0.02 75);
-  --input: oklch(0.88 0.02 75);
-  --ring: oklch(0.78 0.17 65);
+  --border: oklch(0.92 0.018 175);
+  --input: oklch(0.92 0.018 175);
+  --ring: oklch(0.72 0.13 185);
 }
 
 .dark {
-  --background: oklch(0.16 0.02 60);
-  --foreground: oklch(0.96 0.015 85);
-  --card: oklch(0.21 0.025 60);
-  --card-foreground: oklch(0.96 0.015 85);
-  --popover: oklch(0.21 0.025 60);
-  --popover-foreground: oklch(0.96 0.015 85);
-  --primary: oklch(0.96 0.015 85);
-  --primary-foreground: oklch(0.18 0.025 50);
-  --secondary: oklch(0.27 0.03 60);
-  --secondary-foreground: oklch(0.96 0.015 85);
-  --muted: oklch(0.27 0.03 60);
-  --muted-foreground: oklch(0.7 0.02 75);
-  --accent: oklch(0.78 0.17 65);
-  --accent-foreground: oklch(0.18 0.025 50);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.78 0.17 65);
+  --background: oklch(0.2 0.03 195);
+  --foreground: oklch(0.96 0.02 175);
+
+  --card: oklch(0.26 0.035 195);
+  --card-foreground: oklch(0.96 0.02 175);
+  --popover: oklch(0.26 0.035 195);
+  --popover-foreground: oklch(0.96 0.02 175);
+
+  --primary: oklch(0.72 0.13 185);
+  --primary-foreground: oklch(0.16 0.03 195);
+
+  --secondary: oklch(0.3 0.035 195);
+  --secondary-foreground: oklch(0.96 0.02 175);
+
+  --muted: oklch(0.3 0.03 195);
+  --muted-foreground: oklch(0.72 0.02 200);
+
+  --accent: oklch(0.72 0.13 185);
+  --accent-foreground: oklch(0.16 0.03 195);
+
+  --success: oklch(0.72 0.18 145);
+  --warning: oklch(0.78 0.16 70);
+  --destructive: oklch(0.65 0.21 27);
+
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.72 0.13 185);
 }
 
 @layer base {
@@ -105,27 +115,33 @@
 
   html, body {
     font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
     background-image:
-      radial-gradient(at 12% 8%, color-mix(in oklab, var(--marigold) 18%, transparent) 0px, transparent 50%),
-      radial-gradient(at 90% 90%, color-mix(in oklab, var(--marigold) 14%, transparent) 0px, transparent 55%);
+      radial-gradient(at 0% 0%, color-mix(in oklab, var(--accent) 10%, transparent) 0px, transparent 50%),
+      radial-gradient(at 100% 100%, color-mix(in oklab, var(--primary) 8%, transparent) 0px, transparent 55%);
     background-attachment: fixed;
   }
 
-  h1, h2, h3, .font-display {
+  h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
+    font-feature-settings: "ss01", "cv11";
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 35%, transparent);
+    color: var(--foreground);
   }
 }
 
 /* 3D flip card */
-.flip-scene {
-  perspective: 1600px;
-}
+.flip-scene { perspective: 1600px; }
 .flip-card {
   position: relative;
   width: 100%;
@@ -133,15 +149,24 @@
   transform-style: preserve-3d;
   transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
-.flip-card.is-flipped {
-  transform: rotateY(180deg);
-}
+.flip-card.is-flipped { transform: rotateY(180deg); }
 .flip-face {
   position: absolute;
   inset: 0;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
-.flip-face--back {
-  transform: rotateY(180deg);
+.flip-face--back { transform: rotateY(180deg); }
+
+/* Reusable soft surface */
+.surface-card {
+  background: var(--card);
+  border: 1px solid color-mix(in oklab, var(--border) 70%, transparent);
+  box-shadow: var(--shadow-soft);
 }
+
+@keyframes float-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-float-in { animation: float-in 0.4s ease-out both; }
