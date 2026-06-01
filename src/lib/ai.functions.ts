@@ -409,3 +409,68 @@ export const generateAssociation = createServerFn({ method: "POST" })
     if (!parsed.association && !parsed.story) throw new Error("Не удалось сгенерировать ассоциацию.");
     return { association: parsed.association ?? "", story: parsed.story ?? "" };
   });
+
+export const generateSessionFeedback = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      deckName: z.string().max(120).optional(),
+      totals: z.object({
+        answered: z.number().int().min(0),
+        correct: z.number().int().min(0),
+        wrong: z.number().int().min(0),
+        avgMs: z.number().min(0).optional(),
+      }),
+      mastered: z.array(z.string().max(80)).max(50),
+      weak: z
+        .array(
+          z.object({
+            term: z.string().max(80),
+            definition: z.string().max(200),
+            accuracy: z.number().min(0).max(100),
+            avgMs: z.number().min(0).optional(),
+          }),
+        )
+        .max(20),
+      confusions: z
+        .array(z.object({ a: z.string().max(80), b: z.string().max(80) }))
+        .max(10),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const system =
+      "Ты — персональный AI-тренер по английской лексике для русскоязычного студента. " +
+      "На основе статистики сессии дай тёплый, конкретный и краткий разбор по-русски. " +
+      "Отвечай ТОЛЬКО JSON без Markdown. Формат: " +
+      '{"summary":"...","weakAnalysis":"...","confusions":[{"pair":"borrow vs lend","note":"..."}],"focus":["..."],"plan":"...","trend":"..."}. ' +
+      "summary — 1–2 предложения с общей оценкой. " +
+      "weakAnalysis — что объединяет слабые слова и как с ними работать. " +
+      "confusions — короткие пояснения частых путаниц похожих слов (если они есть). " +
+      "focus — массив из 2–4 коротких пунктов: на чём сделать акцент завтра. " +
+      "plan — рекомендация по режимам и количеству карточек на следующий день. " +
+      "trend — короткая фраза о динамике (улучшение/спад/стабильно).";
+
+    const user = JSON.stringify(data);
+    const raw = await callAI(system, user);
+    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
+    let parsed: {
+      summary?: string;
+      weakAnalysis?: string;
+      confusions?: { pair: string; note: string }[];
+      focus?: string[];
+      plan?: string;
+      trend?: string;
+    };
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch {
+      throw new Error("ИИ вернул невалидный ответ.");
+    }
+    return {
+      summary: parsed.summary ?? "",
+      weakAnalysis: parsed.weakAnalysis ?? "",
+      confusions: Array.isArray(parsed.confusions) ? parsed.confusions.slice(0, 8) : [],
+      focus: Array.isArray(parsed.focus) ? parsed.focus.slice(0, 6) : [],
+      plan: parsed.plan ?? "",
+      trend: parsed.trend ?? "",
+    };
+  });
