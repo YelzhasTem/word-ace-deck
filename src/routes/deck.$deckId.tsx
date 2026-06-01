@@ -1,0 +1,139 @@
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { useDeck } from "@/lib/decks";
+import { SiteHeader } from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ArrowLeft, Plus, Trash2, Play, RotateCcw } from "lucide-react";
+
+export const Route = createFileRoute("/deck/$deckId")({
+  component: DeckPage,
+});
+
+function DeckPage() {
+  const { deckId } = Route.useParams();
+  const navigate = useNavigate();
+  const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
+  const [term, setTerm] = useState("");
+  const [def, setDef] = useState("");
+
+  if (!deck) {
+    return (
+      <div className="min-h-screen">
+        <SiteHeader />
+        <main className="mx-auto max-w-3xl px-6 py-20 text-center">
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Go home</Link>
+        </main>
+      </div>
+    );
+  }
+
+  const handleAdd = (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!term.trim() || !def.trim()) return;
+    addCard(deck.id, term.trim(), def.trim());
+    setTerm("");
+    setDef("");
+  };
+
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+
+      <main className="mx-auto max-w-4xl px-6 py-10">
+        <Link
+          to="/"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8"
+        >
+          <ArrowLeft className="h-4 w-4" /> All decks
+        </Link>
+
+        <div className="flex flex-wrap items-start justify-between gap-4 mb-10">
+          <div>
+            <h1 className="font-display text-5xl font-semibold tracking-tight">{deck.name}</h1>
+            {deck.description && (
+              <p className="mt-3 text-muted-foreground max-w-xl">{deck.description}</p>
+            )}
+            <p className="mt-4 text-sm text-muted-foreground">
+              {deck.cards.length} cards · {deck.cards.filter((c) => c.known).length} known
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => resetProgress(deck.id)}
+              disabled={!deck.cards.length}
+            >
+              <RotateCcw className="h-4 w-4" /> Reset
+            </Button>
+            <Button
+              className="rounded-full"
+              onClick={() => navigate({ to: "/study/$deckId", params: { deckId: deck.id } })}
+              disabled={!deck.cards.length}
+            >
+              <Play className="h-4 w-4" /> Study
+            </Button>
+          </div>
+        </div>
+
+        {/* Add card */}
+        <form
+          onSubmit={handleAdd}
+          className="rounded-3xl border border-border bg-card p-6 mb-10"
+        >
+          <h2 className="font-display text-xl mb-4">Add a card</h2>
+          <div className="grid md:grid-cols-[1fr_1.4fr_auto] gap-3">
+            <Input
+              placeholder="English word"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+            />
+            <Input
+              placeholder="Definition or translation"
+              value={def}
+              onChange={(e) => setDef(e.target.value)}
+            />
+            <Button type="submit" className="rounded-full">
+              <Plus className="h-4 w-4" /> Add
+            </Button>
+          </div>
+        </form>
+
+        {/* Cards list */}
+        <div className="space-y-3">
+          {deck.cards.length === 0 ? (
+            <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">
+              Add your first card above to start studying.
+            </div>
+          ) : (
+            deck.cards.map((card) => (
+              <div
+                key={card.id}
+                className="rounded-2xl border border-border bg-card px-5 py-4 flex items-center gap-4"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-display text-lg font-semibold truncate">{card.term}</p>
+                  <p className="text-sm text-muted-foreground truncate">{card.definition}</p>
+                </div>
+                {card.known && (
+                  <span className="text-xs px-2 py-1 rounded-full bg-[color:var(--success)]/15 text-[color:var(--success)] font-medium">
+                    Known
+                  </span>
+                )}
+                <button
+                  onClick={() => deleteCard(deck.id, card.id)}
+                  className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+                  aria-label="Delete card"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
