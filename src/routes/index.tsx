@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Plus, Trash2, BookOpen } from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { generateDeckWithAI } from "@/lib/ai.functions";
+import { Plus, Trash2, BookOpen, Sparkles, Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -35,10 +38,18 @@ function plural(n: number, forms: [string, string, string]) {
 }
 
 function Home() {
-  const { decks, createDeck, deleteDeck } = useDecks();
+  const { decks, createDeck, createDeckWithCards, deleteDeck } = useDecks();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
+
+  // AI generation state
+  const [aiTopic, setAiTopic] = useState("");
+  const [aiLevel, setAiLevel] = useState("B1");
+  const [aiCount, setAiCount] = useState(10);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const genDeck = useServerFn(generateDeckWithAI);
 
   const handleCreate = () => {
     if (!name.trim()) return;
@@ -46,6 +57,24 @@ function Home() {
     setName("");
     setDesc("");
     setOpen(false);
+  };
+
+  const handleAIGenerate = async () => {
+    if (!aiTopic.trim()) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const result = await genDeck({
+        data: { topic: aiTopic.trim(), level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2", count: aiCount },
+      });
+      createDeckWithCards(result.name, result.description, result.cards);
+      setAiTopic("");
+      setOpen(false);
+    } catch (err) {
+      setAiError(err instanceof Error ? err.message : "Не удалось создать колоду");
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   return (
@@ -76,37 +105,100 @@ function Home() {
                     <Plus className="h-4 w-4" /> Новая колода
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-lg">
                   <DialogHeader>
                     <DialogTitle className="font-display text-2xl">Создать колоду</DialogTitle>
                     <DialogDescription>
-                      Дайте ей название. Карточки добавите на следующем шаге.
+                      Выберите способ создания: вручную или с помощью ИИ.
                     </DialogDescription>
                   </DialogHeader>
-                  <div className="space-y-4 py-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Название</label>
-                      <Input
-                        autoFocus
-                        placeholder="Например: IELTS — Speaking"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Описание (необязательно)</label>
-                      <Textarea
-                        placeholder="О чём эта колода?"
-                        value={desc}
-                        onChange={(e) => setDesc(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
-                    <Button onClick={handleCreate}>Создать</Button>
-                  </DialogFooter>
+                  <Tabs defaultValue="manual" className="mt-2">
+                    <TabsList className="w-full grid grid-cols-2">
+                      <TabsTrigger value="manual">Вручную</TabsTrigger>
+                      <TabsTrigger value="ai" className="gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5" /> С помощью ИИ
+                      </TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="manual" className="mt-4 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Название</label>
+                        <Input
+                          autoFocus
+                          placeholder="Например: IELTS — Speaking"
+                          value={name}
+                          onChange={(e) => setName(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Описание (необязательно)</label>
+                        <Textarea
+                          placeholder="О чём эта колода?"
+                          value={desc}
+                          onChange={(e) => setDesc(e.target.value)}
+                        />
+                      </div>
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+                        <Button onClick={handleCreate}>Создать</Button>
+                      </DialogFooter>
+                    </TabsContent>
+
+                    <TabsContent value="ai" className="mt-4 space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Тема колоды</label>
+                        <Input
+                          autoFocus
+                          placeholder="Например: путешествия, кулинария, IT"
+                          value={aiTopic}
+                          onChange={(e) => setAiTopic(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAIGenerate()}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Уровень</label>
+                          <select
+                            value={aiLevel}
+                            onChange={(e) => setAiLevel(e.target.value)}
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                          >
+                            {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => (
+                              <option key={l} value={l}>{l}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium">Карточек</label>
+                          <Input
+                            type="number"
+                            min={3}
+                            max={30}
+                            value={aiCount}
+                            onChange={(e) => setAiCount(Math.min(30, Math.max(3, Number(e.target.value) || 0)))}
+                          />
+                        </div>
+                      </div>
+                      {aiError && (
+                        <p className="text-sm text-destructive">{aiError}</p>
+                      )}
+                      <DialogFooter>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+                        <Button onClick={handleAIGenerate} disabled={aiLoading || !aiTopic.trim()}>
+                          {aiLoading ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" /> Генерация…
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="h-4 w-4" /> Сгенерировать
+                            </>
+                          )}
+                        </Button>
+                      </DialogFooter>
+                    </TabsContent>
+                  </Tabs>
                 </DialogContent>
               </Dialog>
               {decks[0] && (

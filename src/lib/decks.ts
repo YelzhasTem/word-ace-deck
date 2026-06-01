@@ -136,6 +136,17 @@ export function useDecks() {
       );
       save(next);
     },
+    createDeckWithCards: (name: string, description: string, cards: { term: string; definition: string }[]) => {
+      const deck: Deck = {
+        id: uid(),
+        name,
+        description,
+        cards: cards.map((c) => ({ id: uid(), term: c.term, definition: c.definition, known: false })),
+        createdAt: Date.now(),
+      };
+      save([deck, ...load()]);
+      return deck.id;
+    },
   };
 }
 
