@@ -77,13 +77,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Лингвокарточки — учим английские слова" },
+      { title: "Memora" },
       { name: "description", content: "Спокойное приложение для изучения английских слов по карточкам." },
-      { property: "og:title", content: "Лингвокарточки" },
-      { property: "og:description", content: "Учите английские слова по карточкам — своим темпом." },
+      { property: "og:title", content: "Memora" },
+      { property: "og:description", content: "Спокойное приложение для изучения английских слов по карточкам." },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "ru_RU" },
 
+      { name: "twitter:title", content: "Memora" },
+      { name: "twitter:description", content: "Спокойное приложение для изучения английских слов по карточкам." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
