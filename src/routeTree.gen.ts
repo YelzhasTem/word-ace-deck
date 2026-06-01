@@ -10,13 +10,13 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
 import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
+import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
 import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
-import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
 import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
 import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
-import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -24,9 +24,19 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TypeDeckIdRoute = TypeDeckIdRouteImport.update({
+  id: '/type/$deckId',
+  path: '/type/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StudyDeckIdRoute = StudyDeckIdRouteImport.update({
   id: '/study/$deckId',
   path: '/study/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
+  id: '/speed/$deckId',
+  path: '/speed/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeepDeckIdRoute = DeepDeckIdRouteImport.update({
@@ -39,11 +49,6 @@ const DeckDeckIdRoute = DeckDeckIdRouteImport.update({
   path: '/deck/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TypeDeckIdRoute = TypeDeckIdRouteImport.update({
-  id: '/type/$deckId',
-  path: '/type/$deckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const BuilderDeckIdRoute = BuilderDeckIdRouteImport.update({
   id: '/builder/$deckId',
   path: '/builder/$deckId',
@@ -54,11 +59,6 @@ const BlankDeckIdRoute = BlankDeckIdRouteImport.update({
   path: '/blank/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
-  id: '/speed/$deckId',
-  path: '/speed/$deckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
   id: '/assoc/$deckId',
   path: '/assoc/$deckId',
@@ -67,56 +67,84 @@ const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/assoc/$deckId': typeof AssocDeckIdRoute
+  '/blank/$deckId': typeof BlankDeckIdRoute
+  '/builder/$deckId': typeof BuilderDeckIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
+  '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
-  '/builder/$deckId': typeof BuilderDeckIdRoute
-  '/blank/$deckId': typeof BlankDeckIdRoute
-  '/speed/$deckId': typeof SpeedDeckIdRoute
-  '/assoc/$deckId': typeof AssocDeckIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assoc/$deckId': typeof AssocDeckIdRoute
+  '/blank/$deckId': typeof BlankDeckIdRoute
+  '/builder/$deckId': typeof BuilderDeckIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
+  '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
-  '/builder/$deckId': typeof BuilderDeckIdRoute
-  '/blank/$deckId': typeof BlankDeckIdRoute
-  '/speed/$deckId': typeof SpeedDeckIdRoute
-  '/assoc/$deckId': typeof AssocDeckIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/assoc/$deckId': typeof AssocDeckIdRoute
+  '/blank/$deckId': typeof BlankDeckIdRoute
+  '/builder/$deckId': typeof BuilderDeckIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
+  '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
-  '/builder/$deckId': typeof BuilderDeckIdRoute
-  '/blank/$deckId': typeof BlankDeckIdRoute
-  '/speed/$deckId': typeof SpeedDeckIdRoute
-  '/assoc/$deckId': typeof AssocDeckIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId' | '/type/$deckId' | '/builder/$deckId' | '/blank/$deckId' | '/speed/$deckId' | '/assoc/$deckId'
+  fullPaths:
+    | '/'
+    | '/assoc/$deckId'
+    | '/blank/$deckId'
+    | '/builder/$deckId'
+    | '/deck/$deckId'
+    | '/deep/$deckId'
+    | '/speed/$deckId'
+    | '/study/$deckId'
+    | '/type/$deckId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId' | '/type/$deckId' | '/builder/$deckId' | '/blank/$deckId' | '/speed/$deckId' | '/assoc/$deckId'
-  id: '__root__' | '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId' | '/type/$deckId' | '/builder/$deckId' | '/blank/$deckId' | '/speed/$deckId' | '/assoc/$deckId'
+  to:
+    | '/'
+    | '/assoc/$deckId'
+    | '/blank/$deckId'
+    | '/builder/$deckId'
+    | '/deck/$deckId'
+    | '/deep/$deckId'
+    | '/speed/$deckId'
+    | '/study/$deckId'
+    | '/type/$deckId'
+  id:
+    | '__root__'
+    | '/'
+    | '/assoc/$deckId'
+    | '/blank/$deckId'
+    | '/builder/$deckId'
+    | '/deck/$deckId'
+    | '/deep/$deckId'
+    | '/speed/$deckId'
+    | '/study/$deckId'
+    | '/type/$deckId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AssocDeckIdRoute: typeof AssocDeckIdRoute
+  BlankDeckIdRoute: typeof BlankDeckIdRoute
+  BuilderDeckIdRoute: typeof BuilderDeckIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
+  SpeedDeckIdRoute: typeof SpeedDeckIdRoute
   StudyDeckIdRoute: typeof StudyDeckIdRoute
   TypeDeckIdRoute: typeof TypeDeckIdRoute
-  BuilderDeckIdRoute: typeof BuilderDeckIdRoute
-  BlankDeckIdRoute: typeof BlankDeckIdRoute
-  SpeedDeckIdRoute: typeof SpeedDeckIdRoute
-  AssocDeckIdRoute: typeof AssocDeckIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -128,11 +156,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/type/$deckId': {
+      id: '/type/$deckId'
+      path: '/type/$deckId'
+      fullPath: '/type/$deckId'
+      preLoaderRoute: typeof TypeDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/study/$deckId': {
       id: '/study/$deckId'
       path: '/study/$deckId'
       fullPath: '/study/$deckId'
       preLoaderRoute: typeof StudyDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/speed/$deckId': {
+      id: '/speed/$deckId'
+      path: '/speed/$deckId'
+      fullPath: '/speed/$deckId'
+      preLoaderRoute: typeof SpeedDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/deep/$deckId': {
@@ -149,13 +191,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeckDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/type/$deckId': {
-      id: '/type/$deckId'
-      path: '/type/$deckId'
-      fullPath: '/type/$deckId'
-      preLoaderRoute: typeof TypeDeckIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/builder/$deckId': {
       id: '/builder/$deckId'
       path: '/builder/$deckId'
@@ -170,13 +205,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlankDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/speed/$deckId': {
-      id: '/speed/$deckId'
-      path: '/speed/$deckId'
-      fullPath: '/speed/$deckId'
-      preLoaderRoute: typeof SpeedDeckIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/assoc/$deckId': {
       id: '/assoc/$deckId'
       path: '/assoc/$deckId'
@@ -189,14 +217,14 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AssocDeckIdRoute: AssocDeckIdRoute,
+  BlankDeckIdRoute: BlankDeckIdRoute,
+  BuilderDeckIdRoute: BuilderDeckIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,
+  SpeedDeckIdRoute: SpeedDeckIdRoute,
   StudyDeckIdRoute: StudyDeckIdRoute,
   TypeDeckIdRoute: TypeDeckIdRoute,
-  BuilderDeckIdRoute: BuilderDeckIdRoute,
-  BlankDeckIdRoute: BlankDeckIdRoute,
-  SpeedDeckIdRoute: SpeedDeckIdRoute,
-  AssocDeckIdRoute: AssocDeckIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

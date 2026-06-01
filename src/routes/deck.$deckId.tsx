@@ -51,6 +51,7 @@ function DeckPage() {
   const { deckId } = Route.useParams();
   const navigate = useNavigate();
   const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
+  const stats = useDeckStats(deckId);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
   const generate = useServerFn(generateStudyText);
