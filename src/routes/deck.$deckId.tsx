@@ -1,14 +1,39 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Plus, Trash2, Play, RotateCcw } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2 } from "lucide-react";
+import { generateStudyText } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
 });
+
+function renderMarkdown(text: string) {
+  // very small markdown: **bold** and line breaks
+  const parts: Array<string | { bold: string }> = [];
+  const regex = /\*\*([^*]+)\*\*/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  while ((m = regex.exec(text))) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    parts.push({ bold: m[1] });
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  return parts.map((p, i) =>
+    typeof p === "string" ? (
+      <span key={i}>{p}</span>
+    ) : (
+      <strong key={i} className="font-semibold text-foreground bg-accent/15 px-1 rounded">
+        {p.bold}
+      </strong>
+    ),
+  );
+}
 
 function plural(n: number, forms: [string, string, string]) {
   const mod10 = n % 10;
@@ -24,6 +49,31 @@ function DeckPage() {
   const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
+  const generate = useServerFn(generateStudyText);
+  const [aiText, setAiText] = useState<string>("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string>("");
+  const [aiSeed, setAiSeed] = useState(0);
+
+  const runGenerate = async (nextSeed: number) => {
+    if (!deck || deck.cards.length === 0) return;
+    setAiLoading(true);
+    setAiError("");
+    try {
+      const { text } = await generate({
+        data: {
+          words: deck.cards.map((c) => c.term),
+          deckName: deck.name,
+          seed: nextSeed,
+        },
+      });
+      setAiText(text);
+      setAiSeed(nextSeed);
+    } catch (e) {
+      setAiError(e instanceof Error ? e.message : "Не удалось сгенерировать текст");
+    }
+    setAiLoading(false);
+  };
 
   if (!deck) {
     return (
@@ -145,7 +195,71 @@ function DeckPage() {
             ))
           )}
         </div>
+
+        {/* AI text generator */}
+        <section className="mt-12 rounded-3xl border border-border bg-card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 className="font-display text-2xl flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" /> Текст для активного повторения
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+                ИИ составит короткий английский текст со всеми словами колоды — читайте и
+                встречайте слова в живом контексте.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {aiText && (
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => runGenerate(aiSeed + 1)}
+                  disabled={aiLoading}
+                >
+                  <RotateCcw className="h-4 w-4" /> Reset
+                </Button>
+              )}
+              <Button
+                className="rounded-full"
+                onClick={() => runGenerate(aiText ? aiSeed + 1 : 0)}
+                disabled={aiLoading || deck.cards.length === 0}
+              >
+                {aiLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {aiText ? "Сгенерировать ещё" : "Сгенерировать"}
+              </Button>
+            </div>
+          </div>
+
+          {deck.cards.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Добавьте хотя бы одну карточку, чтобы сгенерировать текст.
+            </p>
+          )}
+
+          {aiError && (
+            <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm">
+              {aiError}
+            </div>
+          )}
+
+          {aiLoading && !aiText && (
+            <div className="rounded-2xl border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
+              Готовим текст…
+            </div>
+          )}
+
+          {aiText && (
+            <article className="prose-like whitespace-pre-wrap font-body text-[15px] leading-relaxed text-foreground/90">
+              {renderMarkdown(aiText)}
+            </article>
+          )}
+        </section>
       </main>
+
     </div>
   );
 }
