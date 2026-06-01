@@ -86,6 +86,7 @@ function DeepPage() {
     setPicked(i);
     if (i === questions[idx].correctIndex) setCorrectCount((c) => c + 1);
     else setWrongCount((c) => c + 1);
+    recordStreakToday();
   };
 
   const next = () => {
