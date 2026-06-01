@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
+import { recordStreakToday } from "@/lib/streak";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Brain, Check, RotateCcw, X } from "lucide-react";
@@ -85,6 +86,7 @@ function DeepPage() {
     setPicked(i);
     if (i === questions[idx].correctIndex) setCorrectCount((c) => c + 1);
     else setWrongCount((c) => c + 1);
+    recordStreakToday();
   };
 
   const next = () => {
