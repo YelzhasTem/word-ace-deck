@@ -5,6 +5,13 @@ export type CardStat = {
   wrong: number;
   lastSeen: number;
   mastery: number; // 0..1
+  // SRS upgrade
+  stage?: number; // 0=New, 1=Learning, 2=Review, 3=Strong, 4=Mastered
+  due?: number; // ms timestamp when next due
+  avgMs?: number; // exponential moving avg of response time
+  totalMs?: number; // sum of response times
+  samples?: number; // # of timed answers
+  slowMisses?: number; // wrong OR slow > threshold
 };
 
 export type DeckStats = Record<string, CardStat>; // cardId -> stat
@@ -25,22 +32,69 @@ function saveAll(data: Record<string, DeckStats>) {
   window.dispatchEvent(new Event("stats:changed"));
 }
 
-export function recordAnswer(deckId: string, cardId: string, correct: boolean) {
+// Stage names + intervals (ms) for SRS
+export const STAGE_NAMES = ["Новое", "Изучение", "Повторение", "Уверенно", "Освоено"] as const;
+const STAGE_INTERVALS = [
+  1000 * 60 * 10, // New → 10 min
+  1000 * 60 * 60 * 8, // Learning → 8 h
+  1000 * 60 * 60 * 24 * 2, // Review → 2 d
+  1000 * 60 * 60 * 24 * 7, // Strong → 7 d
+  1000 * 60 * 60 * 24 * 21, // Mastered → 21 d
+];
+const SLOW_MS = 8000; // slower than this counts as "slow recall"
+
+function stageFromMastery(m: number): number {
+  if (m >= 0.95) return 4;
+  if (m >= 0.75) return 3;
+  if (m >= 0.45) return 2;
+  if (m > 0) return 1;
+  return 0;
+}
+
+export function recordAnswer(
+  deckId: string,
+  cardId: string,
+  correct: boolean,
+  responseMs?: number,
+) {
   if (typeof window === "undefined") return;
   const all = loadAll();
   const deck = all[deckId] ?? {};
-  const s = deck[cardId] ?? { correct: 0, wrong: 0, lastSeen: 0, mastery: 0 };
+  const s: CardStat =
+    deck[cardId] ?? { correct: 0, wrong: 0, lastSeen: 0, mastery: 0 };
+
+  const slow = typeof responseMs === "number" && responseMs > SLOW_MS;
+
   if (correct) {
     s.correct += 1;
-    s.mastery = Math.min(1, s.mastery + 0.25);
+    // slow correct counts less
+    s.mastery = Math.min(1, s.mastery + (slow ? 0.12 : 0.25));
   } else {
     s.wrong += 1;
     s.mastery = Math.max(0, s.mastery - 0.2);
+    s.slowMisses = (s.slowMisses ?? 0) + 1;
   }
+  if (slow && correct) s.slowMisses = (s.slowMisses ?? 0) + 1;
+
+  if (typeof responseMs === "number" && responseMs > 0) {
+    const prev = s.avgMs ?? responseMs;
+    s.avgMs = Math.round(prev * 0.7 + responseMs * 0.3);
+    s.totalMs = (s.totalMs ?? 0) + responseMs;
+    s.samples = (s.samples ?? 0) + 1;
+  }
+
+  s.stage = stageFromMastery(s.mastery);
+  // due interval; failure resets to learning
+  const interval = correct ? STAGE_INTERVALS[s.stage] : STAGE_INTERVALS[0];
+  s.due = Date.now() + interval;
   s.lastSeen = Date.now();
+
   deck[cardId] = s;
   all[deckId] = deck;
   saveAll(all);
+
+  // session log
+  logSessionAnswer(deckId, cardId, correct, responseMs);
 }
 
 export function getDeckStats(deckId: string): DeckStats {
@@ -72,9 +126,26 @@ export function accuracyFor(stat?: CardStat) {
 export function weakCardIds(deckId: string): string[] {
   const stats = getDeckStats(deckId);
   return Object.entries(stats)
-    .filter(([, s]) => s.wrong > 0 && s.mastery < 0.6)
+    .filter(([, s]) => (s.wrong > 0 || (s.slowMisses ?? 0) > 1) && s.mastery < 0.6)
     .sort((a, b) => a[1].mastery - b[1].mastery)
     .map(([id]) => id);
+}
+
+// SRS due queue: cards whose due timestamp has passed OR never reviewed
+export function dueCardIds<T extends { id: string }>(deckId: string, cards: T[]): string[] {
+  const stats = getDeckStats(deckId);
+  const now = Date.now();
+  const due: { id: string; score: number }[] = [];
+  for (const c of cards) {
+    const s = stats[c.id];
+    if (!s) {
+      due.push({ id: c.id, score: -1 }); // never seen → top
+    } else if ((s.due ?? 0) <= now) {
+      // overdue cards first, weighted by low mastery
+      due.push({ id: c.id, score: s.mastery + (s.due ?? 0) / 1e13 });
+    }
+  }
+  return due.sort((a, b) => a.score - b.score).map((x) => x.id);
 }
 
 // Sort cards prioritising weak ones (used by all modes)
@@ -118,8 +189,6 @@ export function levenshtein(a: string, b: string): number {
   return dp[m][n];
 }
 
-// Accepts close answers. Returns true if exact match against any of
-// `accepted` (comma-separated variants supported) within a fuzzy threshold.
 export function isCloseMatch(input: string, expected: string) {
   const got = normalise(input);
   if (!got) return false;
@@ -135,18 +204,40 @@ export function isCloseMatch(input: string, expected: string) {
   return false;
 }
 
-// Speed challenge leaderboard (local)
+// ---------- Session logging (for AI feedback) ----------
+
+const SESSION_KEY = "lingocards.session.v1";
+export type SessionAnswer = { deckId: string; cardId: string; correct: boolean; ms?: number; at: number };
+
+function logSessionAnswer(deckId: string, cardId: string, correct: boolean, ms?: number) {
+  if (typeof window === "undefined") return;
+  let list: SessionAnswer[] = [];
+  try { list = JSON.parse(localStorage.getItem(SESSION_KEY) ?? "[]"); } catch { list = []; }
+  list.push({ deckId, cardId, correct, ms, at: Date.now() });
+  // keep last 500
+  if (list.length > 500) list = list.slice(-500);
+  localStorage.setItem(SESSION_KEY, JSON.stringify(list));
+}
+
+export function getSessionLog(deckId?: string, sinceMs = 1000 * 60 * 60 * 24): SessionAnswer[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const list: SessionAnswer[] = JSON.parse(localStorage.getItem(SESSION_KEY) ?? "[]");
+    const cutoff = Date.now() - sinceMs;
+    return list.filter((x) => x.at >= cutoff && (!deckId || x.deckId === deckId));
+  } catch {
+    return [];
+  }
+}
+
+// ---------- Speed challenge leaderboard ----------
 const SPEED_KEY = "lingocards.speed.v1";
 export type SpeedRecord = { deckId: string; duration: number; score: number; accuracy: number; at: number };
 
 export function recordSpeedRun(rec: SpeedRecord) {
   if (typeof window === "undefined") return;
   let list: SpeedRecord[] = [];
-  try {
-    list = JSON.parse(localStorage.getItem(SPEED_KEY) ?? "[]");
-  } catch {
-    list = [];
-  }
+  try { list = JSON.parse(localStorage.getItem(SPEED_KEY) ?? "[]"); } catch { list = []; }
   list.push(rec);
   list = list.sort((a, b) => b.score - a.score).slice(0, 50);
   localStorage.setItem(SPEED_KEY, JSON.stringify(list));
@@ -162,27 +253,21 @@ export function getSpeedRecords(deckId?: string): SpeedRecord[] {
   }
 }
 
-// Memory associations (user + AI saved)
+// ---------- Memory associations ----------
 const ASSOC_KEY = "lingocards.assoc.v1";
 export type Assoc = { text: string; source: "ai" | "user"; favorite?: boolean; at: number };
-type AssocMap = Record<string, Assoc[]>; // cardId -> list
+type AssocMap = Record<string, Assoc[]>;
 
 function loadAssocs(): AssocMap {
   if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(localStorage.getItem(ASSOC_KEY) ?? "{}");
-  } catch {
-    return {};
-  }
+  try { return JSON.parse(localStorage.getItem(ASSOC_KEY) ?? "{}"); } catch { return {}; }
 }
 function saveAssocs(m: AssocMap) {
   localStorage.setItem(ASSOC_KEY, JSON.stringify(m));
   window.dispatchEvent(new Event("assoc:changed"));
 }
 
-export function getAssocs(cardId: string): Assoc[] {
-  return loadAssocs()[cardId] ?? [];
-}
+export function getAssocs(cardId: string): Assoc[] { return loadAssocs()[cardId] ?? []; }
 export function addAssoc(cardId: string, a: Assoc) {
   const m = loadAssocs();
   m[cardId] = [a, ...(m[cardId] ?? [])].slice(0, 10);
