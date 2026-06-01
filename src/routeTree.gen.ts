@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
 import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
 import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
+import { Route as ReviewDeckIdRouteImport } from './routes/review.$deckId'
+import { Route as FeedbackDeckIdRouteImport } from './routes/feedback.$deckId'
 import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
@@ -37,6 +39,16 @@ const StudyDeckIdRoute = StudyDeckIdRouteImport.update({
 const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
   id: '/speed/$deckId',
   path: '/speed/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReviewDeckIdRoute = ReviewDeckIdRouteImport.update({
+  id: '/review/$deckId',
+  path: '/review/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FeedbackDeckIdRoute = FeedbackDeckIdRouteImport.update({
+  id: '/feedback/$deckId',
+  path: '/feedback/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DeepDeckIdRoute = DeepDeckIdRouteImport.update({
@@ -72,6 +84,8 @@ export interface FileRoutesByFullPath {
   '/builder/$deckId': typeof BuilderDeckIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
+  '/feedback/$deckId': typeof FeedbackDeckIdRoute
+  '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
@@ -83,6 +97,8 @@ export interface FileRoutesByTo {
   '/builder/$deckId': typeof BuilderDeckIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
+  '/feedback/$deckId': typeof FeedbackDeckIdRoute
+  '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
@@ -95,6 +111,8 @@ export interface FileRoutesById {
   '/builder/$deckId': typeof BuilderDeckIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
+  '/feedback/$deckId': typeof FeedbackDeckIdRoute
+  '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
@@ -108,6 +126,8 @@ export interface FileRouteTypes {
     | '/builder/$deckId'
     | '/deck/$deckId'
     | '/deep/$deckId'
+    | '/feedback/$deckId'
+    | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
     | '/type/$deckId'
@@ -119,6 +139,8 @@ export interface FileRouteTypes {
     | '/builder/$deckId'
     | '/deck/$deckId'
     | '/deep/$deckId'
+    | '/feedback/$deckId'
+    | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
     | '/type/$deckId'
@@ -130,6 +152,8 @@ export interface FileRouteTypes {
     | '/builder/$deckId'
     | '/deck/$deckId'
     | '/deep/$deckId'
+    | '/feedback/$deckId'
+    | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
     | '/type/$deckId'
@@ -142,6 +166,8 @@ export interface RootRouteChildren {
   BuilderDeckIdRoute: typeof BuilderDeckIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
+  FeedbackDeckIdRoute: typeof FeedbackDeckIdRoute
+  ReviewDeckIdRoute: typeof ReviewDeckIdRoute
   SpeedDeckIdRoute: typeof SpeedDeckIdRoute
   StudyDeckIdRoute: typeof StudyDeckIdRoute
   TypeDeckIdRoute: typeof TypeDeckIdRoute
@@ -175,6 +201,20 @@ declare module '@tanstack/react-router' {
       path: '/speed/$deckId'
       fullPath: '/speed/$deckId'
       preLoaderRoute: typeof SpeedDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/review/$deckId': {
+      id: '/review/$deckId'
+      path: '/review/$deckId'
+      fullPath: '/review/$deckId'
+      preLoaderRoute: typeof ReviewDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/feedback/$deckId': {
+      id: '/feedback/$deckId'
+      path: '/feedback/$deckId'
+      fullPath: '/feedback/$deckId'
+      preLoaderRoute: typeof FeedbackDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/deep/$deckId': {
@@ -222,6 +262,8 @@ const rootRouteChildren: RootRouteChildren = {
   BuilderDeckIdRoute: BuilderDeckIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,
+  FeedbackDeckIdRoute: FeedbackDeckIdRoute,
+  ReviewDeckIdRoute: ReviewDeckIdRoute,
   SpeedDeckIdRoute: SpeedDeckIdRoute,
   StudyDeckIdRoute: StudyDeckIdRoute,
   TypeDeckIdRoute: TypeDeckIdRoute,
