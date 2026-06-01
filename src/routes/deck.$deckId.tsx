@@ -195,7 +195,71 @@ function DeckPage() {
             ))
           )}
         </div>
+
+        {/* AI text generator */}
+        <section className="mt-12 rounded-3xl border border-border bg-card p-6">
+          <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
+            <div>
+              <h2 className="font-display text-2xl flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-accent" /> Текст для активного повторения
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+                ИИ составит короткий английский текст со всеми словами колоды — читайте и
+                встречайте слова в живом контексте.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              {aiText && (
+                <Button
+                  variant="outline"
+                  className="rounded-full"
+                  onClick={() => runGenerate(aiSeed + 1)}
+                  disabled={aiLoading}
+                >
+                  <RotateCcw className="h-4 w-4" /> Reset
+                </Button>
+              )}
+              <Button
+                className="rounded-full"
+                onClick={() => runGenerate(aiText ? aiSeed + 1 : 0)}
+                disabled={aiLoading || deck.cards.length === 0}
+              >
+                {aiLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="h-4 w-4" />
+                )}
+                {aiText ? "Сгенерировать ещё" : "Сгенерировать"}
+              </Button>
+            </div>
+          </div>
+
+          {deck.cards.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              Добавьте хотя бы одну карточку, чтобы сгенерировать текст.
+            </p>
+          )}
+
+          {aiError && (
+            <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm">
+              {aiError}
+            </div>
+          )}
+
+          {aiLoading && !aiText && (
+            <div className="rounded-2xl border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
+              Готовим текст…
+            </div>
+          )}
+
+          {aiText && (
+            <article className="prose-like whitespace-pre-wrap font-body text-[15px] leading-relaxed text-foreground/90">
+              {renderMarkdown(aiText)}
+            </article>
+          )}
+        </section>
       </main>
+
     </div>
   );
 }
