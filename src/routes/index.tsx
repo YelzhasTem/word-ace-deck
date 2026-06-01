@@ -39,7 +39,7 @@ function plural(n: number, forms: [string, string, string]) {
 }
 
 function Home() {
-  const { decks, createDeck, createDeckWithCards, deleteDeck } = useDecks();
+  const { decks, createDeckWithCards, deleteDeck } = useDecks();
   const [open, setOpen] = useState(false);
 
   // Manual creation state
