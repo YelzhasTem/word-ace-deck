@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
+import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -23,6 +24,11 @@ const StudyDeckIdRoute = StudyDeckIdRouteImport.update({
   path: '/study/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DeepDeckIdRoute = DeepDeckIdRouteImport.update({
+  id: '/deep/$deckId',
+  path: '/deep/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DeckDeckIdRoute = DeckDeckIdRouteImport.update({
   id: '/deck/$deckId',
   path: '/deck/$deckId',
@@ -32,30 +38,34 @@ const DeckDeckIdRoute = DeckDeckIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
+  '/deep/$deckId': typeof DeepDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
+  '/deep/$deckId': typeof DeepDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
+  '/deep/$deckId': typeof DeepDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/deck/$deckId' | '/study/$deckId'
+  fullPaths: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/deck/$deckId' | '/study/$deckId'
-  id: '__root__' | '/' | '/deck/$deckId' | '/study/$deckId'
+  to: '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId'
+  id: '__root__' | '/' | '/deck/$deckId' | '/deep/$deckId' | '/study/$deckId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
+  DeepDeckIdRoute: typeof DeepDeckIdRoute
   StudyDeckIdRoute: typeof StudyDeckIdRoute
 }
 
@@ -75,6 +85,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StudyDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/deep/$deckId': {
+      id: '/deep/$deckId'
+      path: '/deep/$deckId'
+      fullPath: '/deep/$deckId'
+      preLoaderRoute: typeof DeepDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/deck/$deckId': {
       id: '/deck/$deckId'
       path: '/deck/$deckId'
@@ -88,6 +105,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
+  DeepDeckIdRoute: DeepDeckIdRoute,
   StudyDeckIdRoute: StudyDeckIdRoute,
 }
 export const routeTree = rootRouteImport
