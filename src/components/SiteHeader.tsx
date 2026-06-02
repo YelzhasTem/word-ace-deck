@@ -1,14 +1,22 @@
-import { Link } from "@tanstack/react-router";
-import { BookOpenCheck, Moon, Search } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { BookOpenCheck, LogOut, Moon, Search, User } from "lucide-react";
 import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import type { Session } from "@supabase/supabase-js";
 
 export function SiteHeader() {
   const [dark, setDark] = useState(false);
+  const [session, setSession] = useState<Session | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     const saved = localStorage.getItem("theme") === "dark";
     setDark(saved);
     document.documentElement.classList.toggle("dark", saved);
+
+    supabase.auth.getSession().then(({ data }) => setSession(data.session));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
+    return () => subscription.unsubscribe();
   }, []);
 
   const toggleDark = () => {
@@ -16,6 +24,11 @@ export function SiteHeader() {
     setDark(next);
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate({ to: "/auth" });
   };
 
   return (
@@ -50,14 +63,6 @@ export function SiteHeader() {
           >
             Колоды
           </Link>
-          <a
-            href="https://www.multitran.com/"
-            target="_blank"
-            rel="noreferrer"
-            className="hidden sm:inline-flex px-3 py-2 rounded-full hover:bg-secondary transition-colors text-muted-foreground"
-          >
-            Словарь ↗
-          </a>
           <button
             onClick={toggleDark}
             aria-label="Переключить тему"
@@ -65,6 +70,28 @@ export function SiteHeader() {
           >
             <Moon className="h-4 w-4" />
           </button>
+          {session ? (
+            <div className="flex items-center gap-2 pl-2">
+              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                <User className="h-3.5 w-3.5" />
+                {session.user.email}
+              </span>
+              <button
+                onClick={handleLogout}
+                aria-label="Выйти"
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
+            </div>
+          ) : (
+            <Link
+              to="/auth"
+              className="ml-2 px-4 py-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
+            >
+              Войти
+            </Link>
+          )}
         </nav>
       </div>
     </header>
