@@ -158,6 +158,32 @@ export function summariseRecall(deckId: string): RecallSummary {
   return { ready, upcoming, mastered, retention, total: entries.length };
 }
 
+export function summariseAllRecall(): RecallSummary & { nextDue: number | null } {
+  const entries = Object.values(loadState());
+  const now = Date.now();
+  const ready = entries.filter((e) => e.due <= now).length;
+  const upcoming = entries.filter((e) => e.due > now).length;
+  const mastered = entries.filter((e) => e.stageIdx === 4).length;
+  const totalAns = entries.reduce((s, e) => s + e.correct + e.wrong, 0);
+  const totalCorrect = entries.reduce((s, e) => s + e.correct, 0);
+  const retention = totalAns > 0 ? Math.round((totalCorrect / totalAns) * 100) : null;
+  const upcomingEntries = entries.filter((e) => e.due > now);
+  const nextDue = upcomingEntries.length
+    ? Math.min(...upcomingEntries.map((e) => e.due))
+    : null;
+  return { ready, upcoming, mastered, retention, total: entries.length, nextDue };
+}
+
+export function decksWithReadyRecall(): { deckId: string; count: number }[] {
+  const entries = Object.values(loadState());
+  const now = Date.now();
+  const map = new Map<string, number>();
+  entries.forEach((e) => {
+    if (e.due <= now) map.set(e.deckId, (map.get(e.deckId) ?? 0) + 1);
+  });
+  return Array.from(map.entries()).map(([deckId, count]) => ({ deckId, count }));
+}
+
 export function useDeckRecallSummary(deckId: string): RecallSummary {
   const [s, setS] = useState<RecallSummary>(() => ({ ready: 0, upcoming: 0, mastered: 0, retention: null, total: 0 }));
   useEffect(() => {
@@ -172,6 +198,25 @@ export function useDeckRecallSummary(deckId: string): RecallSummary {
       window.removeEventListener("storage", reload);
     };
   }, [deckId]);
+  return s;
+}
+
+export function useAllRecallSummary(): RecallSummary & { nextDue: number | null } {
+  const [s, setS] = useState<RecallSummary & { nextDue: number | null }>(() => ({
+    ready: 0, upcoming: 0, mastered: 0, retention: null, total: 0, nextDue: null,
+  }));
+  useEffect(() => {
+    const reload = () => setS(summariseAllRecall());
+    reload();
+    const id = window.setInterval(reload, 30000);
+    window.addEventListener("delayedRecall:changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("delayedRecall:changed", reload);
+      window.removeEventListener("storage", reload);
+    };
+  }, []);
   return s;
 }
 
