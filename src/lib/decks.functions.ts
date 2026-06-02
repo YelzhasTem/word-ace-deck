@@ -12,22 +12,24 @@ export const getMyDecks = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
 
-    const { data: decks, error: decksErr } = await supabase
-      .from("decks")
-      .select("id, name, description, created_at")
-      .eq("user_id", userId)
-      .order("created_at", { ascending: false });
-    if (decksErr) throw new Error(decksErr.message);
+    const [decksRes, cardsRes] = await Promise.all([
+      supabase
+        .from("decks")
+        .select("id, name, description, created_at")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("cards")
+        .select("id, deck_id, term, definition, known, position, created_at")
+        .eq("user_id", userId)
+        .order("position", { ascending: true }),
+    ]);
+    if (decksRes.error) throw new Error(decksRes.error.message);
+    if (cardsRes.error) throw new Error(cardsRes.error.message);
 
-    const { data: cards, error: cardsErr } = await supabase
-      .from("cards")
-      .select("id, deck_id, term, definition, known, position, created_at")
-      .eq("user_id", userId)
-      .order("position", { ascending: true });
-    if (cardsErr) throw new Error(cardsErr.message);
-
-    return { decks: decks ?? [], cards: cards ?? [] };
+    return { decks: decksRes.data ?? [], cards: cardsRes.data ?? [] };
   });
+
 
 export const createDeckRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
