@@ -100,11 +100,6 @@ const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
   path: '/assoc/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RecallDeckIdRoute = RecallDeckIdRouteImport.update({
-  id: '/recall/$deckId',
-  path: '/recall/$deckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
