@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
+import {
+  addCardRecord,
+  createDeckRecord,
+  createDeckWithCardsRecord,
+  deleteCardRecord,
+  deleteDeckRecord,
+  getMyDecks,
+  markCardRecord,
+  resetDeckProgressRecord,
+} from "@/lib/decks.functions";
 
 export type Card = {
   id: string;
@@ -35,30 +46,15 @@ type DbCard = {
   created_at: string;
 };
 
-async function fetchDecks(): Promise<Deck[]> {
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return [];
-
-  const { data: decks, error: decksErr } = await supabase
-    .from("decks")
-    .select("id, name, description, created_at")
-    .order("created_at", { ascending: false });
-  if (decksErr || !decks) return [];
-
-  const { data: cards, error: cardsErr } = await supabase
-    .from("cards")
-    .select("id, deck_id, term, definition, known, position, created_at")
-    .order("position", { ascending: true });
-  if (cardsErr) return [];
-
+function mapDecks(decks: DbDeck[], cards: DbCard[]): Deck[] {
   const cardsByDeck = new Map<string, Card[]>();
-  (cards as DbCard[] | null)?.forEach((c) => {
+  cards.forEach((c) => {
     const arr = cardsByDeck.get(c.deck_id) ?? [];
     arr.push({ id: c.id, term: c.term, definition: c.definition, known: c.known });
     cardsByDeck.set(c.deck_id, arr);
   });
 
-  return (decks as DbDeck[]).map((d) => ({
+  return decks.map((d) => ({
     id: d.id,
     name: d.name,
     description: d.description ?? "",
@@ -76,12 +72,29 @@ function emitChange() {
 export function useDecks() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const decksRef = useRef<Deck[]>([]);
+  const fetchMyDecks = useServerFn(getMyDecks);
+  const createDeckFn = useServerFn(createDeckRecord);
+  const createDeckWithCardsFn = useServerFn(createDeckWithCardsRecord);
+  const addCardFn = useServerFn(addCardRecord);
+  const deleteDeckFn = useServerFn(deleteDeckRecord);
+  const deleteCardFn = useServerFn(deleteCardRecord);
+  const markCardFn = useServerFn(markCardRecord);
+  const resetDeckProgressFn = useServerFn(resetDeckProgressRecord);
 
   const reload = useCallback(async () => {
-    const next = await fetchDecks();
-    decksRef.current = next;
-    setDecks(next);
-  }, []);
+    try {
+      const result = await fetchMyDecks();
+      const next = mapDecks(result.decks as DbDeck[], result.cards as DbCard[]);
+      decksRef.current = next;
+      setDecks(next);
+    } catch (error) {
+      decksRef.current = [];
+      setDecks([]);
+      if (error instanceof Error && !error.message.includes("Unauthorized")) {
+        toast.error(`Не удалось загрузить колоды: ${error.message}`);
+      }
+    }
+  }, [fetchMyDecks]);
 
   useEffect(() => {
     reload();
@@ -94,11 +107,6 @@ export function useDecks() {
     };
   }, [reload]);
 
-  const requireUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    return data.user?.id ?? null;
-  };
-
   const notAuth = () =>
     toast.error("Войдите в аккаунт, чтобы создавать колоды и карточки");
 
@@ -107,42 +115,49 @@ export function useDecks() {
     createDeck: (name: string, description: string) => {
       const tempId = crypto.randomUUID();
       (async () => {
-        const userId = await requireUser();
-        if (!userId) return notAuth();
-        const { error } = await supabase.from("decks").insert({ user_id: userId, name, description });
-        if (error) { toast.error(`Не удалось создать колоду: ${error.message}`); return; }
-        emitChange();
+        try {
+          await createDeckFn({ data: { name, description } });
+          toast.success("Колода создана");
+          emitChange();
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
+          toast.error(`Не удалось создать колоду: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
       return tempId;
     },
     deleteDeck: (id: string) => {
       (async () => {
-        const { error } = await supabase.from("decks").delete().eq("id", id);
-        if (error) { toast.error(`Не удалось удалить: ${error.message}`); return; }
-        emitChange();
+        try {
+          await deleteDeckFn({ data: { id } });
+          emitChange();
+        } catch (error) {
+          toast.error(`Не удалось удалить: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
     },
     addCard: (deckId: string, term: string, definition: string) => {
       (async () => {
-        const userId = await requireUser();
-        if (!userId) return notAuth();
         const deck = decksRef.current.find((d) => d.id === deckId);
         const position = deck ? deck.cards.length : 0;
-        const { data, error } = await supabase
-          .from("cards")
-          .insert({ deck_id: deckId, user_id: userId, term, definition, position })
-          .select("id")
-          .single();
-        if (error) { toast.error(`Не удалось добавить карточку: ${error.message}`); return; }
-        if (data?.id) scheduleNewCard(deckId, data.id);
-        emitChange();
+        try {
+          const data = await addCardFn({ data: { deckId, term, definition, position } });
+          if (data?.id) scheduleNewCard(deckId, data.id);
+          emitChange();
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
+          toast.error(`Не удалось добавить карточку: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
     },
     deleteCard: (_deckId: string, cardId: string) => {
       (async () => {
-        const { error } = await supabase.from("cards").delete().eq("id", cardId);
-        if (error) { toast.error(`Не удалось удалить карточку: ${error.message}`); return; }
-        emitChange();
+        try {
+          await deleteCardFn({ data: { id: cardId } });
+          emitChange();
+        } catch (error) {
+          toast.error(`Не удалось удалить карточку: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
     },
     markCard: (_deckId: string, cardId: string, known: boolean) => {
@@ -152,15 +167,21 @@ export function useDecks() {
       }));
       setDecks(decksRef.current);
       (async () => {
-        const { error } = await supabase.from("cards").update({ known }).eq("id", cardId);
-        if (error) toast.error(`Не удалось сохранить прогресс: ${error.message}`);
+        try {
+          await markCardFn({ data: { id: cardId, known } });
+        } catch (error) {
+          toast.error(`Не удалось сохранить прогресс: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
     },
     resetProgress: (deckId: string) => {
       (async () => {
-        const { error } = await supabase.from("cards").update({ known: false }).eq("deck_id", deckId);
-        if (error) { toast.error(`Не удалось сбросить: ${error.message}`); return; }
-        emitChange();
+        try {
+          await resetDeckProgressFn({ data: { deckId } });
+          emitChange();
+        } catch (error) {
+          toast.error(`Не удалось сбросить: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
     },
     createDeckWithCards: (
@@ -170,33 +191,15 @@ export function useDecks() {
     ) => {
       const tempId = crypto.randomUUID();
       (async () => {
-        const userId = await requireUser();
-        if (!userId) return notAuth();
-        const { data, error } = await supabase
-          .from("decks")
-          .insert({ user_id: userId, name, description })
-          .select("id")
-          .single();
-        if (error || !data) {
-          toast.error(`Не удалось создать колоду: ${error?.message ?? "неизвестная ошибка"}`);
-          return;
+        try {
+          const data = await createDeckWithCardsFn({ data: { name, description, cards } });
+          data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
+          toast.success("Колода создана");
+          emitChange();
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
+          toast.error(`Не удалось создать колоду: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
         }
-        if (cards.length > 0) {
-          const { error: cardsErr } = await supabase.from("cards").insert(
-            cards.map((c, i) => ({
-              deck_id: data.id,
-              user_id: userId,
-              term: c.term,
-              definition: c.definition,
-              position: i,
-            })),
-          );
-          if (cardsErr) {
-            toast.error(`Колода создана, но карточки не сохранились: ${cardsErr.message}`);
-          }
-        }
-        toast.success("Колода создана");
-        emitChange();
       })();
       return tempId;
     },

@@ -1,0 +1,142 @@
+import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+const CardInput = z.object({
+  term: z.string().min(1).max(160),
+  definition: z.string().min(1).max(300),
+});
+
+export const getMyDecks = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+
+    const { data: decks, error: decksErr } = await supabase
+      .from("decks")
+      .select("id, name, description, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (decksErr) throw new Error(decksErr.message);
+
+    const { data: cards, error: cardsErr } = await supabase
+      .from("cards")
+      .select("id, deck_id, term, definition, known, position, created_at")
+      .eq("user_id", userId)
+      .order("position", { ascending: true });
+    if (cardsErr) throw new Error(cardsErr.message);
+
+    return { decks: decks ?? [], cards: cards ?? [] };
+  });
+
+export const createDeckRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      name: z.string().min(1).max(120),
+      description: z.string().max(300).default(""),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: deck, error } = await supabase
+      .from("decks")
+      .insert({ user_id: userId, name: data.name, description: data.description })
+      .select("id")
+      .single();
+    if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
+    return { id: deck.id };
+  });
+
+export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      name: z.string().min(1).max(120),
+      description: z.string().max(300).default(""),
+      cards: z.array(CardInput).min(0).max(100),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: deck, error } = await supabase
+      .from("decks")
+      .insert({ user_id: userId, name: data.name, description: data.description })
+      .select("id")
+      .single();
+    if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
+
+    let cardIds: string[] = [];
+    if (data.cards.length > 0) {
+      const { data: insertedCards, error: cardsErr } = await supabase.from("cards").insert(
+        data.cards.map((card, position) => ({
+          deck_id: deck.id,
+          user_id: userId,
+          term: card.term,
+          definition: card.definition,
+          position,
+        })),
+      ).select("id");
+      if (cardsErr) throw new Error(`Колода создана, но карточки не сохранились: ${cardsErr.message}`);
+      cardIds = insertedCards?.map((card) => card.id) ?? [];
+    }
+
+    return { id: deck.id, cardIds };
+  });
+
+export const addCardRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      deckId: z.string().uuid(),
+      term: z.string().min(1).max(160),
+      definition: z.string().min(1).max(300),
+      position: z.number().int().min(0).max(10000),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: card, error } = await supabase
+      .from("cards")
+      .insert({ deck_id: data.deckId, user_id: userId, term: data.term, definition: data.definition, position: data.position })
+      .select("id")
+      .single();
+    if (error || !card) throw new Error(error?.message ?? "Не удалось добавить карточку");
+    return { id: card.id };
+  });
+
+export const deleteDeckRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("decks").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const deleteCardRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("cards").delete().eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const markCardRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid(), known: z.boolean() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("cards").update({ known: data.known }).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+export const resetDeckProgressRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("cards").update({ known: false }).eq("deck_id", data.deckId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
