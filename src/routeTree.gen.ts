@@ -16,6 +16,7 @@ import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
 import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
 import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
 import { Route as ReviewDeckIdRouteImport } from './routes/review.$deckId'
+import { Route as ReverseDeckIdRouteImport } from './routes/reverse.$deckId'
 import { Route as FeedbackDeckIdRouteImport } from './routes/feedback.$deckId'
 import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
@@ -56,6 +57,11 @@ const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
 const ReviewDeckIdRoute = ReviewDeckIdRouteImport.update({
   id: '/review/$deckId',
   path: '/review/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReverseDeckIdRoute = ReverseDeckIdRouteImport.update({
+  id: '/reverse/$deckId',
+  path: '/reverse/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FeedbackDeckIdRoute = FeedbackDeckIdRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
+  '/reverse/$deckId': typeof ReverseDeckIdRoute
   '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
@@ -114,6 +121,7 @@ export interface FileRoutesByTo {
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
+  '/reverse/$deckId': typeof ReverseDeckIdRoute
   '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
@@ -130,6 +138,7 @@ export interface FileRoutesById {
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
+  '/reverse/$deckId': typeof ReverseDeckIdRoute
   '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
@@ -147,6 +156,7 @@ export interface FileRouteTypes {
     | '/deck/$deckId'
     | '/deep/$deckId'
     | '/feedback/$deckId'
+    | '/reverse/$deckId'
     | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
@@ -162,6 +172,7 @@ export interface FileRouteTypes {
     | '/deck/$deckId'
     | '/deep/$deckId'
     | '/feedback/$deckId'
+    | '/reverse/$deckId'
     | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
@@ -177,6 +188,7 @@ export interface FileRouteTypes {
     | '/deck/$deckId'
     | '/deep/$deckId'
     | '/feedback/$deckId'
+    | '/reverse/$deckId'
     | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
@@ -193,6 +205,7 @@ export interface RootRouteChildren {
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
   FeedbackDeckIdRoute: typeof FeedbackDeckIdRoute
+  ReverseDeckIdRoute: typeof ReverseDeckIdRoute
   ReviewDeckIdRoute: typeof ReviewDeckIdRoute
   SpeedDeckIdRoute: typeof SpeedDeckIdRoute
   StudyDeckIdRoute: typeof StudyDeckIdRoute
@@ -250,6 +263,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ReviewDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reverse/$deckId': {
+      id: '/reverse/$deckId'
+      path: '/reverse/$deckId'
+      fullPath: '/reverse/$deckId'
+      preLoaderRoute: typeof ReverseDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/feedback/$deckId': {
       id: '/feedback/$deckId'
       path: '/feedback/$deckId'
@@ -305,6 +325,7 @@ const rootRouteChildren: RootRouteChildren = {
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,
   FeedbackDeckIdRoute: FeedbackDeckIdRoute,
+  ReverseDeckIdRoute: ReverseDeckIdRoute,
   ReviewDeckIdRoute: ReviewDeckIdRoute,
   SpeedDeckIdRoute: SpeedDeckIdRoute,
   StudyDeckIdRoute: StudyDeckIdRoute,

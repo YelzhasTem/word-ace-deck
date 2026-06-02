@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
-  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart,
+  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart, Repeat,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 
