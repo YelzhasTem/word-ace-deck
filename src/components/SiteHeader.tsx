@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpenCheck, LogOut, Moon, Search, User } from "lucide-react";
+import { BookOpenCheck, LogOut, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -62,6 +62,14 @@ export function SiteHeader() {
             activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
           >
             Колоды
+          </Link>
+          <Link
+            to="/settings"
+            aria-label="Настройки"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+            activeProps={{ className: "h-9 w-9 inline-flex items-center justify-center rounded-full bg-secondary text-primary transition-colors" }}
+          >
+            <SettingsIcon className="h-4 w-4" />
           </Link>
           <button
             onClick={toggleDark}
