@@ -39,7 +39,7 @@ export function SiteHeader() {
             <BookOpenCheck className="h-4.5 w-4.5" strokeWidth={2.25} />
           </span>
           <span className="font-display text-[17px] font-bold tracking-tight">
-            Лингво<span className="text-accent">.</span>Карточки
+            Memora
           </span>
         </Link>
 
