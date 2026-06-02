@@ -46,7 +46,18 @@ function AuthPage() {
         navigate({ to: "/" });
       }
     } catch (err: any) {
-      toast.error(err.message ?? "Ошибка");
+      const msg = String(err?.message ?? "");
+      let humanMsg = msg;
+      if (err?.code === "weak_password" || msg.toLowerCase().includes("weak")) {
+        humanMsg = "Пароль слишком простой или скомпрометирован. Используйте более надёжный пароль (буквы, цифры и символы).";
+      } else if (err?.code === "invalid_credentials" || msg.toLowerCase().includes("invalid login")) {
+        humanMsg = "Неверный email или пароль. Если у вас ещё нет аккаунта — зарегистрируйтесь.";
+      } else if (err?.code === "user_already_exists" || msg.toLowerCase().includes("already")) {
+        humanMsg = "Этот email уже зарегистрирован. Войдите в аккаунт.";
+      } else if (err?.code === "email_not_confirmed" || msg.toLowerCase().includes("not confirmed")) {
+        humanMsg = "Подтвердите email — мы отправили вам письмо.";
+      }
+      toast.error(humanMsg);
     } finally {
       setLoading(false);
     }
