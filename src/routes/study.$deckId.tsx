@@ -4,7 +4,7 @@ import { useDeck } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, X, Shuffle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat } from "lucide-react";
 
 export const Route = createFileRoute("/study/$deckId")({
   component: StudyPage,
