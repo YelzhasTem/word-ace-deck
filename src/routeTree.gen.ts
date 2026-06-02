@@ -9,6 +9,8 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
 import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
@@ -21,6 +23,16 @@ import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
 import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -79,6 +91,8 @@ const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
@@ -92,6 +106,8 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
@@ -106,6 +122,8 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
@@ -121,6 +139,8 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
+    | '/reset-password'
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
@@ -134,6 +154,8 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
+    | '/reset-password'
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
@@ -147,6 +169,8 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/auth'
+    | '/reset-password'
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
@@ -161,6 +185,8 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   AssocDeckIdRoute: typeof AssocDeckIdRoute
   BlankDeckIdRoute: typeof BlankDeckIdRoute
   BuilderDeckIdRoute: typeof BuilderDeckIdRoute
@@ -175,6 +201,20 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -257,6 +297,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   AssocDeckIdRoute: AssocDeckIdRoute,
   BlankDeckIdRoute: BlankDeckIdRoute,
   BuilderDeckIdRoute: BuilderDeckIdRoute,
@@ -271,3 +313,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
