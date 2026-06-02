@@ -4,7 +4,7 @@ import { useDeck } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, X, Shuffle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat } from "lucide-react";
 
 export const Route = createFileRoute("/study/$deckId")({
   component: StudyPage,
@@ -127,6 +127,16 @@ function StudyPage() {
               disabled={order.length < 2}
             >
               <Shuffle className="h-4 w-4" /> Перемешать
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              asChild
+            >
+              <Link to="/reverse/$deckId" params={{ deckId: deck.id }}>
+                <Repeat className="h-4 w-4" /> Обратные карточки
+              </Link>
             </Button>
             <Button
               variant="ghost"
