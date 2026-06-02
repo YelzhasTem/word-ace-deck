@@ -6,11 +6,13 @@ import { useDeckStats, accuracyFor, weakCardIds } from "@/lib/stats";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
-  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart,
+  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart, Hourglass,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
+import { useDelayedRecallEnabled, useDeckRecallSummary, scheduleNewCard } from "@/lib/delayed-recall";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
