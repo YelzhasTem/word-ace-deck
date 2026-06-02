@@ -24,7 +24,6 @@ import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
 import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
-import { Route as RecallDeckIdRouteImport } from './routes/recall.$deckId'
 
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
@@ -99,6 +98,11 @@ const BlankDeckIdRoute = BlankDeckIdRouteImport.update({
 const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
   id: '/assoc/$deckId',
   path: '/assoc/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecallDeckIdRoute = RecallDeckIdRouteImport.update({
+  id: '/recall/$deckId',
+  path: '/recall/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
