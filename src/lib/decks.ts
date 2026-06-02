@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export type Card = {
   id: string;
@@ -15,140 +16,182 @@ export type Deck = {
   createdAt: number;
 };
 
-const STORAGE_KEY = "lingocards.decks.v2";
+type DbDeck = {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+};
 
-const uid = () =>
-  typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : Math.random().toString(36).slice(2);
+type DbCard = {
+  id: string;
+  deck_id: string;
+  term: string;
+  definition: string;
+  known: boolean;
+  position: number;
+  created_at: string;
+};
 
-const seedDecks = (): Deck[] => [
-  {
-    id: uid(),
-    name: "Повседневные слова",
-    description: "Базовая лексика для каждого дня.",
-    createdAt: Date.now(),
-    cards: [
-      { id: uid(), term: "breakfast", definition: "завтрак", known: false },
-      { id: uid(), term: "neighbour", definition: "сосед", known: false },
-      { id: uid(), term: "weather", definition: "погода", known: false },
-      { id: uid(), term: "tomorrow", definition: "завтра (нареч.)", known: false },
-      { id: uid(), term: "to remember", definition: "помнить, вспоминать", known: false },
-      { id: uid(), term: "busy", definition: "занятой", known: false },
-    ],
-  },
-  {
-    id: uid(),
-    name: "Бизнес-английский",
-    description: "Слова для встреч, писем и презентаций.",
-    createdAt: Date.now(),
-    cards: [
-      { id: uid(), term: "deadline", definition: "крайний срок", known: false },
-      { id: uid(), term: "stakeholder", definition: "заинтересованная сторона", known: false },
-      { id: uid(), term: "to leverage", definition: "использовать с выгодой", known: false },
-      { id: uid(), term: "deliverable", definition: "результат работы, продукт сдачи", known: false },
-      { id: uid(), term: "to outsource", definition: "передавать на аутсорс", known: false },
-    ],
-  },
-  {
-    id: uid(),
-    name: "Продвинутая лексика (C1)",
-    description: "Слова, которые встретятся в книгах и сериалах.",
-    createdAt: Date.now(),
-    cards: [
-      { id: uid(), term: "ubiquitous", definition: "вездесущий, повсеместный", known: false },
-      { id: uid(), term: "ephemeral", definition: "мимолётный, недолговечный", known: false },
-      { id: uid(), term: "resilient", definition: "стойкий, быстро восстанавливающийся", known: false },
-      { id: uid(), term: "meticulous", definition: "дотошный, скрупулёзный", known: false },
-      { id: uid(), term: "serendipity", definition: "счастливая случайность", known: false },
-    ],
-  },
-];
+async function fetchDecks(): Promise<Deck[]> {
+  const { data: userData } = await supabase.auth.getUser();
+  if (!userData.user) return [];
 
+  const { data: decks, error: decksErr } = await supabase
+    .from("decks")
+    .select("id, name, description, created_at")
+    .order("created_at", { ascending: false });
+  if (decksErr || !decks) return [];
 
-function load(): Deck[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) {
-      const seed = seedDecks();
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
-      return seed;
-    }
-    return JSON.parse(raw) as Deck[];
-  } catch {
-    return [];
-  }
+  const { data: cards, error: cardsErr } = await supabase
+    .from("cards")
+    .select("id, deck_id, term, definition, known, position, created_at")
+    .order("position", { ascending: true });
+  if (cardsErr) return [];
+
+  const cardsByDeck = new Map<string, Card[]>();
+  (cards as DbCard[] | null)?.forEach((c) => {
+    const arr = cardsByDeck.get(c.deck_id) ?? [];
+    arr.push({ id: c.id, term: c.term, definition: c.definition, known: c.known });
+    cardsByDeck.set(c.deck_id, arr);
+  });
+
+  return (decks as DbDeck[]).map((d) => ({
+    id: d.id,
+    name: d.name,
+    description: d.description ?? "",
+    cards: cardsByDeck.get(d.id) ?? [],
+    createdAt: new Date(d.created_at).getTime(),
+  }));
 }
 
-function save(decks: Deck[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(decks));
-  window.dispatchEvent(new Event("decks:changed"));
+function emitChange() {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event("decks:changed"));
+  }
 }
 
 export function useDecks() {
   const [decks, setDecks] = useState<Deck[]>([]);
+  const decksRef = useRef<Deck[]>([]);
+
+  const reload = useCallback(async () => {
+    const next = await fetchDecks();
+    decksRef.current = next;
+    setDecks(next);
+  }, []);
 
   useEffect(() => {
-    setDecks(load());
-    const handler = () => setDecks(load());
+    reload();
+    const handler = () => reload();
     window.addEventListener("decks:changed", handler);
-    window.addEventListener("storage", handler);
+    const { data: sub } = supabase.auth.onAuthStateChange(() => reload());
     return () => {
       window.removeEventListener("decks:changed", handler);
-      window.removeEventListener("storage", handler);
+      sub.subscription.unsubscribe();
     };
-  }, []);
+  }, [reload]);
+
+  const requireUser = async () => {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  };
 
   return {
     decks,
     createDeck: (name: string, description: string) => {
-      const deck: Deck = { id: uid(), name, description, cards: [], createdAt: Date.now() };
-      save([deck, ...load()]);
-      return deck.id;
+      const tempId = crypto.randomUUID();
+      (async () => {
+        const userId = await requireUser();
+        if (!userId) return;
+        const { data, error } = await supabase
+          .from("decks")
+          .insert({ user_id: userId, name, description })
+          .select("id")
+          .single();
+        if (!error && data) {
+          (createDeckLastId as { current: string | null }).current = data.id;
+        }
+        emitChange();
+      })();
+      return tempId;
     },
-    deleteDeck: (id: string) => save(load().filter((d) => d.id !== id)),
+    deleteDeck: (id: string) => {
+      (async () => {
+        await supabase.from("decks").delete().eq("id", id);
+        emitChange();
+      })();
+    },
     addCard: (deckId: string, term: string, definition: string) => {
-      const next = load().map((d) =>
-        d.id === deckId
-          ? { ...d, cards: [...d.cards, { id: uid(), term, definition, known: false }] }
-          : d,
-      );
-      save(next);
+      (async () => {
+        const userId = await requireUser();
+        if (!userId) return;
+        const deck = decksRef.current.find((d) => d.id === deckId);
+        const position = deck ? deck.cards.length : 0;
+        await supabase
+          .from("cards")
+          .insert({ deck_id: deckId, user_id: userId, term, definition, position });
+        emitChange();
+      })();
     },
-    deleteCard: (deckId: string, cardId: string) => {
-      const next = load().map((d) =>
-        d.id === deckId ? { ...d, cards: d.cards.filter((c) => c.id !== cardId) } : d,
-      );
-      save(next);
+    deleteCard: (_deckId: string, cardId: string) => {
+      (async () => {
+        await supabase.from("cards").delete().eq("id", cardId);
+        emitChange();
+      })();
     },
-    markCard: (deckId: string, cardId: string, known: boolean) => {
-      const next = load().map((d) =>
-        d.id === deckId
-          ? { ...d, cards: d.cards.map((c) => (c.id === cardId ? { ...c, known } : c)) }
-          : d,
-      );
-      save(next);
+    markCard: (_deckId: string, cardId: string, known: boolean) => {
+      // Optimistic local update for snappy UI
+      decksRef.current = decksRef.current.map((d) => ({
+        ...d,
+        cards: d.cards.map((c) => (c.id === cardId ? { ...c, known } : c)),
+      }));
+      setDecks(decksRef.current);
+      (async () => {
+        await supabase.from("cards").update({ known }).eq("id", cardId);
+      })();
     },
     resetProgress: (deckId: string) => {
-      const next = load().map((d) =>
-        d.id === deckId ? { ...d, cards: d.cards.map((c) => ({ ...c, known: false })) } : d,
-      );
-      save(next);
+      (async () => {
+        await supabase.from("cards").update({ known: false }).eq("deck_id", deckId);
+        emitChange();
+      })();
     },
-    createDeckWithCards: (name: string, description: string, cards: { term: string; definition: string }[]) => {
-      const deck: Deck = {
-        id: uid(),
-        name,
-        description,
-        cards: cards.map((c) => ({ id: uid(), term: c.term, definition: c.definition, known: false })),
-        createdAt: Date.now(),
-      };
-      save([deck, ...load()]);
-      return deck.id;
+    createDeckWithCards: (
+      name: string,
+      description: string,
+      cards: { term: string; definition: string }[],
+    ) => {
+      const tempId = crypto.randomUUID();
+      (async () => {
+        const userId = await requireUser();
+        if (!userId) return;
+        const { data, error } = await supabase
+          .from("decks")
+          .insert({ user_id: userId, name, description })
+          .select("id")
+          .single();
+        if (error || !data) return;
+        if (cards.length > 0) {
+          await supabase.from("cards").insert(
+            cards.map((c, i) => ({
+              deck_id: data.id,
+              user_id: userId,
+              term: c.term,
+              definition: c.definition,
+              position: i,
+            })),
+          );
+        }
+        emitChange();
+      })();
+      return tempId;
     },
   };
 }
+
+// Holder for the last created deck id (best-effort, for callers that need it).
+export const createDeckLastId: { current: string | null } = { current: null };
 
 export function useDeck(id: string) {
   const { decks, ...rest } = useDecks();
