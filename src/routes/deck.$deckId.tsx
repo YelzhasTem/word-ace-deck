@@ -6,11 +6,13 @@ import { useDeckStats, accuracyFor, weakCardIds } from "@/lib/stats";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import {
   ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
-  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart,
+  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart, Hourglass,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
+import { useDelayedRecallEnabled, useDeckRecallSummary, scheduleNewCard } from "@/lib/delayed-recall";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
@@ -59,6 +61,16 @@ function DeckPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string>("");
   const [aiSeed, setAiSeed] = useState(0);
+  const [recallEnabled, setRecallEnabled] = useDelayedRecallEnabled();
+  const recallSummary = useDeckRecallSummary(deckId);
+
+  const toggleRecall = (on: boolean) => {
+    setRecallEnabled(on);
+    // When turning ON, backfill schedule for any existing cards.
+    if (on && deck) {
+      for (const c of deck.cards) scheduleNewCard(deck.id, c.id);
+    }
+  };
 
   const runGenerate = async (nextSeed: number) => {
     if (!deck || deck.cards.length === 0) return;
@@ -144,6 +156,63 @@ function DeckPage() {
             </Button>
           </div>
         </div>
+
+        {/* Delayed Recall */}
+        <section className="mb-8 rounded-3xl border border-border bg-card p-6">
+          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
+            <div className="flex-1">
+              <h2 className="font-display text-xl flex items-center gap-2">
+                <Hourglass className="h-5 w-5 text-accent" /> Отложенное припоминание
+              </h2>
+              <p className="mt-1 text-sm text-muted-foreground max-w-xl">
+                Улучшайте долговременную память — повторяйте слова через возрастающие интервалы
+                (10 мин · 1 д · 3 д · 7 д · 14 д · 30 д), а не сразу несколько раз подряд.
+              </p>
+            </div>
+            <label className="flex items-center gap-3 shrink-0 cursor-pointer">
+              <span className="text-sm font-medium">{recallEnabled ? "ВКЛ" : "ВЫКЛ"}</span>
+              <Switch checked={recallEnabled} onCheckedChange={toggleRecall} />
+            </label>
+          </div>
+
+          {recallEnabled && (
+            <div className="animate-in fade-in slide-in-from-top-1 duration-300">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">К повтору</p>
+                  <p className="font-display text-2xl">{recallSummary.ready}</p>
+                </div>
+                <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">В очереди</p>
+                  <p className="font-display text-2xl">{recallSummary.upcoming}</p>
+                </div>
+                <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Удержание</p>
+                  <p className="font-display text-2xl">{recallSummary.retention !== null ? `${recallSummary.retention}%` : "—"}</p>
+                </div>
+                <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                  <p className="text-xs text-muted-foreground">Освоено</p>
+                  <p className="font-display text-2xl">{recallSummary.mastered}</p>
+                </div>
+              </div>
+              {recallSummary.ready > 0 && (
+                <div className="rounded-2xl bg-accent/10 text-foreground px-4 py-3 text-sm mb-4 flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-accent" />
+                  {recallSummary.ready} {recallSummary.ready === 1 ? "слово готово" : "слов готовы"} к припоминанию — сессия ждёт.
+                </div>
+              )}
+              <div className="flex justify-end">
+                <Button
+                  className="rounded-full"
+                  onClick={() => navigate({ to: "/recall/$deckId", params: { deckId: deck.id } })}
+                  disabled={recallSummary.ready === 0}
+                >
+                  <Hourglass className="h-4 w-4" /> Начать сессию
+                </Button>
+              </div>
+            </div>
+          )}
+        </section>
 
         {/* Mode launcher */}
         {deck.cards.length > 0 && (

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { scheduleNewCard } from "@/lib/delayed-recall";
 
 export type Card = {
   id: string;
@@ -121,9 +122,12 @@ export function useDecks() {
         if (!userId) return;
         const deck = decksRef.current.find((d) => d.id === deckId);
         const position = deck ? deck.cards.length : 0;
-        await supabase
+        const { data } = await supabase
           .from("cards")
-          .insert({ deck_id: deckId, user_id: userId, term, definition, position });
+          .insert({ deck_id: deckId, user_id: userId, term, definition, position })
+          .select("id")
+          .single();
+        if (data?.id) scheduleNewCard(deckId, data.id);
         emitChange();
       })();
     },
