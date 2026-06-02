@@ -149,7 +149,7 @@ function BlankPage() {
               ) : (
                 <p className="font-display text-2xl leading-relaxed">{maskSentence(sentence, current!.term)}</p>
               )}
-              <p className="mt-3 text-sm text-muted-foreground">Перевод: {current!.definition}</p>
+              
             </div>
 
             {mode === "choice" && (
