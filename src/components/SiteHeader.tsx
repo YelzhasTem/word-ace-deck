@@ -64,6 +64,13 @@ export function SiteHeader() {
             Колоды
           </Link>
           <Link
+            to="/collections"
+            className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
+            activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
+          >
+            Коллекции
+          </Link>
+          <Link
             to="/settings"
             aria-label="Настройки"
             className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"

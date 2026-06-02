@@ -58,6 +58,75 @@ export type Database = {
           },
         ]
       }
+      collection_decks: {
+        Row: {
+          collection_id: string
+          created_at: string
+          deck_id: string
+          id: string
+          position: number
+          user_id: string
+        }
+        Insert: {
+          collection_id: string
+          created_at?: string
+          deck_id: string
+          id?: string
+          position?: number
+          user_id: string
+        }
+        Update: {
+          collection_id?: string
+          created_at?: string
+          deck_id?: string
+          id?: string
+          position?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "collection_decks_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "collections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "collection_decks_deck_id_fkey"
+            columns: ["deck_id"]
+            isOneToOne: false
+            referencedRelation: "decks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      collections: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       decks: {
         Row: {
           created_at: string
