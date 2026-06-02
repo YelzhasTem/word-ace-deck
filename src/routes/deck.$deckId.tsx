@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
-  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart,
+  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart, Repeat,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 
@@ -163,6 +163,7 @@ function DeckPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 { to: "/review/$deckId", icon: CalendarClock, title: "Ежедневный повтор", desc: "SRS-очередь: только слова, которые пора повторить." },
+                { to: "/reverse/$deckId", icon: Repeat, title: "Reverse Cards", desc: "Случайное направление EN↔RU для активного припоминания." },
                 { to: "/feedback/$deckId", icon: LineChart, title: "AI-разбор", desc: "Анализ сессии, слабые слова, план на завтра." },
                 { to: "/type/$deckId", icon: Keyboard, title: "Ввод перевода", desc: "Активное припоминание, нечёткое сравнение." },
                 { to: "/builder/$deckId", icon: Shuffle, title: "Word builder", desc: "Соберите слово из букв. 3 уровня сложности." },
