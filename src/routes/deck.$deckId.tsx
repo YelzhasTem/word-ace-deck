@@ -61,6 +61,16 @@ function DeckPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string>("");
   const [aiSeed, setAiSeed] = useState(0);
+  const [recallEnabled, setRecallEnabled] = useDelayedRecallEnabled();
+  const recallSummary = useDeckRecallSummary(deckId);
+
+  const toggleRecall = (on: boolean) => {
+    setRecallEnabled(on);
+    // When turning ON, backfill schedule for any existing cards.
+    if (on && deck) {
+      for (const c of deck.cards) scheduleNewCard(deck.id, c.id);
+    }
+  };
 
   const runGenerate = async (nextSeed: number) => {
     if (!deck || deck.cards.length === 0) return;
