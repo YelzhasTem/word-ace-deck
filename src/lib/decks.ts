@@ -183,9 +183,6 @@ export function useDecks() {
   };
 }
 
-// Holder for the last created deck id (best-effort, for callers that need it).
-export const createDeckLastId: { current: string | null } = { current: null };
-
 export function useDeck(id: string) {
   const { decks, ...rest } = useDecks();
   return { deck: decks.find((d) => d.id === id), ...rest };
