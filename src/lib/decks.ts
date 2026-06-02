@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
@@ -63,15 +68,10 @@ function mapDecks(decks: DbDeck[], cards: DbCard[]): Deck[] {
   }));
 }
 
-function emitChange() {
-  if (typeof window !== "undefined") {
-    window.dispatchEvent(new Event("decks:changed"));
-  }
-}
+const DECKS_KEY = ["my-decks"] as const;
 
 export function useDecks() {
-  const [decks, setDecks] = useState<Deck[]>([]);
-  const decksRef = useRef<Deck[]>([]);
+  const queryClient = useQueryClient();
   const fetchMyDecks = useServerFn(getMyDecks);
   const createDeckFn = useServerFn(createDeckRecord);
   const createDeckWithCardsFn = useServerFn(createDeckWithCardsRecord);
@@ -81,108 +81,128 @@ export function useDecks() {
   const markCardFn = useServerFn(markCardRecord);
   const resetDeckProgressFn = useServerFn(resetDeckProgressRecord);
 
-  const reload = useCallback(async () => {
-    try {
+  const query = useQuery({
+    queryKey: DECKS_KEY,
+    queryFn: async () => {
       const result = await fetchMyDecks();
-      const next = mapDecks(result.decks as DbDeck[], result.cards as DbCard[]);
-      decksRef.current = next;
-      setDecks(next);
-    } catch (error) {
-      decksRef.current = [];
-      setDecks([]);
-      if (error instanceof Error && !error.message.includes("Unauthorized")) {
-        toast.error(`Не удалось загрузить колоды: ${error.message}`);
-      }
-    }
-  }, [fetchMyDecks]);
+      return mapDecks(result.decks as DbDeck[], result.cards as DbCard[]);
+    },
+    staleTime: 30_000,
+    gcTime: 5 * 60_000,
+    retry: (failureCount, error) => {
+      if (error instanceof Error && error.message.includes("Unauthorized")) return false;
+      return failureCount < 1;
+    },
+  });
 
+  // Invalidate on real auth state changes (skip INITIAL_SESSION noise).
   useEffect(() => {
-    reload();
-    const handler = () => reload();
-    window.addEventListener("decks:changed", handler);
-    const { data: sub } = supabase.auth.onAuthStateChange(() => reload());
-    return () => {
-      window.removeEventListener("decks:changed", handler);
-      sub.subscription.unsubscribe();
-    };
-  }, [reload]);
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        queryClient.invalidateQueries({ queryKey: DECKS_KEY });
+      }
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [queryClient]);
+
+  const decks = query.data ?? [];
+
+  const invalidate = useCallback(
+    () => queryClient.invalidateQueries({ queryKey: DECKS_KEY }),
+    [queryClient],
+  );
 
   const notAuth = () =>
     toast.error("Войдите в аккаунт, чтобы создавать колоды и карточки");
 
+  const onError = (msg: string) => (error: unknown) => {
+    if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
+    toast.error(`${msg}: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+  };
+
+  const createDeckMut = useMutation({
+    mutationFn: (vars: { name: string; description: string }) =>
+      createDeckFn({ data: vars }),
+    onSuccess: () => {
+      toast.success("Колода создана");
+      invalidate();
+    },
+    onError: onError("Не удалось создать колоду"),
+  });
+
+  const createDeckWithCardsMut = useMutation({
+    mutationFn: (vars: {
+      name: string;
+      description: string;
+      cards: { term: string; definition: string }[];
+    }) => createDeckWithCardsFn({ data: vars }),
+    onSuccess: (data) => {
+      data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
+      toast.success("Колода создана");
+      invalidate();
+    },
+    onError: onError("Не удалось создать колоду"),
+  });
+
+  const deleteDeckMut = useMutation({
+    mutationFn: (id: string) => deleteDeckFn({ data: { id } }),
+    onSuccess: invalidate,
+    onError: onError("Не удалось удалить"),
+  });
+
+  const addCardMut = useMutation({
+    mutationFn: (vars: { deckId: string; term: string; definition: string; position: number }) =>
+      addCardFn({ data: vars }),
+    onSuccess: (data, vars) => {
+      if (data?.id) scheduleNewCard(vars.deckId, data.id);
+      invalidate();
+    },
+    onError: onError("Не удалось добавить карточку"),
+  });
+
+  const deleteCardMut = useMutation({
+    mutationFn: (cardId: string) => deleteCardFn({ data: { id: cardId } }),
+    onSuccess: invalidate,
+    onError: onError("Не удалось удалить карточку"),
+  });
+
+  const markCardMut = useMutation({
+    mutationFn: (vars: { cardId: string; known: boolean }) =>
+      markCardFn({ data: { id: vars.cardId, known: vars.known } }),
+    // Optimistic update so the UI flips immediately without a refetch round-trip.
+    onMutate: async ({ cardId, known }) => {
+      await queryClient.cancelQueries({ queryKey: DECKS_KEY });
+      const prev = queryClient.getQueryData<Deck[]>(DECKS_KEY);
+      if (prev) {
+        queryClient.setQueryData<Deck[]>(
+          DECKS_KEY,
+          prev.map((d) => ({
+            ...d,
+            cards: d.cards.map((c) => (c.id === cardId ? { ...c, known } : c)),
+          })),
+        );
+      }
+      return { prev };
+    },
+    onError: (error, _vars, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(DECKS_KEY, ctx.prev);
+      onError("Не удалось сохранить прогресс")(error);
+    },
+  });
+
+  const resetProgressMut = useMutation({
+    mutationFn: (deckId: string) => resetDeckProgressFn({ data: { deckId } }),
+    onSuccess: invalidate,
+    onError: onError("Не удалось сбросить"),
+  });
+
   return {
     decks,
+    isLoading: query.isLoading,
     createDeck: (name: string, description: string) => {
       const tempId = crypto.randomUUID();
-      (async () => {
-        try {
-          await createDeckFn({ data: { name, description } });
-          toast.success("Колода создана");
-          emitChange();
-        } catch (error) {
-          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
-          toast.error(`Не удалось создать колоду: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
-        }
-      })();
+      createDeckMut.mutate({ name, description });
       return tempId;
-    },
-    deleteDeck: (id: string) => {
-      (async () => {
-        try {
-          await deleteDeckFn({ data: { id } });
-          emitChange();
-        } catch (error) {
-          toast.error(`Не удалось удалить: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
-        }
-      })();
-    },
-    addCard: (deckId: string, term: string, definition: string) => {
-      (async () => {
-        const deck = decksRef.current.find((d) => d.id === deckId);
-        const position = deck ? deck.cards.length : 0;
-        try {
-          const data = await addCardFn({ data: { deckId, term, definition, position } });
-          if (data?.id) scheduleNewCard(deckId, data.id);
-          emitChange();
-        } catch (error) {
-          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
-          toast.error(`Не удалось добавить карточку: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
-        }
-      })();
-    },
-    deleteCard: (_deckId: string, cardId: string) => {
-      (async () => {
-        try {
-          await deleteCardFn({ data: { id: cardId } });
-          emitChange();
-        } catch (error) {
-          toast.error(`Не удалось удалить карточку: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
-        }
-      })();
-    },
-    markCard: (_deckId: string, cardId: string, known: boolean) => {
-      decksRef.current = decksRef.current.map((d) => ({
-        ...d,
-        cards: d.cards.map((c) => (c.id === cardId ? { ...c, known } : c)),
-      }));
-      setDecks(decksRef.current);
-      (async () => {
-        try {
-          await markCardFn({ data: { id: cardId, known } });
-        } catch (error) {
-          toast.error(`Не удалось сохранить прогресс: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
-        }
-      })();
-    },
-    resetProgress: (deckId: string) => {
-      (async () => {
-        try {
-          await resetDeckProgressFn({ data: { deckId } });
-          emitChange();
-        } catch (error) {
-          toast.error(`Не удалось сбросить: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
-        }
-      })();
     },
     createDeckWithCards: (
       name: string,
@@ -190,23 +210,24 @@ export function useDecks() {
       cards: { term: string; definition: string }[],
     ) => {
       const tempId = crypto.randomUUID();
-      (async () => {
-        try {
-          const data = await createDeckWithCardsFn({ data: { name, description, cards } });
-          data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
-          toast.success("Колода создана");
-          emitChange();
-        } catch (error) {
-          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
-          toast.error(`Не удалось создать колоду: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
-        }
-      })();
+      createDeckWithCardsMut.mutate({ name, description, cards });
       return tempId;
     },
+    deleteDeck: (id: string) => deleteDeckMut.mutate(id),
+    addCard: (deckId: string, term: string, definition: string) => {
+      const deck = decks.find((d) => d.id === deckId);
+      const position = deck ? deck.cards.length : 0;
+      addCardMut.mutate({ deckId, term, definition, position });
+    },
+    deleteCard: (_deckId: string, cardId: string) => deleteCardMut.mutate(cardId),
+    markCard: (_deckId: string, cardId: string, known: boolean) =>
+      markCardMut.mutate({ cardId, known }),
+    resetProgress: (deckId: string) => resetProgressMut.mutate(deckId),
   };
 }
 
 export function useDeck(id: string) {
   const { decks, ...rest } = useDecks();
-  return { deck: decks.find((d) => d.id === id), ...rest };
+  const deck = useMemo(() => decks.find((d) => d.id === id), [decks, id]);
+  return { deck, ...rest };
 }
