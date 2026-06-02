@@ -154,8 +154,6 @@ function DeckPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 { to: "/review/$deckId", icon: CalendarClock, title: "Ежедневный повтор", desc: "SRS-очередь: только слова, которые пора повторить." },
-                
-                { to: "/feedback/$deckId", icon: LineChart, title: "AI-разбор", desc: "Анализ сессии, слабые слова, план на завтра." },
                 { to: "/type/$deckId", icon: Keyboard, title: "Ввод перевода", desc: "Активное припоминание, нечёткое сравнение." },
                 { to: "/builder/$deckId", icon: Shuffle, title: "Word builder", desc: "Соберите слово из букв. 3 уровня сложности." },
                 { to: "/blank/$deckId", icon: FileQuestion, title: "Fill-in-the-blank", desc: "Слово в контексте: выбор, банк или ввод." },
@@ -177,6 +175,28 @@ function DeckPage() {
                   </button>
                 );
               })}
+            </div>
+          </section>
+        )}
+
+        {/* AI Analysis */}
+        {deck.cards.length > 0 && (
+          <section className="mb-8 rounded-3xl border border-border bg-card p-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="font-display text-xl flex items-center gap-2">
+                  <LineChart className="h-5 w-5 text-accent" /> AI-разбор
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground max-w-md">
+                  Анализ сессии, слабые слова, план на завтра — всё на основе вашей статистики.
+                </p>
+              </div>
+              <Button
+                className="rounded-full shrink-0"
+                onClick={() => navigate({ to: "/feedback/$deckId", params: { deckId: deck.id } })}
+              >
+                <Sparkles className="h-4 w-4" /> Открыть разбор
+              </Button>
             </div>
           </section>
         )}
