@@ -66,8 +66,9 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
       .single();
     if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
 
+    let cardIds: string[] = [];
     if (data.cards.length > 0) {
-      const { error: cardsErr } = await supabase.from("cards").insert(
+      const { data: insertedCards, error: cardsErr } = await supabase.from("cards").insert(
         data.cards.map((card, position) => ({
           deck_id: deck.id,
           user_id: userId,
@@ -75,11 +76,12 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
           definition: card.definition,
           position,
         })),
-      );
+      ).select("id");
       if (cardsErr) throw new Error(`Колода создана, но карточки не сохранились: ${cardsErr.message}`);
+      cardIds = insertedCards?.map((card) => card.id) ?? [];
     }
 
-    return { id: deck.id };
+    return { id: deck.id, cardIds };
   });
 
 export const addCardRecord = createServerFn({ method: "POST" })
