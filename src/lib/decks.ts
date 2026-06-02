@@ -1,7 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
+import {
+  addCardRecord,
+  createDeckRecord,
+  createDeckWithCardsRecord,
+  deleteCardRecord,
+  deleteDeckRecord,
+  getMyDecks,
+  markCardRecord,
+  resetDeckProgressRecord,
+} from "@/lib/decks.functions";
 
 export type Card = {
   id: string;
@@ -35,30 +46,15 @@ type DbCard = {
   created_at: string;
 };
 
-async function fetchDecks(): Promise<Deck[]> {
-  const { data: userData } = await supabase.auth.getUser();
-  if (!userData.user) return [];
-
-  const { data: decks, error: decksErr } = await supabase
-    .from("decks")
-    .select("id, name, description, created_at")
-    .order("created_at", { ascending: false });
-  if (decksErr || !decks) return [];
-
-  const { data: cards, error: cardsErr } = await supabase
-    .from("cards")
-    .select("id, deck_id, term, definition, known, position, created_at")
-    .order("position", { ascending: true });
-  if (cardsErr) return [];
-
+function mapDecks(decks: DbDeck[], cards: DbCard[]): Deck[] {
   const cardsByDeck = new Map<string, Card[]>();
-  (cards as DbCard[] | null)?.forEach((c) => {
+  cards.forEach((c) => {
     const arr = cardsByDeck.get(c.deck_id) ?? [];
     arr.push({ id: c.id, term: c.term, definition: c.definition, known: c.known });
     cardsByDeck.set(c.deck_id, arr);
   });
 
-  return (decks as DbDeck[]).map((d) => ({
+  return decks.map((d) => ({
     id: d.id,
     name: d.name,
     description: d.description ?? "",
