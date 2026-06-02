@@ -72,12 +72,29 @@ function emitChange() {
 export function useDecks() {
   const [decks, setDecks] = useState<Deck[]>([]);
   const decksRef = useRef<Deck[]>([]);
+  const fetchMyDecks = useServerFn(getMyDecks);
+  const createDeckFn = useServerFn(createDeckRecord);
+  const createDeckWithCardsFn = useServerFn(createDeckWithCardsRecord);
+  const addCardFn = useServerFn(addCardRecord);
+  const deleteDeckFn = useServerFn(deleteDeckRecord);
+  const deleteCardFn = useServerFn(deleteCardRecord);
+  const markCardFn = useServerFn(markCardRecord);
+  const resetDeckProgressFn = useServerFn(resetDeckProgressRecord);
 
   const reload = useCallback(async () => {
-    const next = await fetchDecks();
-    decksRef.current = next;
-    setDecks(next);
-  }, []);
+    try {
+      const result = await fetchMyDecks();
+      const next = mapDecks(result.decks as DbDeck[], result.cards as DbCard[]);
+      decksRef.current = next;
+      setDecks(next);
+    } catch (error) {
+      decksRef.current = [];
+      setDecks([]);
+      if (error instanceof Error && !error.message.includes("Unauthorized")) {
+        toast.error(`Не удалось загрузить колоды: ${error.message}`);
+      }
+    }
+  }, [fetchMyDecks]);
 
   useEffect(() => {
     reload();
@@ -90,11 +107,6 @@ export function useDecks() {
     };
   }, [reload]);
 
-  const requireUser = async () => {
-    const { data } = await supabase.auth.getUser();
-    return data.user?.id ?? null;
-  };
-
   const notAuth = () =>
     toast.error("Войдите в аккаунт, чтобы создавать колоды и карточки");
 
@@ -103,35 +115,39 @@ export function useDecks() {
     createDeck: (name: string, description: string) => {
       const tempId = crypto.randomUUID();
       (async () => {
-        const userId = await requireUser();
-        if (!userId) return notAuth();
-        const { error } = await supabase.from("decks").insert({ user_id: userId, name, description });
-        if (error) { toast.error(`Не удалось создать колоду: ${error.message}`); return; }
-        emitChange();
+        try {
+          await createDeckFn({ data: { name, description } });
+          toast.success("Колода создана");
+          emitChange();
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
+          toast.error(`Не удалось создать колоду: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
       return tempId;
     },
     deleteDeck: (id: string) => {
       (async () => {
-        const { error } = await supabase.from("decks").delete().eq("id", id);
-        if (error) { toast.error(`Не удалось удалить: ${error.message}`); return; }
-        emitChange();
+        try {
+          await deleteDeckFn({ data: { id } });
+          emitChange();
+        } catch (error) {
+          toast.error(`Не удалось удалить: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
     },
     addCard: (deckId: string, term: string, definition: string) => {
       (async () => {
-        const userId = await requireUser();
-        if (!userId) return notAuth();
         const deck = decksRef.current.find((d) => d.id === deckId);
         const position = deck ? deck.cards.length : 0;
-        const { data, error } = await supabase
-          .from("cards")
-          .insert({ deck_id: deckId, user_id: userId, term, definition, position })
-          .select("id")
-          .single();
-        if (error) { toast.error(`Не удалось добавить карточку: ${error.message}`); return; }
-        if (data?.id) scheduleNewCard(deckId, data.id);
-        emitChange();
+        try {
+          const data = await addCardFn({ data: { deckId, term, definition, position } });
+          if (data?.id) scheduleNewCard(deckId, data.id);
+          emitChange();
+        } catch (error) {
+          if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
+          toast.error(`Не удалось добавить карточку: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+        }
       })();
     },
     deleteCard: (_deckId: string, cardId: string) => {
