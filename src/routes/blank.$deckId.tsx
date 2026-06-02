@@ -186,13 +186,21 @@ function BlankPage() {
             )}
 
             {verdict === "ok" && (
-              <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm mb-4 flex items-center gap-2">
-                <Check className="h-4 w-4" /> Верно — <span className="font-semibold">{current!.term}</span>. {explanation}
+              <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-5 py-4 mb-4 flex items-start gap-3">
+                <Check className="h-6 w-6 mt-0.5 shrink-0" />
+                <div className="text-sm leading-relaxed">
+                  <p className="font-semibold">Верно — {current!.term}</p>
+                  <p className="mt-1 opacity-90">{explanation}</p>
+                </div>
               </div>
             )}
             {verdict === "miss" && (
-              <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm mb-4 flex items-center gap-2">
-                <X className="h-4 w-4" /> Правильный ответ: <span className="font-semibold">{current!.term}</span>. {explanation}
+              <div className="rounded-2xl bg-destructive/10 text-destructive px-5 py-4 mb-4 flex items-start gap-3">
+                <X className="h-6 w-6 mt-0.5 shrink-0" />
+                <div className="text-sm leading-relaxed">
+                  <p className="font-semibold">Правильный ответ: {current!.term}</p>
+                  <p className="mt-1 opacity-90">{explanation}</p>
+                </div>
               </div>
             )}
 
