@@ -132,6 +132,16 @@ function StudyPage() {
               variant="ghost"
               size="sm"
               className="rounded-full"
+              asChild
+            >
+              <Link to="/reverse/$deckId" params={{ deckId: deck.id }}>
+                <Repeat className="h-4 w-4" /> Обратные карточки
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
               onClick={() => {
                 resetProgress(deck.id);
                 setIdx(0);
