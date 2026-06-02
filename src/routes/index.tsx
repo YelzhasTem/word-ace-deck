@@ -23,7 +23,7 @@ import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2 } from "luci
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Лингвокарточки — учим английские слова" },
+      { title: "Memora — учим английские слова" },
       { name: "description", content: "Создавайте свои колоды и учите английские слова по карточкам." },
     ],
   }),
