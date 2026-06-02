@@ -104,14 +104,7 @@ export function useDecks() {
       (async () => {
         const userId = await requireUser();
         if (!userId) return;
-        const { data, error } = await supabase
-          .from("decks")
-          .insert({ user_id: userId, name, description })
-          .select("id")
-          .single();
-        if (!error && data) {
-          (createDeckLastId as { current: string | null }).current = data.id;
-        }
+        await supabase.from("decks").insert({ user_id: userId, name, description });
         emitChange();
       })();
       return tempId;
