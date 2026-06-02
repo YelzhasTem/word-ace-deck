@@ -18,11 +18,8 @@ type Item = { cardId: string; dir: Dir };
 const REV_SUFFIX = ":rev";
 const statKey = (cardId: string, dir: Dir) => (dir === "fwd" ? cardId : cardId + REV_SUFFIX);
 
-function pickDir(cardId: string, allowReverse: boolean): Dir {
-  if (!allowReverse) return "fwd";
-  const stats = getDeckStats(""); // we'll re-read below; placeholder
-  return Math.random() < 0.5 ? "fwd" : "rev";
-}
+
+
 
 function ReversePage() {
   const { deckId } = Route.useParams();
