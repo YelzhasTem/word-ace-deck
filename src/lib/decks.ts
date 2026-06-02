@@ -99,59 +99,67 @@ export function useDecks() {
     return data.user?.id ?? null;
   };
 
+  const notAuth = () =>
+    toast.error("Войдите в аккаунт, чтобы создавать колоды и карточки");
+
   return {
     decks,
     createDeck: (name: string, description: string) => {
       const tempId = crypto.randomUUID();
       (async () => {
         const userId = await requireUser();
-        if (!userId) return;
-        await supabase.from("decks").insert({ user_id: userId, name, description });
+        if (!userId) return notAuth();
+        const { error } = await supabase.from("decks").insert({ user_id: userId, name, description });
+        if (error) { toast.error(`Не удалось создать колоду: ${error.message}`); return; }
         emitChange();
       })();
       return tempId;
     },
     deleteDeck: (id: string) => {
       (async () => {
-        await supabase.from("decks").delete().eq("id", id);
+        const { error } = await supabase.from("decks").delete().eq("id", id);
+        if (error) { toast.error(`Не удалось удалить: ${error.message}`); return; }
         emitChange();
       })();
     },
     addCard: (deckId: string, term: string, definition: string) => {
       (async () => {
         const userId = await requireUser();
-        if (!userId) return;
+        if (!userId) return notAuth();
         const deck = decksRef.current.find((d) => d.id === deckId);
         const position = deck ? deck.cards.length : 0;
-        const { data } = await supabase
+        const { data, error } = await supabase
           .from("cards")
           .insert({ deck_id: deckId, user_id: userId, term, definition, position })
           .select("id")
           .single();
+        if (error) { toast.error(`Не удалось добавить карточку: ${error.message}`); return; }
         if (data?.id) scheduleNewCard(deckId, data.id);
         emitChange();
       })();
     },
     deleteCard: (_deckId: string, cardId: string) => {
       (async () => {
-        await supabase.from("cards").delete().eq("id", cardId);
+        const { error } = await supabase.from("cards").delete().eq("id", cardId);
+        if (error) { toast.error(`Не удалось удалить карточку: ${error.message}`); return; }
         emitChange();
       })();
     },
     markCard: (_deckId: string, cardId: string, known: boolean) => {
-      // Optimistic local update for snappy UI
       decksRef.current = decksRef.current.map((d) => ({
         ...d,
         cards: d.cards.map((c) => (c.id === cardId ? { ...c, known } : c)),
       }));
       setDecks(decksRef.current);
       (async () => {
-        await supabase.from("cards").update({ known }).eq("id", cardId);
+        const { error } = await supabase.from("cards").update({ known }).eq("id", cardId);
+        if (error) toast.error(`Не удалось сохранить прогресс: ${error.message}`);
       })();
     },
     resetProgress: (deckId: string) => {
       (async () => {
-        await supabase.from("cards").update({ known: false }).eq("deck_id", deckId);
+        const { error } = await supabase.from("cards").update({ known: false }).eq("deck_id", deckId);
+        if (error) { toast.error(`Не удалось сбросить: ${error.message}`); return; }
         emitChange();
       })();
     },
@@ -163,15 +171,18 @@ export function useDecks() {
       const tempId = crypto.randomUUID();
       (async () => {
         const userId = await requireUser();
-        if (!userId) return;
+        if (!userId) return notAuth();
         const { data, error } = await supabase
           .from("decks")
           .insert({ user_id: userId, name, description })
           .select("id")
           .single();
-        if (error || !data) return;
+        if (error || !data) {
+          toast.error(`Не удалось создать колоду: ${error?.message ?? "неизвестная ошибка"}`);
+          return;
+        }
         if (cards.length > 0) {
-          await supabase.from("cards").insert(
+          const { error: cardsErr } = await supabase.from("cards").insert(
             cards.map((c, i) => ({
               deck_id: data.id,
               user_id: userId,
@@ -180,7 +191,11 @@ export function useDecks() {
               position: i,
             })),
           );
+          if (cardsErr) {
+            toast.error(`Колода создана, но карточки не сохранились: ${cardsErr.message}`);
+          }
         }
+        toast.success("Колода создана");
         emitChange();
       })();
       return tempId;
