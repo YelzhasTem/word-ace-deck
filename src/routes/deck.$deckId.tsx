@@ -136,15 +136,6 @@ function DeckPage() {
               <RotateCcw className="h-4 w-4" /> Сбросить
             </Button>
             <Button
-              variant="outline"
-              className="rounded-full"
-              onClick={() => navigate({ to: "/deep/$deckId", params: { deckId: deck.id } })}
-              disabled={deck.cards.length < 4}
-              title={deck.cards.length < 4 ? "Нужно минимум 4 карточки" : undefined}
-            >
-              <Brain className="h-4 w-4" /> Deep learning
-            </Button>
-            <Button
               className="rounded-full"
               onClick={() => navigate({ to: "/study/$deckId", params: { deckId: deck.id } })}
               disabled={!deck.cards.length}
