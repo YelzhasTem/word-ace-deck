@@ -42,6 +42,8 @@ function plural(n: number, forms: [string, string, string]) {
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
   const [open, setOpen] = useState(false);
+  const [deleteDeckId, setDeleteDeckId] = useState<string | null>(null);
+  const deckToDelete = decks.find((d) => d.id === deleteDeckId);
 
   // Manual creation state
   const [name, setName] = useState("");
