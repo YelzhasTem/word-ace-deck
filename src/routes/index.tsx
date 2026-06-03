@@ -532,9 +532,7 @@ function Home() {
                         Учить →
                       </Link>
                       <button
-                        onClick={() => {
-                          if (confirm(`Удалить колоду «${deck.name}»?`)) deleteDeck(deck.id);
-                        }}
+                        onClick={() => setDeleteDeckId(deck.id)}
                         className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
                         aria-label="Удалить колоду"
                       >
