@@ -91,7 +91,7 @@ function Landing() {
               <Moon className="h-4 w-4" />
             </button>
             <Button asChild className="rounded-full">
-              <Link to="/auth">Начать бесплатно</Link>
+              <Link to="/auth">Начать</Link>
             </Button>
           </div>
         </div>
@@ -116,7 +116,7 @@ function Landing() {
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="rounded-full px-7 h-13 text-base">
               <Link to="/auth">
-                Начать учить бесплатно <ArrowRight className="h-4 w-4" />
+                Начать учить <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="rounded-full px-7 h-13 text-base bg-card">
