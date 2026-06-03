@@ -1,6 +1,51 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
+const DEFAULT_COLLECTION_NAME = "Моя коллекция";
+
+async function ensureDefaultCollectionId(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<string | null> {
+  const { data: existing, error: findErr } = await supabase
+    .from("collections")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("name", DEFAULT_COLLECTION_NAME)
+    .limit(1)
+    .maybeSingle();
+  if (findErr) return null;
+  if (existing?.id) return existing.id;
+  const { data: created, error: createErr } = await supabase
+    .from("collections")
+    .insert({ user_id: userId, name: DEFAULT_COLLECTION_NAME, description: "" })
+    .select("id")
+    .single();
+  if (createErr || !created) return null;
+  return created.id;
+}
+
+async function addDeckToDefaultCollection(
+  supabase: SupabaseClient,
+  userId: string,
+  deckId: string,
+): Promise<void> {
+  const collectionId = await ensureDefaultCollectionId(supabase, userId);
+  if (!collectionId) return;
+  const { count } = await supabase
+    .from("collection_decks")
+    .select("id", { count: "exact", head: true })
+    .eq("collection_id", collectionId)
+    .eq("user_id", userId);
+  await supabase.from("collection_decks").insert({
+    collection_id: collectionId,
+    deck_id: deckId,
+    user_id: userId,
+    position: count ?? 0,
+  });
+}
 
 const CardInput = z.object({
   term: z.string().min(1).max(160),
