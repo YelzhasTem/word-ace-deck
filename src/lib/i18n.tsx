@@ -11,7 +11,7 @@ const dict = {
     "nav.login": "Войти",
     "nav.logout": "Выйти",
     "nav.theme": "Переключить тему",
-    "nav.search": "Найти колоду или слово…",
+    "nav.search": "найти колоду",
     "nav.lang": "Язык интерфейса",
 
     // home / hero
