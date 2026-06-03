@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
@@ -36,6 +37,8 @@ function CollectionsPage() {
 
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
+  const [deleteColId, setDeleteColId] = useState<string | null>(null);
+  const colToDelete = collections.find((c) => c.id === deleteColId);
 
   const openPicker = (collectionId: string, current: string[]) => {
     setPickerFor(collectionId);
@@ -132,7 +135,7 @@ function CollectionsPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => deleteCollection(c.id)}
+                      onClick={() => setDeleteColId(c.id)}
                       className="text-muted-foreground hover:text-destructive transition-colors"
                       aria-label="Удалить"
                     >
@@ -213,6 +216,36 @@ function CollectionsPage() {
                 Отмена
               </Button>
               <Button onClick={savePicker}>Сохранить</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={deleteColId !== null} onOpenChange={(o) => !o && setDeleteColId(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-display text-xl">Удалить коллекцию?</DialogTitle>
+              <DialogDescription>
+                {colToDelete ? (
+                  <>Коллекция «<strong>{colToDelete.name}</strong>» будет удалена. Колоды внутри неё останутся.</>
+                ) : (
+                  "Коллекция будет удалена. Колоды внутри неё останутся."
+                )}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setDeleteColId(null)}>
+                Отмена
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={() => {
+                  if (deleteColId) deleteCollection(deleteColId);
+                  setDeleteColId(null);
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Удалить
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
