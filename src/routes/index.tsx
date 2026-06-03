@@ -132,22 +132,22 @@ function Landing() {
       </section>
 
       {/* Key feature: long-term memory */}
-      <section id="why" className="mx-auto max-w-6xl px-6 py-20">
-        <div className="rounded-3xl border border-border bg-card p-8 md:p-14 grid md:grid-cols-[1.1fr_1fr] gap-10 items-center">
+      <section id="why" className="mx-auto max-w-6xl px-6 py-12">
+        <div className="rounded-3xl border border-border bg-card p-6 md:p-10 grid md:grid-cols-[1.1fr_1fr] gap-6 items-center">
           <div>
-            <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-primary mb-4">
+            <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-primary mb-3">
               <Brain className="h-3.5 w-3.5" /> Главная фишка
             </p>
-            <h2 className="font-display text-3xl md:text-4xl font-bold leading-tight tracking-tight">
+            <h2 className="font-display text-2xl md:text-3xl font-bold leading-tight tracking-tight">
               Слова переходят в долгосрочную память — не вылетают через день
             </h2>
-            <p className="mt-5 text-muted-foreground leading-relaxed">
+            <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
               Memora отслеживает, как хорошо вы знаете каждое слово, и сам выбирает, когда повторить:
               через 10 минут, день, неделю, месяц. Это
               <span className="text-foreground font-medium"> интервальные повторения</span> — проверенный
               метод запоминания.
             </p>
-            <ul className="mt-6 space-y-3 text-sm">
+            <ul className="mt-4 space-y-2 text-sm">
               {[
                 "Персональный график повторений для каждого слова",
                 "Сложные слова — чаще, лёгкие — реже",
@@ -161,7 +161,7 @@ function Landing() {
               ))}
             </ul>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-2.5">
             {[
               { label: "10 мин", sub: "Новое" },
               { label: "1 день", sub: "Учится" },
@@ -172,11 +172,11 @@ function Landing() {
             ].map((s, i) => (
               <div
                 key={s.label}
-                className="rounded-2xl border border-border bg-background p-5"
+                className="rounded-2xl border border-border bg-background p-4"
                 style={{ opacity: 0.55 + i * 0.075 }}
               >
-                <div className="text-2xl font-display font-bold text-primary">{s.label}</div>
-                <div className="text-xs text-muted-foreground mt-1 uppercase tracking-wider">{s.sub}</div>
+                <div className="text-xl font-display font-bold text-primary">{s.label}</div>
+                <div className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wider">{s.sub}</div>
               </div>
             ))}
           </div>
