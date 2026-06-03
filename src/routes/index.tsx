@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
-import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2 } from "lucide-react";
+import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
 
@@ -536,13 +536,22 @@ function Home() {
                     </Link>
 
                     <div className="mt-5 flex items-center justify-between">
-                      <Link
-                        to="/study/$deckId"
-                        params={{ deckId: deck.id }}
-                        className="text-sm font-semibold text-primary-foreground bg-primary px-4 py-2 rounded-full hover:bg-primary/90 transition-colors"
-                      >
-                        {t("home.study")} →
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          to="/study/$deckId"
+                          params={{ deckId: deck.id }}
+                          className="text-sm font-semibold text-primary-foreground bg-primary px-4 py-2 rounded-full hover:bg-primary/90 transition-colors"
+                        >
+                          {t("home.study")} →
+                        </Link>
+                        <Link
+                          to="/deck/$deckId"
+                          params={{ deckId: deck.id }}
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
+                        >
+                          <LayoutGrid className="h-3.5 w-3.5" /> {t("home.modes")}
+                        </Link>
+                      </div>
                       <button
                         onClick={() => setDeleteDeckId(deck.id)}
                         className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
