@@ -113,6 +113,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
+    await addDeckToDefaultCollection(supabase, userId, deck.id);
 
     let cardIds: string[] = [];
     if (data.cards.length > 0) {
