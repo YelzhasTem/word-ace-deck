@@ -37,6 +37,8 @@ function CollectionsPage() {
 
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
+  const [deleteColId, setDeleteColId] = useState<string | null>(null);
+  const colToDelete = collections.find((c) => c.id === deleteColId);
 
   const openPicker = (collectionId: string, current: string[]) => {
     setPickerFor(collectionId);
