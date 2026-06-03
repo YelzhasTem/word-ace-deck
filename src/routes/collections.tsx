@@ -31,6 +31,7 @@ function CollectionsPage() {
   const { collections, createCollection, deleteCollection, setCollectionDecks } =
     useCollections();
   const { decks } = useDecks();
+  const t = useT();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -75,37 +76,37 @@ function CollectionsPage() {
       <main className="mx-auto max-w-6xl px-6 py-10">
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Коллекции</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight">{t("col.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Группируйте свои колоды в тематические коллекции
+              {t("col.subtitle")}
             </p>
           </div>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Новая коллекция
+                {t("col.new")}
               </Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>Создать коллекцию</DialogTitle>
+                <DialogTitle>{t("col.create")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-3">
                 <Input
-                  placeholder="Название"
+                  placeholder={t("col.name")}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
                 <Textarea
-                  placeholder="Описание (необязательно)"
+                  placeholder={t("col.descPh")}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
               <DialogFooter>
                 <Button onClick={handleCreate} disabled={!name.trim()}>
-                  Создать
+                  {t("col.confirm")}
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -115,7 +116,7 @@ function CollectionsPage() {
         {collections.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border p-12 text-center">
             <FolderOpen className="h-10 w-10 mx-auto text-muted-foreground mb-3" />
-            <p className="text-muted-foreground">У вас пока нет коллекций</p>
+            <p className="text-muted-foreground">{t("col.empty")}</p>
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -138,14 +139,14 @@ function CollectionsPage() {
                     <button
                       onClick={() => setDeleteColId(c.id)}
                       className="text-muted-foreground hover:text-destructive transition-colors"
-                      aria-label="Удалить"
+                      aria-label={t("col.delete")}
                     >
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
 
                   <div className="text-xs text-muted-foreground">
-                    {collectionDecks.length} колод
+                    {collectionDecks.length} {t("col.decksCount")}
                   </div>
 
                   {collectionDecks.length > 0 && (
@@ -170,7 +171,7 @@ function CollectionsPage() {
                     className="mt-auto"
                     onClick={() => openPicker(c.id, c.deckIds)}
                   >
-                    Выбрать колоды
+                    {t("col.pickDecks")}
                   </Button>
                 </div>
               );
@@ -181,12 +182,12 @@ function CollectionsPage() {
         <Dialog open={pickerFor !== null} onOpenChange={(o) => !o && setPickerFor(null)}>
           <DialogContent className="max-h-[80vh] flex flex-col">
             <DialogHeader>
-              <DialogTitle>Выберите колоды</DialogTitle>
+              <DialogTitle>{t("col.pickerTitle")}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 overflow-y-auto space-y-1 py-2">
               {decks.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-6">
-                  Сначала создайте колоды
+                  {t("col.noDecks")}
                 </p>
               ) : (
                 decks.map((d) => {
@@ -203,7 +204,7 @@ function CollectionsPage() {
                       <div className="flex-1 min-w-0">
                         <div className="font-medium text-sm truncate">{d.name}</div>
                         <div className="text-xs text-muted-foreground">
-                          {d.cards.length} карточек
+                          {d.cards.length} {t("col.cards")}
                         </div>
                       </div>
                       {checked && <Check className="h-4 w-4 text-primary" />}
@@ -214,9 +215,9 @@ function CollectionsPage() {
             </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setPickerFor(null)}>
-                Отмена
+                {t("col.cancel")}
               </Button>
-              <Button onClick={savePicker}>Сохранить</Button>
+              <Button onClick={savePicker}>{t("col.save")}</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -224,18 +225,18 @@ function CollectionsPage() {
         <Dialog open={deleteColId !== null} onOpenChange={(o) => !o && setDeleteColId(null)}>
           <DialogContent className="max-w-md">
             <DialogHeader>
-              <DialogTitle className="font-display text-xl">Удалить коллекцию?</DialogTitle>
+              <DialogTitle className="font-display text-xl">{t("col.deleteTitle")}</DialogTitle>
               <DialogDescription>
                 {colToDelete ? (
-                  <>Коллекция «<strong>{colToDelete.name}</strong>» будет удалена. Колоды внутри неё останутся.</>
+                  <>«<strong>{colToDelete.name}</strong>» — {t("col.deleteDescGeneric")}</>
                 ) : (
-                  "Коллекция будет удалена. Колоды внутри неё останутся."
+                  t("col.deleteDescGeneric")
                 )}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setDeleteColId(null)}>
-                Отмена
+                {t("col.cancel")}
               </Button>
               <Button
                 variant="destructive"
@@ -245,7 +246,7 @@ function CollectionsPage() {
                 }}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Удалить
+                {t("col.delete")}
               </Button>
             </DialogFooter>
           </DialogContent>
