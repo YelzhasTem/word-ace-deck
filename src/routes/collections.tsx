@@ -135,7 +135,7 @@ function CollectionsPage() {
                       )}
                     </div>
                     <button
-                      onClick={() => deleteCollection(c.id)}
+                      onClick={() => setDeleteColId(c.id)}
                       className="text-muted-foreground hover:text-destructive transition-colors"
                       aria-label="Удалить"
                     >
