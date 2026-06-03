@@ -1,13 +1,16 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpenCheck, LogOut, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
+import { BookOpenCheck, Languages, LogOut, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
+import { useLang, useT } from "@/lib/i18n";
 
 export function SiteHeader() {
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const navigate = useNavigate();
+  const { lang, setLang } = useLang();
+  const t = useT();
 
   useEffect(() => {
     const saved = localStorage.getItem("theme") === "dark";
@@ -25,6 +28,8 @@ export function SiteHeader() {
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
   };
+
+  const toggleLang = () => setLang(lang === "ru" ? "en" : "ru");
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -48,7 +53,7 @@ export function SiteHeader() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="search"
-              placeholder="Найти колоду или слово…"
+              placeholder={t("nav.search")}
               className="w-full h-10 rounded-full bg-secondary/70 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:bg-card transition-all"
             />
           </div>
@@ -61,26 +66,35 @@ export function SiteHeader() {
             activeOptions={{ exact: true }}
             activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
           >
-            Колоды
+            {t("nav.decks")}
           </Link>
           <Link
             to="/collections"
             className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
             activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
           >
-            Коллекции
+            {t("nav.collections")}
           </Link>
           <Link
             to="/settings"
-            aria-label="Настройки"
+            aria-label={t("nav.settings")}
             className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
             activeProps={{ className: "h-9 w-9 inline-flex items-center justify-center rounded-full bg-secondary text-primary transition-colors" }}
           >
             <SettingsIcon className="h-4 w-4" />
           </Link>
           <button
+            onClick={toggleLang}
+            aria-label={t("nav.lang")}
+            title={t("nav.lang")}
+            className="h-9 px-2.5 inline-flex items-center gap-1.5 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+          >
+            <Languages className="h-4 w-4" />
+            <span className="text-xs font-semibold uppercase">{lang}</span>
+          </button>
+          <button
             onClick={toggleDark}
-            aria-label="Переключить тему"
+            aria-label={t("nav.theme")}
             className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
           >
             <Moon className="h-4 w-4" />
@@ -93,7 +107,7 @@ export function SiteHeader() {
               </span>
               <button
                 onClick={handleLogout}
-                aria-label="Выйти"
+                aria-label={t("nav.logout")}
                 className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
               >
                 <LogOut className="h-4 w-4" />
@@ -104,7 +118,7 @@ export function SiteHeader() {
               to="/auth"
               className="ml-2 px-4 py-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
             >
-              Войти
+              {t("nav.login")}
             </Link>
           )}
         </nav>
