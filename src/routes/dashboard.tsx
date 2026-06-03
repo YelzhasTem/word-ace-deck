@@ -506,14 +506,11 @@ function Home() {
                       params={{ deckId: deck.id }}
                       className="block"
                     >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="h-10 w-10 rounded-xl bg-accent/15 text-primary inline-flex items-center justify-center">
-                          <BookOpen className="h-5 w-5" />
-                        </div>
-                        {pct === 100 && total > 0 && (
+                      {pct === 100 && total > 0 && (
+                        <div className="mb-3 flex justify-end">
                           <span className="text-[10px] uppercase tracking-wider font-bold text-success">готово</span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                       <h3 className="font-display text-xl font-bold leading-tight tracking-tight">{deck.name}</h3>
                       {deck.description && (
                         <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{deck.description}</p>
