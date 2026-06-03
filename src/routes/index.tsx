@@ -490,8 +490,9 @@ function Home() {
               <p className="text-muted-foreground">{t("home.empty")}</p>
             </div>
           ) : (
+            <>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {decks.map((deck) => {
+              {visibleDecks.map((deck) => {
                 const known = deck.cards.filter((c) => c.known).length;
                 const total = deck.cards.length;
                 const pct = total ? Math.round((known / total) * 100) : 0;
@@ -554,6 +555,18 @@ function Home() {
                 );
               })}
             </div>
+            {hasMore && (
+              <div className="mt-8 flex justify-center">
+                <Link
+                  to="/collections"
+                  className="inline-flex items-center gap-2 rounded-full bg-secondary hover:bg-secondary/80 px-6 h-12 text-sm font-semibold transition-colors"
+                >
+                  {t("home.toCollections")} →
+                </Link>
+              </div>
+            )}
+            </>
+
           )}
         </section>
       </main>
