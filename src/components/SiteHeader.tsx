@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { BookOpenCheck, Languages, LogOut, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,8 +9,14 @@ export function SiteHeader() {
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { lang, setLang } = useLang();
   const t = useT();
+
+  const [searchValue, setSearchValue] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("search") || "";
+  });
 
   useEffect(() => {
     const saved = localStorage.getItem("theme") === "dark";
@@ -21,6 +27,20 @@ export function SiteHeader() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchValue(value);
+    if (location.pathname === "/dashboard") {
+      const url = new URL(window.location.href);
+      if (value.trim()) {
+        url.searchParams.set("search", value.trim());
+      } else {
+        url.searchParams.delete("search");
+      }
+      window.history.replaceState({}, "", url);
+    }
+  };
 
   const toggleDark = () => {
     const next = !dark;
@@ -54,6 +74,8 @@ export function SiteHeader() {
             <input
               type="search"
               placeholder={t("nav.search")}
+              value={searchValue}
+              onChange={handleSearchChange}
               className="w-full h-10 rounded-full bg-secondary/70 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:bg-card transition-all"
             />
           </div>
