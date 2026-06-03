@@ -79,34 +79,51 @@
   --ring: oklch(0.54 0.25 290);
 }
 
+/* Apple-inspired dark theme: museum-gallery near-black + Action Blue accent */
 .dark {
-  --background: oklch(0.18 0.01 270);
-  --foreground: oklch(0.98 0.005 270);
+  --radius: 0.6875rem; /* 11px — Apple md radius */
 
-  --card: oklch(0.22 0.015 270);
-  --card-foreground: oklch(0.98 0.005 270);
-  --popover: oklch(0.22 0.015 270);
-  --popover-foreground: oklch(0.98 0.005 270);
+  font-family: "SF Pro Text", "SF Pro Display", system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
 
-  --primary: oklch(0.6 0.25 290);
+  /* Surface-black canvas, on-dark body */
+  --background: oklch(0 0 0);                    /* #000000 */
+  --foreground: oklch(1 0 0);                    /* #ffffff */
+
+  /* surface-tile-1 #272729 */
+  --card: oklch(0.245 0.003 286);
+  --card-foreground: oklch(1 0 0);
+  --popover: oklch(0.245 0.003 286);
+  --popover-foreground: oklch(1 0 0);
+
+  /* primary-on-dark #2997ff */
+  --primary: oklch(0.7 0.16 250);
   --primary-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.26 0.015 270);
-  --secondary-foreground: oklch(0.98 0.005 270);
+  /* surface-tile-2 #2a2a2c */
+  --secondary: oklch(0.258 0.003 286);
+  --secondary-foreground: oklch(1 0 0);
 
-  --muted: oklch(0.26 0.015 270);
-  --muted-foreground: oklch(0.7 0.02 270);
+  /* surface-tile-3 #252527 */
+  --muted: oklch(0.238 0.003 286);
+  --muted-foreground: oklch(0.83 0 0);           /* body-muted #cccccc */
 
-  --accent: oklch(0.55 0.22 285);
+  --accent: oklch(0.7 0.16 250);
   --accent-foreground: oklch(1 0 0);
 
   --success: oklch(0.6 0.13 155);
   --warning: oklch(0.78 0.16 70);
   --destructive: oklch(0.6 0.22 27);
 
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 14%);
-  --ring: oklch(0.6 0.25 290);
+  /* hairline #e0e0e0 at low opacity for Apple-thin dividers */
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 12%);
+  --ring: oklch(0.7 0.16 250);
+}
+
+.dark h1, .dark h2, .dark h3, .dark h4, .dark .font-display {
+  font-family: "SF Pro Display", system-ui, -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  font-weight: 600;
+  letter-spacing: -0.015em;
 }
 
 @layer base {
