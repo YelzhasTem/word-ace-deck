@@ -8,6 +8,7 @@ import { useLang, useT } from "@/lib/i18n";
 export function SiteHeader() {
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const { lang, setLang } = useLang();
   const t = useT();
