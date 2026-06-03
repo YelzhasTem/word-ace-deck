@@ -123,6 +123,7 @@ const dict = {
     "home.empty": "No decks yet. Create your first above.",
     "home.study": "Study",
     "home.deleteDeck": "Delete deck",
+    "home.toCollections": "Go to collections",
     "home.deleteDeckTitle": "Delete this deck?",
     "home.deleteDeckDescGeneric": "The deck and all its cards will be permanently removed.",
     "home.cards.suffix": "cards",
