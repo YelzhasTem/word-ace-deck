@@ -11,6 +11,7 @@ import {
   TrendingUp,
   ArrowRight,
   Check,
+  Moon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
