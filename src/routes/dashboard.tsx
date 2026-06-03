@@ -486,13 +486,19 @@ function Home() {
           <div className="flex items-baseline justify-between mb-6">
             <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">{t("home.yourDecks")}</h2>
             <span className="text-sm text-muted-foreground">
-              {decks.length} {t("home.decks.suffix")}
+              {query
+                ? `${t("home.searchFound")}: ${filteredDecks.length}`
+                : `${decks.length} ${t("home.decks.suffix")}`}
             </span>
           </div>
 
           {decks.length === 0 ? (
             <div className="rounded-3xl border-2 border-dashed border-border bg-card/50 p-16 text-center">
               <p className="text-muted-foreground">{t("home.empty")}</p>
+            </div>
+          ) : query && filteredDecks.length === 0 ? (
+            <div className="rounded-3xl border-2 border-dashed border-border bg-card/50 p-16 text-center">
+              <p className="text-muted-foreground">{t("home.searchNothing")}</p>
             </div>
           ) : (
             <>
