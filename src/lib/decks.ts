@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import {
   useMutation,
@@ -81,8 +81,19 @@ export function useDecks() {
   const markCardFn = useServerFn(markCardRecord);
   const resetDeckProgressFn = useServerFn(resetDeckProgressRecord);
 
+  // Only fetch when authenticated to avoid "Unauthorized" 401s during SSR / after sign-out.
+  const [hasSession, setHasSession] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setHasSession(!!session);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   const query = useQuery({
     queryKey: DECKS_KEY,
+    enabled: hasSession,
     queryFn: async () => {
       const result = await fetchMyDecks();
       return mapDecks(result.decks as DbDeck[], result.cards as DbCard[]);
