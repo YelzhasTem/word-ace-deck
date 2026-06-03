@@ -123,16 +123,12 @@
   body {
     background-color: var(--color-background);
     color: var(--color-foreground);
-    background-image:
-      radial-gradient(at 0% 0%, color-mix(in oklab, var(--accent) 10%, transparent) 0px, transparent 50%),
-      radial-gradient(at 100% 100%, color-mix(in oklab, var(--primary) 8%, transparent) 0px, transparent 55%);
-    background-attachment: fixed;
   }
 
   h1, h2, h3, h4, .font-display {
     font-family: var(--font-display);
+    font-weight: 700;
     letter-spacing: -0.02em;
-    font-feature-settings: "ss01", "cv11";
   }
 
   ::selection {
