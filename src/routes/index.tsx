@@ -20,6 +20,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
 import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2 } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -41,6 +42,7 @@ function plural(n: number, forms: [string, string, string]) {
 
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [deleteDeckId, setDeleteDeckId] = useState<string | null>(null);
   const deckToDelete = decks.find((d) => d.id === deleteDeckId);
@@ -165,39 +167,38 @@ function Home() {
           <div className="animate-float-in">
             <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-accent mb-5">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-              Спокойное обучение
+              {t("home.kicker")}
             </p>
             <h1 className="font-display text-4xl md:text-6xl font-extrabold leading-[1.05] tracking-tight text-foreground">
-              Учите английский <br />
-              <span className="text-primary">фокусированно</span> и без шума.
+              {t("home.title.1")} <br />
+              <span className="text-primary">{t("home.title.2")}</span> {t("home.title.3")}
             </h1>
             <p className="mt-6 max-w-xl text-lg leading-relaxed text-muted-foreground">
-              Создавайте колоды, отслеживайте прогресс и тренируйте память —
-              интерфейс продуман для долгих, комфортных сессий.
+              {t("home.subtitle")}
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               <Dialog open={open} onOpenChange={setOpen}>
                 <DialogTrigger asChild>
                   <Button size="lg" className="rounded-full px-6 h-12 text-[15px] shadow-sm">
-                    <Plus className="h-4 w-4" /> Новая колода
+                    <Plus className="h-4 w-4" /> {t("home.newDeck")}
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-lg">
                   <DialogHeader>
-                    <DialogTitle className="font-display text-2xl">Создать колоду</DialogTitle>
+                    <DialogTitle className="font-display text-2xl">{t("create.title")}</DialogTitle>
                     <DialogDescription>
-                      Выберите способ создания: вручную или с помощью ИИ.
+                      {t("create.desc")}
                     </DialogDescription>
                   </DialogHeader>
                   <Tabs defaultValue="manual" className="mt-2">
                     <TabsList className="w-full grid grid-cols-3">
-                      <TabsTrigger value="manual">Вручную</TabsTrigger>
+                      <TabsTrigger value="manual">{t("create.tab.manual")}</TabsTrigger>
                       <TabsTrigger value="ai" className="gap-1.5">
-                        <Sparkles className="h-3.5 w-3.5" /> ИИ
+                        <Sparkles className="h-3.5 w-3.5" /> {t("create.tab.ai")}
                       </TabsTrigger>
                       <TabsTrigger value="url" className="gap-1.5">
-                        <Link2 className="h-3.5 w-3.5" /> По ссылке
+                        <Link2 className="h-3.5 w-3.5" /> {t("create.tab.url")}
                       </TabsTrigger>
                     </TabsList>
 
@@ -426,7 +427,7 @@ function Home() {
               {decks[0] && (
                 <Button asChild size="lg" variant="outline" className="rounded-full px-6 h-12 text-[15px] bg-card">
                   <Link to="/study/$deckId" params={{ deckId: decks[0].id }}>
-                    <BookOpen className="h-4 w-4" /> Продолжить
+                    <BookOpen className="h-4 w-4" /> {t("home.continue")}
                   </Link>
                 </Button>
               )}
@@ -434,9 +435,9 @@ function Home() {
 
             <div className="mt-10 grid grid-cols-3 gap-3 max-w-md">
               {[
-                { label: "Колод", value: decks.length },
-                { label: "Карточек", value: decks.reduce((s, d) => s + d.cards.length, 0) },
-                { label: "Выучено", value: decks.reduce((s, d) => s + d.cards.filter(c => c.known).length, 0) },
+                { label: t("home.stats.decks"), value: decks.length },
+                { label: t("home.stats.cards"), value: decks.reduce((s, d) => s + d.cards.length, 0) },
+                { label: t("home.stats.known"), value: decks.reduce((s, d) => s + d.cards.filter(c => c.known).length, 0) },
               ].map((s) => (
                 <div key={s.label} className="rounded-2xl bg-card border border-border/70 px-4 py-3 shadow-[var(--shadow-soft)]">
                   <p className="text-2xl font-display font-bold text-primary tabular-nums">{s.value}</p>
@@ -468,15 +469,15 @@ function Home() {
         {/* Decks */}
         <section>
           <div className="flex items-baseline justify-between mb-6">
-            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">Ваши колоды</h2>
+            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">{t("home.yourDecks")}</h2>
             <span className="text-sm text-muted-foreground">
-              {decks.length} {plural(decks.length, ["колода", "колоды", "колод"])}
+              {decks.length} {t("home.decks.suffix")}
             </span>
           </div>
 
           {decks.length === 0 ? (
             <div className="rounded-3xl border-2 border-dashed border-border bg-card/50 p-16 text-center">
-              <p className="text-muted-foreground">Пока нет колод. Создайте первую выше.</p>
+              <p className="text-muted-foreground">{t("home.empty")}</p>
             </div>
           ) : (
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -510,7 +511,7 @@ function Home() {
                       <div className="mt-6">
                         <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1.5">
                           <span>
-                            {total} {plural(total, ["карточка", "карточки", "карточек"])}
+                            {total} {t("home.cards.suffix")}
                           </span>
                           <span className="text-primary tabular-nums">{pct}%</span>
                         </div>
@@ -529,12 +530,12 @@ function Home() {
                         params={{ deckId: deck.id }}
                         className="text-sm font-semibold text-primary-foreground bg-primary px-4 py-2 rounded-full hover:bg-primary/90 transition-colors"
                       >
-                        Учить →
+                        {t("home.study")} →
                       </Link>
                       <button
                         onClick={() => setDeleteDeckId(deck.id)}
                         className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                        aria-label="Удалить колоду"
+                        aria-label={t("home.deleteDeck")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -550,18 +551,18 @@ function Home() {
       <Dialog open={deleteDeckId !== null} onOpenChange={(o) => !o && setDeleteDeckId(null)}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">Удалить колоду?</DialogTitle>
+            <DialogTitle className="font-display text-xl">{t("home.deleteDeckTitle")}</DialogTitle>
             <DialogDescription>
               {deckToDelete ? (
-                <>Колода «<strong>{deckToDelete.name}</strong>» и все её карточки будут удалены безвозвратно.</>
+                <>«<strong>{deckToDelete.name}</strong>» — {t("home.deleteDeckDescGeneric")}</>
               ) : (
-                "Колода и все её карточки будут удалены безвозвратно."
+                t("home.deleteDeckDescGeneric")
               )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="ghost" onClick={() => setDeleteDeckId(null)}>
-              Отмена
+              {t("create.cancel")}
             </Button>
             <Button
               variant="destructive"
@@ -571,14 +572,14 @@ function Home() {
               }}
             >
               <Trash2 className="h-4 w-4 mr-2" />
-              Удалить
+              {t("create.remove")}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-muted-foreground">
-        Спокойно. Сосредоточенно. В своём ритме.
+        {t("home.footer")}
       </footer>
     </div>
   );
