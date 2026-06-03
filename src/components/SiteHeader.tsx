@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpenCheck, Languages, LogOut, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
+import { BookOpenCheck, Languages, LogOut, Menu, Moon, Search, Settings as SettingsIcon, User, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
