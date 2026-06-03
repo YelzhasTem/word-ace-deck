@@ -72,16 +72,13 @@ function StudyPage() {
   const total = deck.cards.length;
   const knownCount = deck.cards.filter((c) => c.known).length;
 
-  const advance = () => {
-    setFlipped(false);
-    setTimeout(() => setIdx((i) => i + 1), 150);
-  };
-
   const handleKnown = () => {
     if (!current) return;
+    setFlipped(false);
     markCard(deck.id, current.id, true);
     recordStreakToday();
-    advance();
+    // Карточка автоматически уйдёт из очереди через queueSource,
+    // следующая встанет на текущий индекс — отдельный advance не нужен.
   };
 
   const handleAgain = () => {
