@@ -11,6 +11,7 @@ import {
   TrendingUp,
   ArrowRight,
   Check,
+  Moon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -36,6 +37,20 @@ export const Route = createFileRoute("/")({
 function Landing() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") === "dark";
+    setDark(saved);
+    document.documentElement.classList.toggle("dark", saved);
+  }, []);
+
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -68,6 +83,13 @@ function Landing() {
             <a href="#why" className="hover:text-foreground transition-colors">Почему Memora</a>
           </nav>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleDark}
+              aria-label="Переключить тему"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+            >
+              <Moon className="h-4 w-4" />
+            </button>
             <Button asChild variant="ghost" className="rounded-full">
               <Link to="/auth">Войти</Link>
             </Button>
