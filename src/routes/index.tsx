@@ -90,9 +90,6 @@ function Landing() {
             >
               <Moon className="h-4 w-4" />
             </button>
-            <Button asChild variant="ghost" className="rounded-full">
-              <Link to="/auth">Войти</Link>
-            </Button>
             <Button asChild className="rounded-full">
               <Link to="/auth">Начать бесплатно</Link>
             </Button>
