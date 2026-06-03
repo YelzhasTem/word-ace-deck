@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
-import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2 } from "lucide-react";
+import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
 
