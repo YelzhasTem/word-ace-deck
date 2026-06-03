@@ -43,6 +43,15 @@ function plural(n: number, forms: [string, string, string]) {
 
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
+  const lastStudied = useLastStudied();
+  const sortedDecks = [...decks].sort((a, b) => {
+    const la = lastStudied[a.id] ?? 0;
+    const lb = lastStudied[b.id] ?? 0;
+    if (lb !== la) return lb - la;
+    return b.createdAt - a.createdAt;
+  });
+  const visibleDecks = sortedDecks.slice(0, 6);
+  const hasMore = decks.length > 6;
   const t = useT();
   const [open, setOpen] = useState(false);
   const [deleteDeckId, setDeleteDeckId] = useState<string | null>(null);
