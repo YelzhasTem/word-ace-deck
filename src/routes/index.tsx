@@ -83,6 +83,13 @@ function Landing() {
             <a href="#why" className="hover:text-foreground transition-colors">Почему Memora</a>
           </nav>
           <div className="flex items-center gap-2">
+            <button
+              onClick={toggleDark}
+              aria-label="Переключить тему"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+            >
+              <Moon className="h-4 w-4" />
+            </button>
             <Button asChild variant="ghost" className="rounded-full">
               <Link to="/auth">Войти</Link>
             </Button>
