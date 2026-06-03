@@ -9,8 +9,14 @@ export function SiteHeader() {
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
   const { lang, setLang } = useLang();
   const t = useT();
+
+  const [searchValue, setSearchValue] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("search") || "";
+  });
 
   useEffect(() => {
     const saved = localStorage.getItem("theme") === "dark";
@@ -21,6 +27,20 @@ export function SiteHeader() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchValue(value);
+    if (location.pathname === "/dashboard") {
+      const url = new URL(window.location.href);
+      if (value.trim()) {
+        url.searchParams.set("search", value.trim());
+      } else {
+        url.searchParams.delete("search");
+      }
+      window.history.replaceState({}, "", url);
+    }
+  };
 
   const toggleDark = () => {
     const next = !dark;
