@@ -154,7 +154,7 @@ function StudyPage() {
         <div className="mb-8">
           <div className="flex justify-between text-xs text-muted-foreground mb-2">
             <span>
-              {finished ? total : idx + 1} / {order.length || total}
+              {finished ? total : (total - order.length) + (idx + 1)} / {total}
             </span>
             <span>выучено {knownCount}</span>
           </div>
