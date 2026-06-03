@@ -35,6 +35,7 @@ const dict = {
     "home.cards.suffix": "карточек",
     "home.decks.suffix": "колод",
     "home.done": "готово",
+    "home.modes": "Режимы",
     "home.footer": "Спокойно. Сосредоточенно. В своём ритме.",
 
     // create deck dialog
