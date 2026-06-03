@@ -547,6 +547,36 @@ function Home() {
         </section>
       </main>
 
+      <Dialog open={deleteDeckId !== null} onOpenChange={(o) => !o && setDeleteDeckId(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl">Удалить колоду?</DialogTitle>
+            <DialogDescription>
+              {deckToDelete ? (
+                <>Колода «<strong>{deckToDelete.name}</strong>» и все её карточки будут удалены безвозвратно.</>
+              ) : (
+                "Колода и все её карточки будут удалены безвозвратно."
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setDeleteDeckId(null)}>
+              Отмена
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                if (deleteDeckId) deleteDeck(deleteDeckId);
+                setDeleteDeckId(null);
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Удалить
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-muted-foreground">
         Спокойно. Сосредоточенно. В своём ритме.
       </footer>
