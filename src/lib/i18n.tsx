@@ -29,6 +29,7 @@ const dict = {
     "home.empty": "Пока нет колод. Создайте первую выше.",
     "home.study": "Учить",
     "home.deleteDeck": "Удалить колоду",
+    "home.toCollections": "Перейти к коллекциям",
     "home.deleteDeckTitle": "Удалить колоду?",
     "home.deleteDeckDescGeneric": "Колода и все её карточки будут удалены безвозвратно.",
     "home.cards.suffix": "карточек",
