@@ -92,6 +92,7 @@ export const createDeckRecord = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
+    await addDeckToDefaultCollection(supabase, userId, deck.id);
     return { id: deck.id };
   });
 
