@@ -130,6 +130,7 @@ const dict = {
     "home.cards.suffix": "cards",
     "home.decks.suffix": "decks",
     "home.done": "done",
+    "home.modes": "Modes",
     "home.footer": "Calm. Focused. At your own pace.",
 
     "create.title": "Create a deck",
