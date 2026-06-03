@@ -37,6 +37,20 @@ export const Route = createFileRoute("/")({
 function Landing() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    const saved = localStorage.getItem("theme") === "dark";
+    setDark(saved);
+    document.documentElement.classList.toggle("dark", saved);
+  }, []);
+
+  const toggleDark = () => {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem("theme", next ? "dark" : "light");
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
