@@ -52,6 +52,7 @@ function plural(n: number, forms: [string, string, string]) {
 
 function DeckPage() {
   const { deckId } = Route.useParams();
+  useEffect(() => { markDeckStudied(deckId); }, [deckId]);
   const navigate = useNavigate();
   const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
   const stats = useDeckStats(deckId);
