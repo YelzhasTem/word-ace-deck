@@ -74,6 +74,8 @@ export function SiteHeader() {
             <input
               type="search"
               placeholder={t("nav.search")}
+              value={searchValue}
+              onChange={handleSearchChange}
               className="w-full h-10 rounded-full bg-secondary/70 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:bg-card transition-all"
             />
           </div>
