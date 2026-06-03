@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { markDeckStudied } from "@/lib/last-studied";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { useDeckStats, accuracyFor, weakCardIds } from "@/lib/stats";
@@ -51,6 +52,7 @@ function plural(n: number, forms: [string, string, string]) {
 
 function DeckPage() {
   const { deckId } = Route.useParams();
+  useEffect(() => { markDeckStudied(deckId); }, [deckId]);
   const navigate = useNavigate();
   const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
   const stats = useDeckStats(deckId);

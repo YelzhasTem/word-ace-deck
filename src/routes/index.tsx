@@ -21,6 +21,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
 import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2 } from "lucide-react";
 import { useT } from "@/lib/i18n";
+import { useLastStudied } from "@/lib/last-studied";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -42,6 +43,15 @@ function plural(n: number, forms: [string, string, string]) {
 
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
+  const lastStudied = useLastStudied();
+  const sortedDecks = [...decks].sort((a, b) => {
+    const la = lastStudied[a.id] ?? 0;
+    const lb = lastStudied[b.id] ?? 0;
+    if (lb !== la) return lb - la;
+    return b.createdAt - a.createdAt;
+  });
+  const visibleDecks = sortedDecks.slice(0, 6);
+  const hasMore = decks.length > 6;
   const t = useT();
   const [open, setOpen] = useState(false);
   const [deleteDeckId, setDeleteDeckId] = useState<string | null>(null);
@@ -480,8 +490,9 @@ function Home() {
               <p className="text-muted-foreground">{t("home.empty")}</p>
             </div>
           ) : (
+            <>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {decks.map((deck) => {
+              {visibleDecks.map((deck) => {
                 const known = deck.cards.filter((c) => c.known).length;
                 const total = deck.cards.length;
                 const pct = total ? Math.round((known / total) * 100) : 0;
@@ -544,6 +555,18 @@ function Home() {
                 );
               })}
             </div>
+            {hasMore && (
+              <div className="mt-8 flex justify-center">
+                <Link
+                  to="/collections"
+                  className="inline-flex items-center gap-2 rounded-full bg-secondary hover:bg-secondary/80 px-6 h-12 text-sm font-semibold transition-colors"
+                >
+                  {t("home.toCollections")} →
+                </Link>
+              </div>
+            )}
+            </>
+
           )}
         </section>
       </main>
