@@ -1,5 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { markDeckStudied } from "@/lib/last-studied";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { useDeckStats, accuracyFor, weakCardIds } from "@/lib/stats";
