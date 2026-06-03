@@ -209,6 +209,23 @@ const dict = {
     "col.deleteTitle": "Delete this collection?",
     "col.deleteDescGeneric": "The collection will be removed. Decks inside it will remain.",
     "col.cards": "cards",
+
+    "dr.title": "Delayed Recall",
+    "dr.offDesc": "Turn on the mode to move words from short-term to long-term memory through growing intervals.",
+    "dr.openSettings": "Open settings",
+    "dr.settings": "Settings",
+    "dr.ready": "To review",
+    "dr.upcoming": "Upcoming",
+    "dr.retention": "Retention",
+    "dr.mastered": "Mastered",
+    "dr.wordReady": "word ready",
+    "dr.wordsReady": "words ready",
+    "dr.toRecall": "to recall",
+    "dr.decksSuffix": "decks",
+    "dr.startSession": "Start session",
+    "dr.nextReviewPrefix": "Next review",
+    "dr.nextReviewSuffix": ". Check back later — we'll remind you.",
+    "dr.empty": "No scheduled words yet. Add cards — they'll automatically join the queue.",
   },
 } as const;
 
