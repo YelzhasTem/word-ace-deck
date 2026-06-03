@@ -49,80 +49,92 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <div className="hidden md:flex flex-1 max-w-md mx-auto">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder={t("nav.search")}
-              className="w-full h-10 rounded-full bg-secondary/70 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:bg-card transition-all"
-            />
-          </div>
-        </div>
+        <button
+          onClick={() => setCollapsed((v) => !v)}
+          aria-label={collapsed ? "Развернуть меню" : "Свернуть меню"}
+          className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+        >
+          {collapsed ? <Menu className="h-4 w-4" /> : <X className="h-4 w-4" />}
+        </button>
 
-        <nav className="ml-auto flex items-center gap-1 text-sm font-medium">
-          <Link
-            to="/"
-            className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
-            activeOptions={{ exact: true }}
-            activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
-          >
-            {t("nav.decks")}
-          </Link>
-          <Link
-            to="/collections"
-            className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
-            activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
-          >
-            {t("nav.collections")}
-          </Link>
-          <Link
-            to="/settings"
-            aria-label={t("nav.settings")}
-            className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-            activeProps={{ className: "h-9 w-9 inline-flex items-center justify-center rounded-full bg-secondary text-primary transition-colors" }}
-          >
-            <SettingsIcon className="h-4 w-4" />
-          </Link>
-          <button
-            onClick={toggleLang}
-            aria-label={t("nav.lang")}
-            title={t("nav.lang")}
-            className="h-9 px-2.5 inline-flex items-center gap-1.5 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-          >
-            <Languages className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase">{lang}</span>
-          </button>
-          <button
-            onClick={toggleDark}
-            aria-label={t("nav.theme")}
-            className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-          >
-            <Moon className="h-4 w-4" />
-          </button>
-          {session ? (
-            <div className="flex items-center gap-2 pl-2">
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <User className="h-3.5 w-3.5" />
-                {session.user.email}
-              </span>
+        {!collapsed && (
+          <>
+            <div className="hidden md:flex flex-1 max-w-md mx-auto">
+              <div className="relative w-full">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <input
+                  type="search"
+                  placeholder={t("nav.search")}
+                  className="w-full h-10 rounded-full bg-secondary/70 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:bg-card transition-all"
+                />
+              </div>
+            </div>
+
+            <nav className="ml-auto flex items-center gap-1 text-sm font-medium">
+              <Link
+                to="/"
+                className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
+                activeOptions={{ exact: true }}
+                activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
+              >
+                {t("nav.decks")}
+              </Link>
+              <Link
+                to="/collections"
+                className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
+                activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
+              >
+                {t("nav.collections")}
+              </Link>
+              <Link
+                to="/settings"
+                aria-label={t("nav.settings")}
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+                activeProps={{ className: "h-9 w-9 inline-flex items-center justify-center rounded-full bg-secondary text-primary transition-colors" }}
+              >
+                <SettingsIcon className="h-4 w-4" />
+              </Link>
               <button
-                onClick={handleLogout}
-                aria-label={t("nav.logout")}
+                onClick={toggleLang}
+                aria-label={t("nav.lang")}
+                title={t("nav.lang")}
+                className="h-9 px-2.5 inline-flex items-center gap-1.5 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+              >
+                <Languages className="h-4 w-4" />
+                <span className="text-xs font-semibold uppercase">{lang}</span>
+              </button>
+              <button
+                onClick={toggleDark}
+                aria-label={t("nav.theme")}
                 className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
               >
-                <LogOut className="h-4 w-4" />
+                <Moon className="h-4 w-4" />
               </button>
-            </div>
-          ) : (
-            <Link
-              to="/auth"
-              className="ml-2 px-4 py-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
-            >
-              {t("nav.login")}
-            </Link>
-          )}
-        </nav>
+              {session ? (
+                <div className="flex items-center gap-2 pl-2">
+                  <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <User className="h-3.5 w-3.5" />
+                    {session.user.email}
+                  </span>
+                  <button
+                    onClick={handleLogout}
+                    aria-label={t("nav.logout")}
+                    className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+                  >
+                    <LogOut className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/auth"
+                  className="ml-2 px-4 py-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
+                >
+                  {t("nav.login")}
+                </Link>
+              )}
+            </nav>
+          </>
+        )}
       </div>
     </header>
   );
