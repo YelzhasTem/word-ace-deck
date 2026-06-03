@@ -119,9 +119,6 @@ function Landing() {
                 Начать учить <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
-            <Button asChild size="lg" variant="outline" className="rounded-full px-7 h-13 text-base bg-card">
-              <a href="#how">Как это работает</a>
-            </Button>
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
             <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Без рекламы</span>
