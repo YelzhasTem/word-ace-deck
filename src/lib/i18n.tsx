@@ -70,6 +70,10 @@ const dict = {
     "create.url.create": "Создать колоду",
     "create.errLookup": "Не удалось получить переводы",
     "create.errCreate": "Не удалось создать колоду",
+    "create.collection": "Коллекция",
+    "create.collectionDefault": "Моя коллекция (по умолчанию)",
+    "create.prev": "← Назад",
+    "create.next": "Вперёд →",
 
     // settings
     "settings.back": "На главную",
