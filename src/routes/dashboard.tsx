@@ -284,18 +284,18 @@ function Home() {
 
                     <TabsContent value="manual" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Название колоды</label>
+                        <label className="text-sm font-medium">{t("create.name")}</label>
                         <Input
                           autoFocus
-                          placeholder="Например: IELTS — Speaking"
+                          placeholder={t("create.namePh")}
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Описание (необязательно)</label>
+                        <label className="text-sm font-medium">{t("create.descLabel")}</label>
                         <Textarea
-                          placeholder="О чём эта колода?"
+                          placeholder={t("create.descPh")}
                           value={desc}
                           onChange={(e) => setDesc(e.target.value)}
                           rows={2}
@@ -303,11 +303,11 @@ function Home() {
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-border/60">
-                        <label className="text-sm font-medium">Добавить слово</label>
+                        <label className="text-sm font-medium">{t("create.addWord")}</label>
                         {trOptions.length === 0 ? (
                           <div className="flex gap-2">
                             <Input
-                              placeholder="Введите английское слово"
+                              placeholder={t("create.wordPh")}
                               value={wordInput}
                               onChange={(e) => setWordInput(e.target.value)}
                               onKeyDown={(e) => {
