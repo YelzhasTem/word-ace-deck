@@ -249,7 +249,7 @@ function Home() {
                               disabled={safeCollectionPage === 0}
                               className="px-2 py-1 text-xs rounded hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
                             >
-                              ← Назад
+                              {t("create.prev")}
                             </button>
                             <span className="text-xs text-muted-foreground">
                               {safeCollectionPage + 1} / {totalCollectionPages}
