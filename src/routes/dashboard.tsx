@@ -326,7 +326,7 @@ function Home() {
                               {trLoading ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                "Найти"
+                                t("create.find")
                               )}
                             </Button>
                           </div>
