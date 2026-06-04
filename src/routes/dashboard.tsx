@@ -18,10 +18,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
 import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
+import { useCollections } from "@/lib/collections";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
