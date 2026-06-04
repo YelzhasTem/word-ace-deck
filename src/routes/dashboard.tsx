@@ -221,13 +221,13 @@ function Home() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-2 mt-1">
-                    <label className="text-sm font-medium">Коллекция</label>
+                    <label className="text-sm font-medium">{t("create.collection")}</label>
                     <Select value={collectionId} onValueChange={setCollectionId}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__default__">Моя коллекция (по умолчанию)</SelectItem>
+                        <SelectItem value="__default__">{t("create.collectionDefault")}</SelectItem>
                         {pagedCollections.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
@@ -249,7 +249,7 @@ function Home() {
                               disabled={safeCollectionPage === 0}
                               className="px-2 py-1 text-xs rounded hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
                             >
-                              ← Назад
+                              {t("create.prev")}
                             </button>
                             <span className="text-xs text-muted-foreground">
                               {safeCollectionPage + 1} / {totalCollectionPages}
@@ -264,7 +264,7 @@ function Home() {
                               disabled={safeCollectionPage >= totalCollectionPages - 1}
                               className="px-2 py-1 text-xs rounded hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
                             >
-                              Вперёд →
+                              {t("create.next")}
                             </button>
                           </div>
                         )}
@@ -284,18 +284,18 @@ function Home() {
 
                     <TabsContent value="manual" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Название колоды</label>
+                        <label className="text-sm font-medium">{t("create.name")}</label>
                         <Input
                           autoFocus
-                          placeholder="Например: IELTS — Speaking"
+                          placeholder={t("create.namePh")}
                           value={name}
                           onChange={(e) => setName(e.target.value)}
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Описание (необязательно)</label>
+                        <label className="text-sm font-medium">{t("create.descLabel")}</label>
                         <Textarea
-                          placeholder="О чём эта колода?"
+                          placeholder={t("create.descPh")}
                           value={desc}
                           onChange={(e) => setDesc(e.target.value)}
                           rows={2}
@@ -303,11 +303,11 @@ function Home() {
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-border/60">
-                        <label className="text-sm font-medium">Добавить слово</label>
+                        <label className="text-sm font-medium">{t("create.addWord")}</label>
                         {trOptions.length === 0 ? (
                           <div className="flex gap-2">
                             <Input
-                              placeholder="Введите английское слово"
+                              placeholder={t("create.wordPh")}
                               value={wordInput}
                               onChange={(e) => setWordInput(e.target.value)}
                               onKeyDown={(e) => {
@@ -326,7 +326,7 @@ function Home() {
                               {trLoading ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : (
-                                "Найти"
+                                t("create.find")
                               )}
                             </Button>
                           </div>
@@ -334,7 +334,7 @@ function Home() {
                           <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <p className="text-sm">
-                                Выберите перевод для{" "}
+                                {t("create.pickTr")}{" "}
                                 <span className="font-semibold text-primary">{trWord}</span>
                               </p>
                               <button
@@ -342,18 +342,18 @@ function Home() {
                                 onClick={handleCancelLookup}
                                 className="text-xs text-muted-foreground hover:text-foreground"
                               >
-                                Отмена
+                                {t("create.cancel")}
                               </button>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              {trOptions.map((t) => (
+                              {trOptions.map((opt) => (
                                 <button
-                                  key={t}
+                                  key={opt}
                                   type="button"
-                                  onClick={() => handlePickTranslation(t)}
+                                  onClick={() => handlePickTranslation(opt)}
                                   className="px-3 py-1.5 rounded-full bg-card border border-border text-sm hover:border-primary hover:text-primary transition-colors"
                                 >
-                                  {t}
+                                  {opt}
                                 </button>
                               ))}
                             </div>
@@ -365,7 +365,7 @@ function Home() {
                       {manualCards.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-sm font-medium">
-                            Слова в колоде ({manualCards.length})
+                            {t("create.cardsIn")} ({manualCards.length})
                           </p>
                           <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                             {manualCards.map((c, i) => (
@@ -383,7 +383,7 @@ function Home() {
                                     setManualCards((prev) => prev.filter((_, j) => j !== i))
                                   }
                                   className="text-muted-foreground hover:text-destructive shrink-0"
-                                  aria-label="Удалить"
+                                  aria-label={t("create.remove")}
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </button>
@@ -395,23 +395,23 @@ function Home() {
 
                       <DialogFooter>
                         <Button variant="ghost" onClick={() => { resetManual(); setOpen(false); }}>
-                          Отмена
+                          {t("create.cancel")}
                         </Button>
                         <Button
                           onClick={handleCreate}
                           disabled={!name.trim() || manualCards.length === 0}
                         >
-                          <Check className="h-4 w-4" /> Создать ({manualCards.length})
+                          <Check className="h-4 w-4" /> {t("create.confirm")} ({manualCards.length})
                         </Button>
                       </DialogFooter>
                     </TabsContent>
 
                     <TabsContent value="ai" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Тема колоды</label>
+                        <label className="text-sm font-medium">{t("create.ai.topic")}</label>
                         <Input
                           autoFocus
-                          placeholder="Например: путешествия, кулинария, IT"
+                          placeholder={t("create.ai.topicPh")}
                           value={aiTopic}
                           onChange={(e) => setAiTopic(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAIGenerate()}
@@ -419,7 +419,7 @@ function Home() {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Уровень</label>
+                          <label className="text-sm font-medium">{t("create.ai.level")}</label>
                           <select
                             value={aiLevel}
                             onChange={(e) => setAiLevel(e.target.value)}
@@ -431,7 +431,7 @@ function Home() {
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Карточек</label>
+                          <label className="text-sm font-medium">{t("create.ai.count")}</label>
                           <Input
                             type="number"
                             min={3}
@@ -445,15 +445,15 @@ function Home() {
                         <p className="text-sm text-destructive">{aiError}</p>
                       )}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>{t("create.cancel")}</Button>
                         <Button onClick={handleAIGenerate} disabled={aiLoading || !aiTopic.trim()}>
                           {aiLoading ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" /> Генерация…
+                              <Loader2 className="h-4 w-4 animate-spin" /> {t("create.ai.generating")}
                             </>
                           ) : (
                             <>
-                              <Sparkles className="h-4 w-4" /> Сгенерировать
+                              <Sparkles className="h-4 w-4" /> {t("create.ai.generate")}
                             </>
                           )}
                         </Button>
@@ -462,7 +462,7 @@ function Home() {
 
                     <TabsContent value="url" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Ссылка на материал</label>
+                        <label className="text-sm font-medium">{t("create.url.label")}</label>
                         <Input
                           autoFocus
                           type="url"
@@ -472,11 +472,11 @@ function Home() {
                           onKeyDown={(e) => e.key === "Enter" && !urlLoading && handleUrlGenerate()}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Вставьте адрес статьи (например, Wikipedia) — ИИ извлечёт полезные слова из текста.
+                          {t("create.url.hint")}
                         </p>
                       </div>
                       <div className="space-y-2 max-w-[160px]">
-                        <label className="text-sm font-medium">Карточек</label>
+                        <label className="text-sm font-medium">{t("create.ai.count")}</label>
                         <Input
                           type="number"
                           min={3}
@@ -487,15 +487,15 @@ function Home() {
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>{t("create.cancel")}</Button>
                         <Button onClick={handleUrlGenerate} disabled={urlLoading || !urlInput.trim()}>
                           {urlLoading ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" /> Извлекаем слова…
+                              <Loader2 className="h-4 w-4 animate-spin" /> {t("create.url.extracting")}
                             </>
                           ) : (
                             <>
-                              <Link2 className="h-4 w-4" /> Создать колоду
+                              <Link2 className="h-4 w-4" /> {t("create.url.create")}
                             </>
                           )}
                         </Button>
@@ -584,7 +584,7 @@ function Home() {
                     >
                       {pct === 100 && total > 0 && (
                         <div className="mb-3 flex justify-end">
-                          <span className="text-[10px] uppercase tracking-wider font-bold text-success">готово</span>
+                          <span className="text-[10px] uppercase tracking-wider font-bold text-success">{t("home.done")}</span>
                         </div>
                       )}
                       <h3 className="font-display text-xl font-bold leading-tight tracking-tight">{deck.name}</h3>

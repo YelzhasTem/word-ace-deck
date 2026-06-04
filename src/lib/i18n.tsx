@@ -70,6 +70,10 @@ const dict = {
     "create.url.create": "Создать колоду",
     "create.errLookup": "Не удалось получить переводы",
     "create.errCreate": "Не удалось создать колоду",
+    "create.collection": "Коллекция",
+    "create.collectionDefault": "Моя коллекция (по умолчанию)",
+    "create.prev": "← Назад",
+    "create.next": "Вперёд →",
 
     // settings
     "settings.back": "На главную",
@@ -184,6 +188,10 @@ const dict = {
     "create.url.create": "Create deck",
     "create.errLookup": "Failed to fetch translations",
     "create.errCreate": "Failed to create the deck",
+    "create.collection": "Collection",
+    "create.collectionDefault": "My collection (default)",
+    "create.prev": "← Prev",
+    "create.next": "Next →",
 
     "settings.back": "Back home",
     "settings.title": "Settings",
