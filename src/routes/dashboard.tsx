@@ -365,7 +365,7 @@ function Home() {
                       {manualCards.length > 0 && (
                         <div className="space-y-2">
                           <p className="text-sm font-medium">
-                            Слова в колоде ({manualCards.length})
+                            {t("create.cardsIn")} ({manualCards.length})
                           </p>
                           <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                             {manualCards.map((c, i) => (
