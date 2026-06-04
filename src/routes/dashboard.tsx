@@ -221,13 +221,13 @@ function Home() {
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-2 mt-1">
-                    <label className="text-sm font-medium">Коллекция</label>
+                    <label className="text-sm font-medium">{t("create.collection")}</label>
                     <Select value={collectionId} onValueChange={setCollectionId}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="__default__">Моя коллекция (по умолчанию)</SelectItem>
+                        <SelectItem value="__default__">{t("create.collectionDefault")}</SelectItem>
                         {pagedCollections.map((c) => (
                           <SelectItem key={c.id} value={c.id}>
                             {c.name}
