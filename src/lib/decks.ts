@@ -212,18 +212,19 @@ export function useDecks() {
   return {
     decks,
     isLoading: query.isLoading,
-    createDeck: (name: string, description: string) => {
+    createDeck: (name: string, description: string, collectionId?: string | null) => {
       const tempId = crypto.randomUUID();
-      createDeckMut.mutate({ name, description });
+      createDeckMut.mutate({ name, description, collectionId });
       return tempId;
     },
     createDeckWithCards: (
       name: string,
       description: string,
       cards: { term: string; definition: string }[],
+      collectionId?: string | null,
     ) => {
       const tempId = crypto.randomUUID();
-      createDeckWithCardsMut.mutate({ name, description, cards });
+      createDeckWithCardsMut.mutate({ name, description, cards, collectionId });
       return tempId;
     },
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
