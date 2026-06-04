@@ -383,7 +383,7 @@ function Home() {
                                     setManualCards((prev) => prev.filter((_, j) => j !== i))
                                   }
                                   className="text-muted-foreground hover:text-destructive shrink-0"
-                                  aria-label="Удалить"
+                                  aria-label={t("create.remove")}
                                 >
                                   <X className="h-3.5 w-3.5" />
                                 </button>
