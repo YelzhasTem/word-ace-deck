@@ -40,6 +40,23 @@ const dict = {
     "home.modes": "Режимы",
     "home.footer": "Спокойно. Сосредоточенно. В своём ритме.",
 
+    // streak
+    "streak.title": "Серия занятий",
+    "streak.daysSuffix": "подряд",
+    "streak.day.one": "день",
+    "streak.day.few": "дня",
+    "streak.day.many": "дней",
+    "streak.record": "Рекорд",
+    "streak.total": "Всего дней",
+    "streak.empty": "Позанимайтесь сегодня, чтобы начать серию 🔥",
+    "streak.dow.mon": "Пн",
+    "streak.dow.tue": "Вт",
+    "streak.dow.wed": "Ср",
+    "streak.dow.thu": "Чт",
+    "streak.dow.fri": "Пт",
+    "streak.dow.sat": "Сб",
+    "streak.dow.sun": "Вс",
+
     // create deck dialog
     "create.title": "Создать колоду",
     "create.desc": "Выберите способ создания: вручную или с помощью ИИ.",
