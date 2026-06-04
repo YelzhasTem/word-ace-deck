@@ -395,13 +395,13 @@ function Home() {
 
                       <DialogFooter>
                         <Button variant="ghost" onClick={() => { resetManual(); setOpen(false); }}>
-                          Отмена
+                          {t("create.cancel")}
                         </Button>
                         <Button
                           onClick={handleCreate}
                           disabled={!name.trim() || manualCards.length === 0}
                         >
-                          <Check className="h-4 w-4" /> Создать ({manualCards.length})
+                          <Check className="h-4 w-4" /> {t("create.confirm")} ({manualCards.length})
                         </Button>
                       </DialogFooter>
                     </TabsContent>
