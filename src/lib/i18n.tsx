@@ -188,6 +188,10 @@ const dict = {
     "create.url.create": "Create deck",
     "create.errLookup": "Failed to fetch translations",
     "create.errCreate": "Failed to create the deck",
+    "create.collection": "Collection",
+    "create.collectionDefault": "My collection (default)",
+    "create.prev": "← Prev",
+    "create.next": "Next →",
 
     "settings.back": "Back home",
     "settings.title": "Settings",
