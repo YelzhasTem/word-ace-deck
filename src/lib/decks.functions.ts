@@ -27,20 +27,31 @@ async function ensureDefaultCollectionId(
   return created.id;
 }
 
-async function addDeckToDefaultCollection(
+async function addDeckToCollection(
   supabase: SupabaseClient,
   userId: string,
   deckId: string,
+  collectionId?: string | null,
 ): Promise<void> {
-  const collectionId = await ensureDefaultCollectionId(supabase, userId);
-  if (!collectionId) return;
+  let targetId: string | null = null;
+  if (collectionId) {
+    const { data: owned } = await supabase
+      .from("collections")
+      .select("id")
+      .eq("id", collectionId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (owned?.id) targetId = owned.id;
+  }
+  if (!targetId) targetId = await ensureDefaultCollectionId(supabase, userId);
+  if (!targetId) return;
   const { count } = await supabase
     .from("collection_decks")
     .select("id", { count: "exact", head: true })
-    .eq("collection_id", collectionId)
+    .eq("collection_id", targetId)
     .eq("user_id", userId);
   await supabase.from("collection_decks").insert({
-    collection_id: collectionId,
+    collection_id: targetId,
     deck_id: deckId,
     user_id: userId,
     position: count ?? 0,
@@ -82,6 +93,7 @@ export const createDeckRecord = createServerFn({ method: "POST" })
     z.object({
       name: z.string().min(1).max(120),
       description: z.string().max(300).default(""),
+      collectionId: z.string().uuid().optional().nullable(),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -92,7 +104,7 @@ export const createDeckRecord = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
-    await addDeckToDefaultCollection(supabase, userId, deck.id);
+    await addDeckToCollection(supabase, userId, deck.id, data.collectionId);
     return { id: deck.id };
   });
 
@@ -103,6 +115,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
       name: z.string().min(1).max(120),
       description: z.string().max(300).default(""),
       cards: z.array(CardInput).min(0).max(100),
+      collectionId: z.string().uuid().optional().nullable(),
     }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -113,7 +126,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
-    await addDeckToDefaultCollection(supabase, userId, deck.id);
+    await addDeckToCollection(supabase, userId, deck.id, data.collectionId);
 
     let cardIds: string[] = [];
     if (data.cards.length > 0) {

@@ -18,10 +18,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
 import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
+import { useCollections } from "@/lib/collections";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -43,6 +45,9 @@ function plural(n: number, forms: [string, string, string]) {
 
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
+  const { collections } = useCollections();
+  const [collectionId, setCollectionId] = useState<string>("__default__");
+  const selectedCollectionId = collectionId === "__default__" ? null : collectionId;
   const lastStudied = useLastStudied();
   const location = useLocation();
   const query = new URLSearchParams(location.search).get("search") || "";
@@ -96,7 +101,7 @@ function Home() {
       const result = await genDeckFromUrl({
         data: { url: urlInput.trim(), count: urlCount },
       });
-      createDeckWithCards(result.name, result.description, result.cards);
+      createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setUrlInput("");
       setOpen(false);
     } catch (err) {
@@ -118,7 +123,7 @@ function Home() {
 
   const handleCreate = () => {
     if (!name.trim() || manualCards.length === 0) return;
-    createDeckWithCards(name.trim(), desc.trim(), manualCards);
+    createDeckWithCards(name.trim(), desc.trim(), manualCards, selectedCollectionId);
     resetManual();
     setOpen(false);
   };
@@ -162,7 +167,7 @@ function Home() {
       const result = await genDeck({
         data: { topic: aiTopic.trim(), level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2", count: aiCount },
       });
-      createDeckWithCards(result.name, result.description, result.cards);
+      createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setAiTopic("");
       setOpen(false);
     } catch (err) {
@@ -206,6 +211,24 @@ function Home() {
                       {t("create.desc")}
                     </DialogDescription>
                   </DialogHeader>
+                  <div className="space-y-2 mt-1">
+                    <label className="text-sm font-medium">Коллекция</label>
+                    <Select value={collectionId} onValueChange={setCollectionId}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Моя коллекция (по умолчанию)</SelectItem>
+                        {collections
+                          .filter((c) => c.name !== "Моя коллекция")
+                          .map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Tabs defaultValue="manual" className="mt-2">
                     <TabsList className="w-full grid grid-cols-3">
                       <TabsTrigger value="manual">{t("create.tab.manual")}</TabsTrigger>

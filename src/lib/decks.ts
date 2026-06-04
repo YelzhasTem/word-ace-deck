@@ -132,7 +132,7 @@ export function useDecks() {
   };
 
   const createDeckMut = useMutation({
-    mutationFn: (vars: { name: string; description: string }) =>
+    mutationFn: (vars: { name: string; description: string; collectionId?: string | null }) =>
       createDeckFn({ data: vars }),
     onSuccess: () => {
       toast.success("Колода создана");
@@ -146,11 +146,13 @@ export function useDecks() {
       name: string;
       description: string;
       cards: { term: string; definition: string }[];
+      collectionId?: string | null;
     }) => createDeckWithCardsFn({ data: vars }),
     onSuccess: (data) => {
       data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
       toast.success("Колода создана");
       invalidate();
+      queryClient.invalidateQueries({ queryKey: ["my-collections"] });
     },
     onError: onError("Не удалось создать колоду"),
   });
@@ -210,18 +212,19 @@ export function useDecks() {
   return {
     decks,
     isLoading: query.isLoading,
-    createDeck: (name: string, description: string) => {
+    createDeck: (name: string, description: string, collectionId?: string | null) => {
       const tempId = crypto.randomUUID();
-      createDeckMut.mutate({ name, description });
+      createDeckMut.mutate({ name, description, collectionId });
       return tempId;
     },
     createDeckWithCards: (
       name: string,
       description: string,
       cards: { term: string; definition: string }[],
+      collectionId?: string | null,
     ) => {
       const tempId = crypto.randomUUID();
-      createDeckWithCardsMut.mutate({ name, description, cards });
+      createDeckWithCardsMut.mutate({ name, description, cards, collectionId });
       return tempId;
     },
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
