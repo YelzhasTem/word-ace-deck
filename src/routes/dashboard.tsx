@@ -334,7 +334,7 @@ function Home() {
                           <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
                             <div className="flex items-center justify-between">
                               <p className="text-sm">
-                                Выберите перевод для{" "}
+                                {t("create.pickTr")}{" "}
                                 <span className="font-semibold text-primary">{trWord}</span>
                               </p>
                               <button
@@ -342,18 +342,18 @@ function Home() {
                                 onClick={handleCancelLookup}
                                 className="text-xs text-muted-foreground hover:text-foreground"
                               >
-                                Отмена
+                                {t("create.cancel")}
                               </button>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              {trOptions.map((t) => (
+                              {trOptions.map((opt) => (
                                 <button
-                                  key={t}
+                                  key={opt}
                                   type="button"
-                                  onClick={() => handlePickTranslation(t)}
+                                  onClick={() => handlePickTranslation(opt)}
                                   className="px-3 py-1.5 rounded-full bg-card border border-border text-sm hover:border-primary hover:text-primary transition-colors"
                                 >
-                                  {t}
+                                  {opt}
                                 </button>
                               ))}
                             </div>
