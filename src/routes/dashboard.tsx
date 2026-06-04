@@ -211,6 +211,24 @@ function Home() {
                       {t("create.desc")}
                     </DialogDescription>
                   </DialogHeader>
+                  <div className="space-y-2 mt-1">
+                    <label className="text-sm font-medium">Коллекция</label>
+                    <Select value={collectionId} onValueChange={setCollectionId}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__default__">Моя коллекция (по умолчанию)</SelectItem>
+                        {collections
+                          .filter((c) => c.name !== "Моя коллекция")
+                          .map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <Tabs defaultValue="manual" className="mt-2">
                     <TabsList className="w-full grid grid-cols-3">
                       <TabsTrigger value="manual">{t("create.tab.manual")}</TabsTrigger>
