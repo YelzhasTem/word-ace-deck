@@ -101,7 +101,7 @@ function Home() {
       const result = await genDeckFromUrl({
         data: { url: urlInput.trim(), count: urlCount },
       });
-      createDeckWithCards(result.name, result.description, result.cards);
+      createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setUrlInput("");
       setOpen(false);
     } catch (err) {
@@ -123,7 +123,7 @@ function Home() {
 
   const handleCreate = () => {
     if (!name.trim() || manualCards.length === 0) return;
-    createDeckWithCards(name.trim(), desc.trim(), manualCards);
+    createDeckWithCards(name.trim(), desc.trim(), manualCards, selectedCollectionId);
     resetManual();
     setOpen(false);
   };
@@ -167,7 +167,7 @@ function Home() {
       const result = await genDeck({
         data: { topic: aiTopic.trim(), level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2", count: aiCount },
       });
-      createDeckWithCards(result.name, result.description, result.cards);
+      createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setAiTopic("");
       setOpen(false);
     } catch (err) {
