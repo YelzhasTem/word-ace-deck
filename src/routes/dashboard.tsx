@@ -584,7 +584,7 @@ function Home() {
                     >
                       {pct === 100 && total > 0 && (
                         <div className="mb-3 flex justify-end">
-                          <span className="text-[10px] uppercase tracking-wider font-bold text-success">готово</span>
+                          <span className="text-[10px] uppercase tracking-wider font-bold text-success">{t("home.done")}</span>
                         </div>
                       )}
                       <h3 className="font-display text-xl font-bold leading-tight tracking-tight">{deck.name}</h3>
