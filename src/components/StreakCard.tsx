@@ -1,7 +1,8 @@
 import { useStreak } from "@/lib/streak";
 import { Flame, Trophy, CalendarCheck } from "lucide-react";
+import { useT, useLang } from "@/lib/i18n";
 
-function plural(n: number, forms: [string, string, string]) {
+function pluralRu(n: number, forms: [string, string, string]) {
   const mod10 = n % 10;
   const mod100 = n % 100;
   if (mod10 === 1 && mod100 !== 11) return forms[0];
@@ -11,6 +12,25 @@ function plural(n: number, forms: [string, string, string]) {
 
 export function StreakCard() {
   const { current, longest, totalDays, week } = useStreak();
+  const t = useT();
+  const { lang } = useLang();
+
+  const dayWord =
+    lang === "ru"
+      ? pluralRu(current, [t("streak.day.one"), t("streak.day.few"), t("streak.day.many")])
+      : current === 1
+        ? t("streak.day.one")
+        : t("streak.day.many");
+
+  const dowKeys = [
+    "streak.dow.mon",
+    "streak.dow.tue",
+    "streak.dow.wed",
+    "streak.dow.thu",
+    "streak.dow.fri",
+    "streak.dow.sat",
+    "streak.dow.sun",
+  ] as const;
 
   return (
     <div className="rounded-3xl bg-card border border-border/70 p-6 md:p-7 shadow-[var(--shadow-soft)]">
@@ -21,12 +41,12 @@ export function StreakCard() {
           </div>
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground font-medium">
-              Серия занятий
+              {t("streak.title")}
             </p>
             <p className="font-display text-3xl md:text-4xl font-extrabold leading-none mt-1.5">
               <span className="text-primary tabular-nums">{current}</span>{" "}
               <span className="text-base font-semibold text-muted-foreground">
-                {plural(current, ["день", "дня", "дней"])} подряд
+                {dayWord} {t("streak.daysSuffix")}
               </span>
             </p>
           </div>
@@ -35,7 +55,7 @@ export function StreakCard() {
         <div className="flex gap-3">
           <div className="rounded-2xl bg-secondary/60 px-4 py-2.5 min-w-[110px]">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-              <Trophy className="h-3.5 w-3.5" /> Рекорд
+              <Trophy className="h-3.5 w-3.5" /> {t("streak.record")}
             </div>
             <p className="font-display text-xl font-bold text-foreground tabular-nums mt-0.5">
               {longest}
@@ -43,7 +63,7 @@ export function StreakCard() {
           </div>
           <div className="rounded-2xl bg-secondary/60 px-4 py-2.5 min-w-[110px]">
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-medium">
-              <CalendarCheck className="h-3.5 w-3.5" /> Всего дней
+              <CalendarCheck className="h-3.5 w-3.5" /> {t("streak.total")}
             </div>
             <p className="font-display text-xl font-bold text-foreground tabular-nums mt-0.5">
               {totalDays}
@@ -53,7 +73,7 @@ export function StreakCard() {
       </div>
 
       <div className="grid grid-cols-7 gap-2 md:gap-3">
-        {week.map((d) => {
+        {week.map((d, i) => {
           const base =
             "flex flex-col items-center gap-2 rounded-2xl py-3 px-1 border transition-colors";
           let cls = "border-border/60 bg-secondary/30 text-muted-foreground";
@@ -66,7 +86,7 @@ export function StreakCard() {
           return (
             <div key={d.date} className={`${base} ${cls}`}>
               <span className="text-[10px] uppercase tracking-wider font-semibold">
-                {d.label}
+                {t(dowKeys[i])}
               </span>
               <div className="h-8 w-8 rounded-full inline-flex items-center justify-center text-sm font-display font-bold">
                 {d.active ? <Flame className="h-4 w-4" /> : d.dayNum}
@@ -78,7 +98,7 @@ export function StreakCard() {
 
       {current === 0 && (
         <p className="mt-5 text-sm text-muted-foreground text-center">
-          Позанимайтесь сегодня, чтобы начать серию 🔥
+          {t("streak.empty")}
         </p>
       )}
     </div>
