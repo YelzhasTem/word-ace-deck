@@ -228,13 +228,46 @@ function Home() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="__default__">Моя коллекция (по умолчанию)</SelectItem>
-                        {collections
-                          .filter((c) => c.name !== "Моя коллекция")
-                          .map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {c.name}
-                            </SelectItem>
-                          ))}
+                        {pagedCollections.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                        {extraCollections.length > COLLECTIONS_PAGE_SIZE && (
+                          <div
+                            className="flex items-center justify-between gap-2 px-2 py-1.5 mt-1 border-t border-border"
+                            onPointerDown={(e) => e.preventDefault()}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCollectionPage((p) => Math.max(0, p - 1));
+                              }}
+                              disabled={safeCollectionPage === 0}
+                              className="px-2 py-1 text-xs rounded hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
+                            >
+                              ← Назад
+                            </button>
+                            <span className="text-xs text-muted-foreground">
+                              {safeCollectionPage + 1} / {totalCollectionPages}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                setCollectionPage((p) => Math.min(totalCollectionPages - 1, p + 1));
+                              }}
+                              disabled={safeCollectionPage >= totalCollectionPages - 1}
+                              className="px-2 py-1 text-xs rounded hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
+                            >
+                              Вперёд →
+                            </button>
+                          </div>
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
