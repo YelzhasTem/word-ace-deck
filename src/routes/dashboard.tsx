@@ -264,7 +264,7 @@ function Home() {
                               disabled={safeCollectionPage >= totalCollectionPages - 1}
                               className="px-2 py-1 text-xs rounded hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
                             >
-                              Вперёд →
+                              {t("create.next")}
                             </button>
                           </div>
                         )}
