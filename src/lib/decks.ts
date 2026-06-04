@@ -152,7 +152,7 @@ export function useDecks() {
       data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
       toast.success("Колода создана");
       invalidate();
-      qcInvalidateCollections();
+      queryClient.invalidateQueries({ queryKey: ["my-collections"] });
     },
     onError: onError("Не удалось создать колоду"),
   });
