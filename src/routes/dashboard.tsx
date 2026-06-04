@@ -408,10 +408,10 @@ function Home() {
 
                     <TabsContent value="ai" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Тема колоды</label>
+                        <label className="text-sm font-medium">{t("create.ai.topic")}</label>
                         <Input
                           autoFocus
-                          placeholder="Например: путешествия, кулинария, IT"
+                          placeholder={t("create.ai.topicPh")}
                           value={aiTopic}
                           onChange={(e) => setAiTopic(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAIGenerate()}
@@ -419,7 +419,7 @@ function Home() {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Уровень</label>
+                          <label className="text-sm font-medium">{t("create.ai.level")}</label>
                           <select
                             value={aiLevel}
                             onChange={(e) => setAiLevel(e.target.value)}
@@ -431,7 +431,7 @@ function Home() {
                           </select>
                         </div>
                         <div className="space-y-2">
-                          <label className="text-sm font-medium">Карточек</label>
+                          <label className="text-sm font-medium">{t("create.ai.count")}</label>
                           <Input
                             type="number"
                             min={3}
@@ -445,15 +445,15 @@ function Home() {
                         <p className="text-sm text-destructive">{aiError}</p>
                       )}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>{t("create.cancel")}</Button>
                         <Button onClick={handleAIGenerate} disabled={aiLoading || !aiTopic.trim()}>
                           {aiLoading ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" /> Генерация…
+                              <Loader2 className="h-4 w-4 animate-spin" /> {t("create.ai.generating")}
                             </>
                           ) : (
                             <>
-                              <Sparkles className="h-4 w-4" /> Сгенерировать
+                              <Sparkles className="h-4 w-4" /> {t("create.ai.generate")}
                             </>
                           )}
                         </Button>
