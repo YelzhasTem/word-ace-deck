@@ -48,6 +48,15 @@ function Home() {
   const { collections } = useCollections();
   const [collectionId, setCollectionId] = useState<string>("__default__");
   const selectedCollectionId = collectionId === "__default__" ? null : collectionId;
+  const COLLECTIONS_PAGE_SIZE = 3;
+  const [collectionPage, setCollectionPage] = useState(0);
+  const extraCollections = collections.filter((c) => c.name !== "Моя коллекция");
+  const totalCollectionPages = Math.max(1, Math.ceil(extraCollections.length / COLLECTIONS_PAGE_SIZE));
+  const safeCollectionPage = Math.min(collectionPage, totalCollectionPages - 1);
+  const pagedCollections = extraCollections.slice(
+    safeCollectionPage * COLLECTIONS_PAGE_SIZE,
+    safeCollectionPage * COLLECTIONS_PAGE_SIZE + COLLECTIONS_PAGE_SIZE,
+  );
   const lastStudied = useLastStudied();
   const location = useLocation();
   const query = new URLSearchParams(location.search).get("search") || "";
