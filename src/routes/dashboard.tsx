@@ -45,6 +45,9 @@ function plural(n: number, forms: [string, string, string]) {
 
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
+  const { collections } = useCollections();
+  const [collectionId, setCollectionId] = useState<string>("__default__");
+  const selectedCollectionId = collectionId === "__default__" ? null : collectionId;
   const lastStudied = useLastStudied();
   const location = useLocation();
   const query = new URLSearchParams(location.search).get("search") || "";
