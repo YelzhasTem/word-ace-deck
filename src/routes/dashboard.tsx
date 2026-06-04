@@ -462,7 +462,7 @@ function Home() {
 
                     <TabsContent value="url" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">Ссылка на материал</label>
+                        <label className="text-sm font-medium">{t("create.url.label")}</label>
                         <Input
                           autoFocus
                           type="url"
@@ -472,11 +472,11 @@ function Home() {
                           onKeyDown={(e) => e.key === "Enter" && !urlLoading && handleUrlGenerate()}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Вставьте адрес статьи (например, Wikipedia) — ИИ извлечёт полезные слова из текста.
+                          {t("create.url.hint")}
                         </p>
                       </div>
                       <div className="space-y-2 max-w-[160px]">
-                        <label className="text-sm font-medium">Карточек</label>
+                        <label className="text-sm font-medium">{t("create.ai.count")}</label>
                         <Input
                           type="number"
                           min={3}
@@ -487,15 +487,15 @@ function Home() {
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => setOpen(false)}>Отмена</Button>
+                        <Button variant="ghost" onClick={() => setOpen(false)}>{t("create.cancel")}</Button>
                         <Button onClick={handleUrlGenerate} disabled={urlLoading || !urlInput.trim()}>
                           {urlLoading ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" /> Извлекаем слова…
+                              <Loader2 className="h-4 w-4 animate-spin" /> {t("create.url.extracting")}
                             </>
                           ) : (
                             <>
-                              <Link2 className="h-4 w-4" /> Создать колоду
+                              <Link2 className="h-4 w-4" /> {t("create.url.create")}
                             </>
                           )}
                         </Button>
