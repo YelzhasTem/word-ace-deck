@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,21 +26,25 @@ function AuthPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const normalizedEmail = email.trim().toLowerCase();
     setLoading(true);
     try {
       if (mode === "signup") {
         const { error } = await supabase.auth.signUp({
-          email,
+          email: normalizedEmail,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/`,
-            data: { display_name: displayName || email.split("@")[0] },
+            emailRedirectTo: `${window.location.origin}/dashboard`,
+            data: { display_name: displayName || normalizedEmail.split("@")[0] },
           },
         });
         if (error) throw error;
         toast.success("Аккаунт создан! Проверьте почту для подтверждения.");
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({
+          email: normalizedEmail,
+          password,
+        });
         if (error) throw error;
         toast.success("Добро пожаловать!");
         navigate({ to: "/dashboard" });
@@ -53,6 +56,8 @@ function AuthPage() {
         humanMsg = "Пароль слишком простой или скомпрометирован. Используйте более надёжный пароль (буквы, цифры и символы).";
       } else if (err?.code === "invalid_credentials" || msg.toLowerCase().includes("invalid login")) {
         humanMsg = "Неверный email или пароль. Если у вас ещё нет аккаунта — зарегистрируйтесь.";
+      } else if (msg.toLowerCase().includes("email logins are disabled")) {
+        humanMsg = "Вход по email отключён в Supabase. Включите Email provider в Supabase Auth.";
       } else if (err?.code === "user_already_exists" || msg.toLowerCase().includes("already")) {
         humanMsg = "Этот email уже зарегистрирован. Войдите в аккаунт.";
       } else if (err?.code === "email_not_confirmed" || msg.toLowerCase().includes("not confirmed")) {
@@ -65,8 +70,9 @@ function AuthPage() {
   };
 
   const handleReset = async () => {
-    if (!email) return toast.error("Введите email");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!normalizedEmail) return toast.error("Введите email");
+    const { error } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) toast.error(error.message);
@@ -116,10 +122,13 @@ function AuthPage() {
           variant="outline"
           className="mt-4 w-full"
           onClick={async () => {
-            const result = await lovable.auth.signInWithOAuth("google", {
-              redirect_uri: window.location.origin + "/dashboard",
+            const { error } = await supabase.auth.signInWithOAuth({
+              provider: "google",
+              options: {
+                redirectTo: `${window.location.origin}/dashboard`,
+              },
             });
-            if (result.error) toast.error("Не удалось войти через Google");
+            if (error) toast.error(error.message);
           }}
         >
           <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden>
