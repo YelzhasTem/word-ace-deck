@@ -7,9 +7,16 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+.env
+.env.*
+!.env.example
+VERCEL_ENV_IMPORT.local.env
+VERCEL_ENV_VALUES.local.md
+
 node_modules
 dist
 dist-ssr
+.vercel/
 .output
 .vinxi
 .tanstack/**
