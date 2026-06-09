@@ -238,9 +238,7 @@ export function useDecks() {
     decks,
     isLoading: query.isLoading,
     createDeck: (name: string, description: string, collectionId?: string | null) => {
-      const tempId = crypto.randomUUID();
-      createDeckMut.mutate({ name, description, collectionId });
-      return tempId;
+      return createDeckMut.mutateAsync({ name, description, collectionId });
     },
     createDeckWithCards: (
       name: string,
@@ -248,9 +246,7 @@ export function useDecks() {
       cards: { term: string; definition: string }[],
       collectionId?: string | null,
     ) => {
-      const tempId = crypto.randomUUID();
-      createDeckWithCardsMut.mutate({ name, description, cards, collectionId });
-      return tempId;
+      return createDeckWithCardsMut.mutateAsync({ name, description, cards, collectionId });
     },
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
     addCard: (deckId: string, term: string, definition: string) => {

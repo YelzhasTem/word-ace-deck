@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
+import { createFileRoute, Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
@@ -45,6 +45,7 @@ function plural(n: number, forms: [string, string, string]) {
 
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
+  const navigate = useNavigate();
   const { collections } = useCollections();
   const [collectionId, setCollectionId] = useState<string>("__default__");
   const selectedCollectionId = collectionId === "__default__" ? null : collectionId;
@@ -110,9 +111,10 @@ function Home() {
       const result = await genDeckFromUrl({
         data: { url: urlInput.trim(), count: urlCount },
       });
-      createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setUrlInput("");
       setOpen(false);
+      navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
       setUrlError(err instanceof Error ? err.message : "Не удалось создать колоду");
     } finally {
@@ -130,11 +132,16 @@ function Home() {
     setTrError("");
   };
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!name.trim() || manualCards.length === 0) return;
-    createDeckWithCards(name.trim(), desc.trim(), manualCards, selectedCollectionId);
-    resetManual();
-    setOpen(false);
+    try {
+      const created = await createDeckWithCards(name.trim(), desc.trim(), manualCards, selectedCollectionId);
+      resetManual();
+      setOpen(false);
+      navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
+    } catch {
+      // The mutation already shows the concrete save error.
+    }
   };
 
   const handleLookup = async () => {
@@ -176,9 +183,10 @@ function Home() {
       const result = await genDeck({
         data: { topic: aiTopic.trim(), level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2", count: aiCount },
       });
-      createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setAiTopic("");
       setOpen(false);
+      navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
       setAiError(err instanceof Error ? err.message : "Не удалось создать колоду");
     } finally {

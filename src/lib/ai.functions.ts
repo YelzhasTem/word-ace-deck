@@ -5,6 +5,30 @@ type DeckCard = { term: string; definition: string };
 type DeckPayload = { name?: string; description?: string; cards?: DeckCard[] };
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const MAX_DECK_NAME = 120;
+const MAX_DECK_DESCRIPTION = 300;
+const MAX_CARD_TERM = 160;
+const MAX_CARD_DEFINITION = 300;
+
+function cleanText(value: unknown, maxLength: number) {
+  if (typeof value !== "string") return "";
+  return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function cleanDeckPayload(parsed: DeckPayload, fallbackName: string, fallbackDescription: string) {
+  const cards = (parsed.cards ?? [])
+    .map((card) => ({
+      term: cleanText(card?.term, MAX_CARD_TERM),
+      definition: cleanText(card?.definition, MAX_CARD_DEFINITION),
+    }))
+    .filter((card) => card.term && card.definition);
+
+  return {
+    name: cleanText(parsed.name, MAX_DECK_NAME) || cleanText(fallbackName, MAX_DECK_NAME),
+    description: cleanText(parsed.description, MAX_DECK_DESCRIPTION) || cleanText(fallbackDescription, MAX_DECK_DESCRIPTION),
+    cards,
+  };
+}
 
 function getGeminiApiKey() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
@@ -132,16 +156,12 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
       "ИИ вернул невалидный JSON. Попробуйте еще раз.",
     );
 
-    const cards = (parsed.cards ?? []).filter((card) => card.term && card.definition);
-    if (cards.length === 0) {
+    const deck = cleanDeckPayload(parsed, data.topic, `Колода по теме "${data.topic}"`);
+    if (deck.cards.length === 0) {
       throw new Error("ИИ не сгенерировал карточки. Попробуйте другую тему.");
     }
 
-    return {
-      name: parsed.name ?? data.topic,
-      description: parsed.description ?? `Колода по теме "${data.topic}"`,
-      cards,
-    };
+    return deck;
   });
 
 export const getTranslations = createServerFn({ method: "POST" })
@@ -241,11 +261,6 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
       "ИИ вернул невалидный JSON. Попробуйте еще раз.",
     );
 
-    const cards = (parsed.cards ?? []).filter((card) => card && card.term && card.definition);
-    if (cards.length === 0) {
-      throw new Error("Не удалось извлечь слова из текста. Попробуйте другой источник.");
-    }
-
     let host = "";
     try {
       host = new URL(data.url).hostname.replace(/^www\./, "");
@@ -253,11 +268,12 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
       host = "источника";
     }
 
-    return {
-      name: parsed.name ?? `Слова из ${host}`,
-      description: parsed.description ?? `Лексика, извлеченная из ${host}.`,
-      cards,
-    };
+    const deck = cleanDeckPayload(parsed, `Слова из ${host}`, `Лексика, извлеченная из ${host}.`);
+    if (deck.cards.length === 0) {
+      throw new Error("Не удалось извлечь слова из текста. Попробуйте другой источник.");
+    }
+
+    return deck;
   });
 
 export const generateClozeSentence = createServerFn({ method: "POST" })
