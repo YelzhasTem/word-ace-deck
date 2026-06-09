@@ -108,17 +108,22 @@ export function useDecks() {
 
   // Only fetch when authenticated to avoid "Unauthorized" 401s during SSR / after sign-out.
   const [hasSession, setHasSession] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setHasSession(!!data.session));
+    supabase.auth.getSession().then(({ data }) => {
+      setHasSession(!!data.session);
+      setAuthReady(true);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
       setHasSession(!!session);
+      setAuthReady(true);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
 
   const query = useQuery({
     queryKey: DECKS_KEY,
-    enabled: hasSession,
+    enabled: authReady && hasSession,
     queryFn: async () => {
       const result = await fetchMyDecks();
       return mapDecks(result.decks as DbDeck[], result.cards as DbCard[]);
@@ -236,7 +241,7 @@ export function useDecks() {
 
   return {
     decks,
-    isLoading: query.isLoading,
+    isLoading: !authReady || (hasSession && query.isLoading),
     createDeck: (name: string, description: string, collectionId?: string | null) => {
       return createDeckMut.mutateAsync({ name, description, collectionId });
     },

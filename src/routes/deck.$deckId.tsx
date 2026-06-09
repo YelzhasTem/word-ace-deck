@@ -8,6 +8,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
   Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart, Hourglass,
@@ -52,11 +53,66 @@ function plural(n: number, forms: [string, string, string]) {
   return forms[2];
 }
 
+function DeckLoading() {
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      <main className="mx-auto max-w-4xl px-6 py-10">
+        <div className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin text-accent" />
+          Загрузка колоды...
+        </div>
+
+        <div className="mb-10 flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-0 flex-1 space-y-4">
+            <Skeleton className="h-12 w-72 max-w-full rounded-xl" />
+            <Skeleton className="h-5 w-96 max-w-full" />
+            <Skeleton className="h-4 w-48" />
+          </div>
+          <div className="flex gap-2">
+            <Skeleton className="h-10 w-28 rounded-full" />
+            <Skeleton className="h-10 w-24 rounded-full" />
+          </div>
+        </div>
+
+        <section className="mb-8 rounded-3xl border border-border bg-card p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+            <div className="w-full max-w-xl space-y-3">
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-4/5" />
+            </div>
+            <Skeleton className="h-10 w-32 rounded-full" />
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-border bg-card p-6">
+          <div className="mb-5 flex items-center justify-between">
+            <Skeleton className="h-6 w-32" />
+            <Skeleton className="h-9 w-24 rounded-full" />
+          </div>
+          <div className="space-y-3">
+            {[0, 1, 2, 3].map((item) => (
+              <div key={item} className="flex items-center justify-between rounded-2xl bg-secondary/50 px-4 py-3">
+                <div className="w-full max-w-md space-y-2">
+                  <Skeleton className="h-5 w-36" />
+                  <Skeleton className="h-4 w-56 max-w-full" />
+                </div>
+                <Skeleton className="h-8 w-8 rounded-full" />
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
 function DeckPage() {
   const { deckId } = Route.useParams();
   useEffect(() => { markDeckStudied(deckId); }, [deckId]);
   const navigate = useNavigate();
-  const { deck, addCard, deleteCard, resetProgress } = useDeck(deckId);
+  const { deck, addCard, deleteCard, resetProgress, isLoading } = useDeck(deckId);
   const stats = useDeckStats(deckId);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
@@ -106,6 +162,8 @@ function DeckPage() {
     }
     setAiLoading(false);
   };
+
+  if (isLoading) return <DeckLoading />;
 
   if (!deck) {
     return (
