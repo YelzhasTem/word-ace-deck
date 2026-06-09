@@ -128,6 +128,41 @@ function parseJsonResponse<T>(raw: string, errorMessage: string): T {
   }
 }
 
+function uniqueTranslations(values: string[]) {
+  const seen = new Set<string>();
+  return values
+    .map((value) => cleanText(value, 80).toLowerCase())
+    .filter(Boolean)
+    .filter((value) => {
+      if (seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    })
+    .slice(0, 5);
+}
+
+async function fetchTranslatorOptions(word: string) {
+  const endpoint = new URL("https://translate.googleapis.com/translate_a/single");
+  endpoint.searchParams.set("client", "gtx");
+  endpoint.searchParams.set("sl", "en");
+  endpoint.searchParams.set("tl", "ru");
+  endpoint.searchParams.set("dt", "t");
+  endpoint.searchParams.set("q", word);
+
+  const res = await fetch(endpoint);
+  if (!res.ok) return [];
+
+  const json = (await res.json()) as unknown;
+  if (!Array.isArray(json) || !Array.isArray(json[0])) return [];
+
+  const translations = json[0]
+    .map((part) => (Array.isArray(part) && typeof part[0] === "string" ? part[0] : ""))
+    .join(" ")
+    .split(/[,;]\s*|\s+\/\s+/);
+
+  return uniqueTranslations(translations);
+}
+
 export const generateStudyText = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -202,6 +237,11 @@ export const getTranslations = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
+    const translatorOptions = await fetchTranslatorOptions(data.word);
+    if (translatorOptions.length > 0) {
+      return { translations: translatorOptions };
+    }
+
     const system =
       "Ты англо-русский словарь. Получаешь английское слово или выражение и возвращаешь до 5 наиболее частых переводов на русский язык. Отвечай только валидным JSON без Markdown. Формат: " +
       '{"translations":["перевод 1","перевод 2","перевод 3"]}. Каждый перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
@@ -214,10 +254,9 @@ export const getTranslations = createServerFn({ method: "POST" })
       "ИИ вернул невалидный ответ. Попробуйте еще раз.",
     );
 
-    const translations = (parsed.translations ?? [])
-      .filter((translation) => typeof translation === "string" && translation.trim().length > 0)
-      .map((translation) => translation.trim())
-      .slice(0, 5);
+    const translations = uniqueTranslations(
+      (parsed.translations ?? []).filter((translation) => typeof translation === "string"),
+    );
 
     if (translations.length === 0) {
       throw new Error("Не удалось получить переводы. Попробуйте другое слово.");
