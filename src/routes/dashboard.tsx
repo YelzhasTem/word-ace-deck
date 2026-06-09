@@ -43,6 +43,10 @@ function plural(n: number, forms: [string, string, string]) {
   return forms[2];
 }
 
+function errorMessage(error: unknown, fallback: string) {
+  return error instanceof Error ? error.message : fallback;
+}
+
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
   const navigate = useNavigate();
@@ -107,16 +111,24 @@ function Home() {
     if (!urlInput.trim()) return;
     setUrlLoading(true);
     setUrlError("");
+    let result: Awaited<ReturnType<typeof genDeckFromUrl>>;
     try {
-      const result = await genDeckFromUrl({
+      result = await genDeckFromUrl({
         data: { url: urlInput.trim(), count: urlCount },
       });
+    } catch (err) {
+      setUrlError(`AI: ${errorMessage(err, "Не удалось извлечь слова")}`);
+      setUrlLoading(false);
+      return;
+    }
+
+    try {
       const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setUrlInput("");
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
-      setUrlError(err instanceof Error ? err.message : "Не удалось создать колоду");
+      setUrlError(`Сохранение: ${errorMessage(err, "Не удалось создать колоду")}`);
     } finally {
       setUrlLoading(false);
     }
@@ -179,16 +191,24 @@ function Home() {
     if (!aiTopic.trim()) return;
     setAiLoading(true);
     setAiError("");
+    let result: Awaited<ReturnType<typeof genDeck>>;
     try {
-      const result = await genDeck({
+      result = await genDeck({
         data: { topic: aiTopic.trim(), level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2", count: aiCount },
       });
+    } catch (err) {
+      setAiError(`AI: ${errorMessage(err, "Не удалось сгенерировать колоду")}`);
+      setAiLoading(false);
+      return;
+    }
+
+    try {
       const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setAiTopic("");
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : "Не удалось создать колоду");
+      setAiError(`Сохранение: ${errorMessage(err, "Не удалось создать колоду")}`);
     } finally {
       setAiLoading(false);
     }

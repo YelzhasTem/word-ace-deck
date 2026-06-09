@@ -16,7 +16,8 @@ function cleanText(value: unknown, maxLength: number) {
 }
 
 function cleanDeckPayload(parsed: DeckPayload, fallbackName: string, fallbackDescription: string) {
-  const cards = (parsed.cards ?? [])
+  const sourceCards = Array.isArray(parsed.cards) ? parsed.cards : [];
+  const cards = sourceCards
     .map((card) => ({
       term: cleanText(card?.term, MAX_CARD_TERM),
       definition: cleanText(card?.definition, MAX_CARD_DEFINITION),
