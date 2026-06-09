@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Copy, Heart, Search, Star, Users } from "lucide-react";
+import { BookOpen, Heart, Search, Star, Users } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { DECK_CATEGORIES, getCommunityHome, searchPublicDecks } from "@/lib/community.functions";
+import { getCommunityHome, searchPublicDecks } from "@/lib/community.functions";
 
 export const Route = createFileRoute("/community")({
   component: CommunityPage,
@@ -15,43 +15,24 @@ type CommunityDeck = {
   id: string;
   title: string;
   description: string;
-  authorId: string;
-  authorName: string;
-  category: string;
   cardCount: number;
   totalLearners: number;
   likes: number;
   rating: number;
-  publishedAt: string | null;
 };
 
 function DeckCard({ deck }: { deck: CommunityDeck }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
       <div className="min-w-0">
-        <div className="flex items-center justify-between gap-2">
-          <span className="rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">
-            {deck.category}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {deck.publishedAt ? new Date(deck.publishedAt).toLocaleDateString() : "Draft"}
-          </span>
-        </div>
         <Link
           to="/community/$deckId"
           params={{ deckId: deck.id }}
-          className="mt-3 block font-display text-xl font-bold tracking-tight hover:text-primary"
+          className="block font-display text-xl font-bold tracking-tight hover:text-primary"
         >
           {deck.title}
         </Link>
         <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{deck.description || "No description yet."}</p>
-        <Link
-          to="/creator/$userId"
-          params={{ userId: deck.authorId }}
-          className="mt-3 inline-flex text-xs font-medium text-primary hover:underline"
-        >
-          by {deck.authorName}
-        </Link>
       </div>
       <div className="mt-auto grid grid-cols-4 gap-2 text-xs text-muted-foreground">
         <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{deck.cardCount}</span>
@@ -87,17 +68,15 @@ function CommunityPage() {
   } | null>(null);
   const [results, setResults] = useState<CommunityDeck[]>([]);
   const [query, setQuery] = useState("");
-  const [author, setAuthor] = useState("");
-  const [category, setCategory] = useState("");
   const [sort, setSort] = useState("popular");
-  const [mode, setMode] = useState<"search" | "trending" | "categories" | "following" | "saved">("search");
+  const [mode, setMode] = useState<"search" | "trending" | "following" | "saved">("search");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadHome().then(setHome).finally(() => setLoading(false));
   }, [loadHome]);
 
-  const activeSearch = useMemo(() => query || author || category || mode === "following" || mode === "saved", [query, author, category, mode]);
+  const activeSearch = useMemo(() => query || mode === "following" || mode === "saved", [query, mode]);
 
   useEffect(() => {
     if (!activeSearch) return;
@@ -105,8 +84,6 @@ function CommunityPage() {
     searchDecks({
       data: {
         query,
-        author,
-        category: category || null,
         sort: mode === "trending" ? "popular" : sort,
         followingOnly: mode === "following",
         savedOnly: mode === "saved",
@@ -114,7 +91,7 @@ function CommunityPage() {
     })
       .then((res) => setResults(res.decks as CommunityDeck[]))
       .finally(() => setLoading(false));
-  }, [activeSearch, author, category, mode, query, searchDecks, sort]);
+  }, [activeSearch, mode, query, searchDecks, sort]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -134,16 +111,11 @@ function CommunityPage() {
         </section>
 
         <section className="rounded-2xl border border-border bg-card p-4">
-          <div className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr_0.8fr_0.8fr]">
+          <div className="grid gap-3 md:grid-cols-[1fr_220px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input className="pl-10" placeholder="IELTS Vocabulary, Business English, Programming Terms..." value={query} onChange={(e) => setQuery(e.target.value)} />
             </div>
-            <Input placeholder="Author" value={author} onChange={(e) => setAuthor(e.target.value)} />
-            <select value={category} onChange={(e) => setCategory(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
-              <option value="">All categories</option>
-              {DECK_CATEGORIES.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
               <option value="popular">Popularity</option>
               <option value="rating">Rating</option>
@@ -154,7 +126,7 @@ function CommunityPage() {
             </select>
           </div>
           <div className="mt-4 flex flex-wrap gap-2">
-            {(["search", "trending", "categories", "following", "saved"] as const).map((tab) => (
+            {(["search", "trending", "following", "saved"] as const).map((tab) => (
               <button
                 key={tab}
                 onClick={() => setMode(tab)}
@@ -193,25 +165,6 @@ function CommunityPage() {
           </div>
         )}
 
-        {mode === "categories" && (
-          <section className="space-y-4">
-            <h2 className="font-display text-2xl font-bold tracking-tight">Categories</h2>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              {DECK_CATEGORIES.map((item) => (
-                <button
-                  key={item}
-                  onClick={() => {
-                    setCategory(item);
-                    setMode("search");
-                  }}
-                  className="rounded-2xl border border-border bg-card px-4 py-5 text-left font-medium hover:border-primary"
-                >
-                  {item}
-                </button>
-              ))}
-            </div>
-          </section>
-        )}
       </main>
     </div>
   );

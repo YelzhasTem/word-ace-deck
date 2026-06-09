@@ -23,7 +23,6 @@ type CreatorDeck = {
   id: string;
   title: string;
   description: string;
-  category: string;
   cardCount: number;
   totalLearners: number;
   likes: number;
@@ -102,8 +101,7 @@ function CreatorProfilePage() {
                     params={{ deckId: deck.id }}
                     className="rounded-2xl border border-border bg-card p-5 hover:border-primary transition-colors"
                   >
-                    <span className="rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground">{deck.category}</span>
-                    <h3 className="mt-3 font-display text-xl font-bold">{deck.title}</h3>
+                    <h3 className="font-display text-xl font-bold">{deck.title}</h3>
                     <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{deck.description}</p>
                     <div className="mt-4 grid grid-cols-4 gap-2 text-xs text-muted-foreground">
                       <span>{deck.cardCount} cards</span>

@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
-import { ArrowLeft, Copy, Flag, Heart, Library, Star, Users } from "lucide-react";
+import { ArrowLeft, Copy, Flag, Heart, Library, Star } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -23,9 +23,6 @@ type DeckDetails = {
   id: string;
   title: string;
   description: string;
-  authorId: string;
-  authorName: string;
-  category: string;
   cardCount: number;
   totalLearners: number;
   likes: number;
@@ -35,8 +32,6 @@ type DeckDetails = {
   copies: number;
   liked: boolean;
   saved: boolean;
-  createdAt: string;
-  publishedAt: string | null;
 };
 
 type PublicCard = { id: string; term: string; definition: string };
@@ -130,12 +125,8 @@ function CommunityDeckPage() {
         <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
           <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
             <div>
-              <span className="rounded-full bg-secondary px-3 py-1 text-xs text-muted-foreground">{deck.category}</span>
-              <h1 className="mt-4 font-display text-4xl font-bold tracking-tight">{deck.title}</h1>
+              <h1 className="font-display text-4xl font-bold tracking-tight">{deck.title}</h1>
               <p className="mt-3 max-w-2xl text-muted-foreground">{deck.description || "No description yet."}</p>
-              <Link to="/creator/$userId" params={{ userId: deck.authorId }} className="mt-4 inline-flex text-sm font-medium text-primary hover:underline">
-                by {deck.authorName}
-              </Link>
             </div>
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" className="rounded-full" onClick={onLike}>
