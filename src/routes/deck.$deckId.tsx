@@ -14,6 +14,8 @@ import {
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 import { useDelayedRecallEnabled, useDeckRecallSummary, scheduleNewCard } from "@/lib/delayed-recall";
+import { DECK_CATEGORIES, updateDeckPublishing } from "@/lib/community.functions";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
@@ -59,12 +61,23 @@ function DeckPage() {
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
   const generate = useServerFn(generateStudyText);
+  const updatePublishing = useServerFn(updateDeckPublishing);
   const [aiText, setAiText] = useState<string>("");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string>("");
   const [aiSeed, setAiSeed] = useState(0);
+  const [visibility, setVisibility] = useState<"private" | "unlisted" | "public">("private");
+  const [category, setCategory] = useState<(typeof DECK_CATEGORIES)[number]>("General English");
+  const [keywords, setKeywords] = useState("");
   const [recallEnabled, setRecallEnabled] = useDelayedRecallEnabled();
   const recallSummary = useDeckRecallSummary(deckId);
+
+  useEffect(() => {
+    if (!deck) return;
+    setVisibility(deck.visibility);
+    setCategory((DECK_CATEGORIES.includes(deck.category as never) ? deck.category : "General English") as (typeof DECK_CATEGORIES)[number]);
+    setKeywords(deck.keywords.join(", "));
+  }, [deck]);
 
   const toggleRecall = (on: boolean) => {
     setRecallEnabled(on);
@@ -114,6 +127,24 @@ function DeckPage() {
     setDef("");
   };
 
+  const handlePublishingSave = async () => {
+    if (!deck) return;
+    const parsedKeywords = keywords
+      .split(",")
+      .map((word) => word.trim())
+      .filter(Boolean)
+      .slice(0, 12);
+    await updatePublishing({
+      data: {
+        deckId: deck.id,
+        visibility,
+        category,
+        keywords: parsedKeywords,
+      },
+    });
+    toast.success(visibility === "public" ? "Deck published to Community." : "Deck visibility updated.");
+  };
+
   const total = deck.cards.length;
   const known = deck.cards.filter((c) => c.known).length;
 
@@ -158,6 +189,79 @@ function DeckPage() {
             </Button>
           </div>
         </div>
+
+        <section className="mb-8 rounded-3xl border border-border bg-card p-6">
+          <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="font-display text-xl">Deck publishing</h2>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                Choose whether this deck stays private, is available by direct link, or appears in the public marketplace.
+              </p>
+              <div className="mt-4 grid gap-3 md:grid-cols-3">
+                <label className="space-y-1.5 text-sm">
+                  <span className="font-medium">Visibility</span>
+                  <select
+                    value={visibility}
+                    onChange={(e) => setVisibility(e.target.value as "private" | "unlisted" | "public")}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="private">Private</option>
+                    <option value="unlisted">Unlisted</option>
+                    <option value="public">Public</option>
+                  </select>
+                </label>
+                <label className="space-y-1.5 text-sm">
+                  <span className="font-medium">Category</span>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as (typeof DECK_CATEGORIES)[number])}
+                    className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    {DECK_CATEGORIES.map((item) => (
+                      <option key={item} value={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="space-y-1.5 text-sm">
+                  <span className="font-medium">Keywords</span>
+                  <Input value={keywords} onChange={(e) => setKeywords(e.target.value)} placeholder="IELTS, travel, verbs" />
+                </label>
+              </div>
+            </div>
+            <div className="flex shrink-0 flex-col gap-2 md:items-end">
+              <Button className="rounded-full" onClick={handlePublishingSave}>
+                {visibility === "public" ? "Publish deck" : "Save visibility"}
+              </Button>
+              {deck.visibility !== "private" && (
+                <Link
+                  to="/community/$deckId"
+                  params={{ deckId: deck.id }}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Open public link
+                </Link>
+              )}
+            </div>
+          </div>
+          <div className="mt-5 grid gap-3 sm:grid-cols-4">
+            <div className="rounded-2xl border border-border bg-background px-4 py-3">
+              <p className="text-xs text-muted-foreground">Visibility</p>
+              <p className="font-semibold capitalize">{deck.visibility}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-background px-4 py-3">
+              <p className="text-xs text-muted-foreground">Learners</p>
+              <p className="font-semibold">{deck.totalLearners}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-background px-4 py-3">
+              <p className="text-xs text-muted-foreground">Likes</p>
+              <p className="font-semibold">{deck.likes}</p>
+            </div>
+            <div className="rounded-2xl border border-border bg-background px-4 py-3">
+              <p className="text-xs text-muted-foreground">Rating</p>
+              <p className="font-semibold">{deck.rating || "New"}</p>
+            </div>
+          </div>
+        </section>
 
         {/* Delayed Recall */}
         <section className="mb-8 rounded-3xl border border-border bg-card p-6">

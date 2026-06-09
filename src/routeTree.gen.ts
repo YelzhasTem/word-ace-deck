@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as CommunityAdminRouteImport } from './routes/community-admin'
+import { Route as CommunityRouteImport } from './routes/community'
 import { Route as CollectionsRouteImport } from './routes/collections'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -24,6 +26,8 @@ import { Route as RecallDeckIdRouteImport } from './routes/recall.$deckId'
 import { Route as FeedbackDeckIdRouteImport } from './routes/feedback.$deckId'
 import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
+import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
+import { Route as CommunityDeckIdRouteImport } from './routes/community.$deckId'
 import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
 import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
@@ -41,6 +45,16 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityAdminRoute = CommunityAdminRouteImport.update({
+  id: '/community-admin',
+  path: '/community-admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CollectionsRoute = CollectionsRouteImport.update({
@@ -103,6 +117,16 @@ const DeckDeckIdRoute = DeckDeckIdRouteImport.update({
   path: '/deck/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CreatorUserIdRoute = CreatorUserIdRouteImport.update({
+  id: '/creator/$userId',
+  path: '/creator/$userId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CommunityDeckIdRoute = CommunityDeckIdRouteImport.update({
+  id: '/$deckId',
+  path: '/$deckId',
+  getParentRoute: () => CommunityRoute,
+} as any)
 const BuilderDeckIdRoute = BuilderDeckIdRouteImport.update({
   id: '/builder/$deckId',
   path: '/builder/$deckId',
@@ -123,12 +147,16 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/collections': typeof CollectionsRoute
+  '/community': typeof CommunityRouteWithChildren
+  '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/community/$deckId': typeof CommunityDeckIdRoute
+  '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
@@ -143,12 +171,16 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/collections': typeof CollectionsRoute
+  '/community': typeof CommunityRouteWithChildren
+  '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/community/$deckId': typeof CommunityDeckIdRoute
+  '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
@@ -164,12 +196,16 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/collections': typeof CollectionsRoute
+  '/community': typeof CommunityRouteWithChildren
+  '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/community/$deckId': typeof CommunityDeckIdRoute
+  '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
@@ -186,12 +222,16 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/collections'
+    | '/community'
+    | '/community-admin'
     | '/dashboard'
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
+    | '/community/$deckId'
+    | '/creator/$userId'
     | '/deck/$deckId'
     | '/deep/$deckId'
     | '/feedback/$deckId'
@@ -206,12 +246,16 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/collections'
+    | '/community'
+    | '/community-admin'
     | '/dashboard'
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
+    | '/community/$deckId'
+    | '/creator/$userId'
     | '/deck/$deckId'
     | '/deep/$deckId'
     | '/feedback/$deckId'
@@ -226,12 +270,16 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/collections'
+    | '/community'
+    | '/community-admin'
     | '/dashboard'
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
+    | '/community/$deckId'
+    | '/creator/$userId'
     | '/deck/$deckId'
     | '/deep/$deckId'
     | '/feedback/$deckId'
@@ -247,12 +295,15 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   CollectionsRoute: typeof CollectionsRoute
+  CommunityRoute: typeof CommunityRouteWithChildren
+  CommunityAdminRoute: typeof CommunityAdminRoute
   DashboardRoute: typeof DashboardRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   AssocDeckIdRoute: typeof AssocDeckIdRoute
   BlankDeckIdRoute: typeof BlankDeckIdRoute
   BuilderDeckIdRoute: typeof BuilderDeckIdRoute
+  CreatorUserIdRoute: typeof CreatorUserIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
   FeedbackDeckIdRoute: typeof FeedbackDeckIdRoute
@@ -285,6 +336,20 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community-admin': {
+      id: '/community-admin'
+      path: '/community-admin'
+      fullPath: '/community-admin'
+      preLoaderRoute: typeof CommunityAdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/collections': {
@@ -371,6 +436,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DeckDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/creator/$userId': {
+      id: '/creator/$userId'
+      path: '/creator/$userId'
+      fullPath: '/creator/$userId'
+      preLoaderRoute: typeof CreatorUserIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/community/$deckId': {
+      id: '/community/$deckId'
+      path: '/$deckId'
+      fullPath: '/community/$deckId'
+      preLoaderRoute: typeof CommunityDeckIdRouteImport
+      parentRoute: typeof CommunityRoute
+    }
     '/builder/$deckId': {
       id: '/builder/$deckId'
       path: '/builder/$deckId'
@@ -395,16 +474,31 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface CommunityRouteChildren {
+  CommunityDeckIdRoute: typeof CommunityDeckIdRoute
+}
+
+const CommunityRouteChildren: CommunityRouteChildren = {
+  CommunityDeckIdRoute: CommunityDeckIdRoute,
+}
+
+const CommunityRouteWithChildren = CommunityRoute._addFileChildren(
+  CommunityRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   CollectionsRoute: CollectionsRoute,
+  CommunityRoute: CommunityRouteWithChildren,
+  CommunityAdminRoute: CommunityAdminRoute,
   DashboardRoute: DashboardRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   AssocDeckIdRoute: AssocDeckIdRoute,
   BlankDeckIdRoute: BlankDeckIdRoute,
   BuilderDeckIdRoute: BuilderDeckIdRoute,
+  CreatorUserIdRoute: CreatorUserIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,
   FeedbackDeckIdRoute: FeedbackDeckIdRoute,

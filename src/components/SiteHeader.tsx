@@ -106,6 +106,13 @@ export function SiteHeader() {
           >
             {t("nav.collections")}
           </Link>
+          <Link
+            to="/community"
+            className="px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3"
+            activeProps={{ className: "px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3" }}
+          >
+            Community
+          </Link>
           <button
             onClick={toggleLang}
             aria-label={t("nav.lang")}

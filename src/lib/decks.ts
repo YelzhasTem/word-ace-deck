@@ -32,6 +32,14 @@ export type Deck = {
   description: string;
   cards: Card[];
   createdAt: number;
+  updatedAt: number;
+  visibility: "private" | "unlisted" | "public";
+  category: string;
+  keywords: string[];
+  totalLearners: number;
+  likes: number;
+  rating: number;
+  publishedAt: string | null;
 };
 
 type DbDeck = {
@@ -39,6 +47,15 @@ type DbDeck = {
   name: string;
   description: string | null;
   created_at: string;
+  updated_at?: string;
+  visibility?: "private" | "unlisted" | "public";
+  category?: string;
+  keywords?: string[];
+  learner_count?: number;
+  like_count?: number;
+  rating_sum?: number;
+  rating_count?: number;
+  published_at?: string | null;
 };
 
 type DbCard = {
@@ -65,6 +82,14 @@ function mapDecks(decks: DbDeck[], cards: DbCard[]): Deck[] {
     description: d.description ?? "",
     cards: cardsByDeck.get(d.id) ?? [],
     createdAt: new Date(d.created_at).getTime(),
+    updatedAt: new Date(d.updated_at ?? d.created_at).getTime(),
+    visibility: d.visibility ?? "private",
+    category: d.category ?? "General English",
+    keywords: d.keywords ?? [],
+    totalLearners: d.learner_count ?? 0,
+    likes: d.like_count ?? 0,
+    rating: d.rating_count ? Number(((d.rating_sum ?? 0) / d.rating_count).toFixed(1)) : 0,
+    publishedAt: d.published_at ?? null,
   }));
 }
 
