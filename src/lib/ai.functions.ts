@@ -5,6 +5,7 @@ type DeckCard = { term: string; definition: string };
 type DeckPayload = { name?: string; description?: string; cards?: DeckCard[] };
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash-lite";
 const MAX_DECK_NAME = 120;
 const MAX_DECK_DESCRIPTION = 300;
 const MAX_CARD_TERM = 160;
@@ -47,47 +48,76 @@ function getGeminiText(json: {
   return json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim() ?? "";
 }
 
+function getGeminiModels() {
+  return Array.from(new Set([GEMINI_MODEL, GEMINI_FALLBACK_MODEL].filter(Boolean)));
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRetryableGeminiStatus(status: number) {
+  return status === 429 || status === 503;
+}
+
 async function callGemini(system: string, user: string, options?: { json?: boolean }) {
   const apiKey = getGeminiApiKey();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+  let lastRetryableError = "";
 
-  const res = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-goog-api-key": apiKey,
-    },
-    body: JSON.stringify({
-      systemInstruction: {
-        parts: [{ text: system }],
-      },
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: user }],
+  for (const model of getGeminiModels()) {
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey,
         },
-      ],
-      generationConfig: {
-        temperature: 0.7,
-        ...(options?.json ? { responseMimeType: "application/json" } : {}),
-      },
-    }),
-  });
+        body: JSON.stringify({
+          systemInstruction: {
+            parts: [{ text: system }],
+          },
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: user }],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            ...(options?.json ? { responseMimeType: "application/json" } : {}),
+          },
+        }),
+      });
 
-  if (!res.ok) {
-    const body = await res.text();
-    if (res.status === 400) throw new Error(`Gemini отклонил запрос: ${body.slice(0, 220)}`);
-    if (res.status === 401 || res.status === 403) {
-      throw new Error("Gemini API key не принят. Проверьте GEMINI_API_KEY в .env.");
+      if (res.ok) {
+        const json = (await res.json()) as {
+          candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+        };
+        return getGeminiText(json);
+      }
+
+      const body = await res.text();
+      if (res.status === 400) throw new Error(`Gemini отклонил запрос: ${body.slice(0, 220)}`);
+      if (res.status === 401 || res.status === 403) {
+        throw new Error("Gemini API key не принят. Проверьте GEMINI_API_KEY в .env.");
+      }
+
+      if (isRetryableGeminiStatus(res.status)) {
+        lastRetryableError = `Gemini API ошибка ${res.status} (${model}): ${body.slice(0, 220)}`;
+        if (attempt === 0) await wait(900);
+        continue;
+      }
+
+      throw new Error(`Gemini API ошибка ${res.status}: ${body.slice(0, 220)}`);
     }
-    if (res.status === 429) throw new Error("Слишком много запросов к Gemini. Попробуйте чуть позже.");
-    throw new Error(`Gemini API ошибка ${res.status}: ${body.slice(0, 220)}`);
   }
 
-  const json = (await res.json()) as {
-    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-  };
-  return getGeminiText(json);
+  throw new Error(
+    lastRetryableError ||
+      "Gemini временно недоступен. Попробуйте еще раз через несколько минут или смените GEMINI_MODEL.",
+  );
 }
 
 function parseJsonResponse<T>(raw: string, errorMessage: string): T {
