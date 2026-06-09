@@ -1,6 +1,78 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
+type DeckCard = { term: string; definition: string };
+type DeckPayload = { name?: string; description?: string; cards?: DeckCard[] };
+
+const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+
+function getGeminiApiKey() {
+  const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+  if (!apiKey) throw new Error("GEMINI_API_KEY не настроен");
+  return apiKey;
+}
+
+function stripJsonFence(raw: string) {
+  return raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+}
+
+function getGeminiText(json: {
+  candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+}) {
+  return json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim() ?? "";
+}
+
+async function callGemini(system: string, user: string, options?: { json?: boolean }) {
+  const apiKey = getGeminiApiKey();
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+
+  const res = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-goog-api-key": apiKey,
+    },
+    body: JSON.stringify({
+      systemInstruction: {
+        parts: [{ text: system }],
+      },
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: user }],
+        },
+      ],
+      generationConfig: {
+        temperature: 0.7,
+        ...(options?.json ? { responseMimeType: "application/json" } : {}),
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    if (res.status === 400) throw new Error(`Gemini отклонил запрос: ${body.slice(0, 220)}`);
+    if (res.status === 401 || res.status === 403) {
+      throw new Error("Gemini API key не принят. Проверьте GEMINI_API_KEY в .env.");
+    }
+    if (res.status === 429) throw new Error("Слишком много запросов к Gemini. Попробуйте чуть позже.");
+    throw new Error(`Gemini API ошибка ${res.status}: ${body.slice(0, 220)}`);
+  }
+
+  const json = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  };
+  return getGeminiText(json);
+}
+
+function parseJsonResponse<T>(raw: string, errorMessage: string): T {
+  try {
+    return JSON.parse(stripJsonFence(raw)) as T;
+  } catch {
+    throw new Error(errorMessage);
+  }
+}
+
 export const generateStudyText = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
@@ -10,9 +82,6 @@ export const generateStudyText = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
-
     const variations = [
       "короткая история",
       "диалог двух друзей",
@@ -25,45 +94,17 @@ export const generateStudyText = createServerFn({ method: "POST" })
     const variant = variations[(data.seed ?? 0) % variations.length];
 
     const system =
-      "Ты — преподаватель английского для русскоязычных студентов. " +
-      "Пишешь короткие связные тексты на английском уровня B1–B2, " +
-      "которые помогают активно повторять заданные слова в естественном контексте.";
+      "Ты преподаватель английского для русскоязычных студентов. Пиши короткие связные тексты на английском уровня B1-B2, которые помогают активно повторять заданные слова в естественном контексте.";
 
     const user =
-      `Напиши на английском ${variant} (~110–160 слов), используя ВСЕ перечисленные слова и выражения. ` +
-      `Каждое из этих слов должно встретиться хотя бы один раз и быть выделено жирным с помощью **звёздочек** (Markdown). ` +
-      `Сохраняй формы слов естественными (спряжения, число и т.п.). ` +
+      `Напиши на английском ${variant} примерно на 110-160 слов, используя все перечисленные слова и выражения. ` +
+      `Каждое из этих слов должно встретиться хотя бы один раз и быть выделено жирным с помощью Markdown-звездочек. ` +
+      `Сохраняй формы слов естественными: спряжения, число и т.п. ` +
       `После текста добавь раздел "**Перевод ключевых слов:**" со списком "- **word** — перевод" для каждого слова.\n\n` +
       `${data.deckName ? `Тема колоды: ${data.deckName}.\n` : ""}` +
       `Слова: ${data.words.join(", ")}.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
-      if (res.status === 402)
-        throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
-      throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
-    }
-
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    const text = json.choices?.[0]?.message?.content?.trim() ?? "";
+    const text = await callGemini(system, user);
     return { text };
   });
 
@@ -76,68 +117,30 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
-
     const system =
-      "Ты — лексикограф для русскоязычных студентов английского. " +
-      "Твоя задача — сгенерировать колоду карточек для запоминания английских слов. " +
-      "Отвечай ТОЛЬКО валидным JSON без Markdown-разметки. Формат:\n" +
-      '{"name":"Название колоды","description":"Краткое описание","cards":[{"term":"английское слово","definition":"перевод на русский"}]}';
+      "Ты лексикограф для русскоязычных студентов английского. Сгенерируй колоду карточек для запоминания английских слов. Отвечай только валидным JSON без Markdown. Формат: " +
+      '{"name":"Название колоды","description":"Краткое описание","cards":[{"term":"english word","definition":"перевод на русский"}]}';
 
     const user =
-      `Создай колоду из ${data.count} английских слов/выражений на тему «${data.topic}» уровня ${data.level}. ` +
-      `Для каждого слова дай перевод на русский. ` +
-      `Название колоды должно быть на русском, краткое и ёмкое. ` +
-      `Описание — одно предложение на русском. ` +
-      `Отвечай строго JSON без комментариев, без Markdown.`;
+      `Создай колоду из ${data.count} английских слов или выражений на тему "${data.topic}" уровня ${data.level}. ` +
+      `Для каждого слова дай перевод на русский. Название колоды должно быть на русском, краткое и емкое. ` +
+      `Описание — одно предложение на русском. Отвечай строго JSON без комментариев.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
+    const raw = await callGemini(system, user, { json: true });
+    const parsed = parseJsonResponse<DeckPayload>(
+      raw,
+      "ИИ вернул невалидный JSON. Попробуйте еще раз.",
+    );
 
-    if (!res.ok) {
-      const body = await res.text();
-      if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
-      if (res.status === 402)
-        throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
-      throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
-    }
-
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    const raw = json.choices?.[0]?.message?.content?.trim() ?? "";
-
-    // Strip markdown fences if present
-    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
-
-    let parsed: { name?: string; description?: string; cards?: { term: string; definition: string }[] };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("ИИ вернул невалидный JSON. Попробуйте ещё раз.");
-    }
-
-    if (!parsed.cards || !Array.isArray(parsed.cards) || parsed.cards.length === 0) {
+    const cards = (parsed.cards ?? []).filter((card) => card.term && card.definition);
+    if (cards.length === 0) {
       throw new Error("ИИ не сгенерировал карточки. Попробуйте другую тему.");
     }
 
     return {
       name: parsed.name ?? data.topic,
-      description: parsed.description ?? `Колода по теме «${data.topic}»`,
-      cards: parsed.cards.filter((c) => c.term && c.definition),
+      description: parsed.description ?? `Колода по теме "${data.topic}"`,
+      cards,
     };
   });
 
@@ -148,56 +151,21 @@ export const getTranslations = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
-
     const system =
-      "Ты — англо-русский словарь. Получаешь английское слово или выражение и возвращаешь до 5 наиболее частых переводов на русский язык. " +
-      "Отвечай ТОЛЬКО валидным JSON без Markdown. Формат: " +
-      '{"translations":["перевод 1","перевод 2","перевод 3"]}. ' +
-      "Каждый перевод — короткий (1–4 слова), без пояснений в скобках, без нумерации.";
+      "Ты англо-русский словарь. Получаешь английское слово или выражение и возвращаешь до 5 наиболее частых переводов на русский язык. Отвечай только валидным JSON без Markdown. Формат: " +
+      '{"translations":["перевод 1","перевод 2","перевод 3"]}. Каждый перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
 
-    const user = `Слово: «${data.word}». Дай разные значения и оттенки смысла, если они есть.`;
+    const user = `Слово: "${data.word}". Дай разные значения и оттенки смысла, если они есть.`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
-
-    if (!res.ok) {
-      const body = await res.text();
-      if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
-      if (res.status === 402)
-        throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
-      throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
-    }
-
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    const raw = json.choices?.[0]?.message?.content?.trim() ?? "";
-    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
-
-    let parsed: { translations?: string[] };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("ИИ вернул невалидный ответ. Попробуйте ещё раз.");
-    }
+    const raw = await callGemini(system, user, { json: true });
+    const parsed = parseJsonResponse<{ translations?: string[] }>(
+      raw,
+      "ИИ вернул невалидный ответ. Попробуйте еще раз.",
+    );
 
     const translations = (parsed.translations ?? [])
-      .filter((t) => typeof t === "string" && t.trim().length > 0)
-      .map((t) => t.trim())
+      .filter((translation) => typeof translation === "string" && translation.trim().length > 0)
+      .map((translation) => translation.trim())
       .slice(0, 5);
 
     if (translations.length === 0) {
@@ -231,16 +199,11 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
-
-    // Fetch the source page
     let pageRes: Response;
     try {
       pageRes = await fetch(data.url, {
         headers: {
-          "User-Agent":
-            "Mozilla/5.0 (compatible; LingoCardsBot/1.0; +https://lovable.dev)",
+          "User-Agent": "Mozilla/5.0 (compatible; MemoraBot/1.0)",
           Accept: "text/html,application/xhtml+xml",
         },
         redirect: "follow",
@@ -248,71 +211,37 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
     } catch {
       throw new Error("Не удалось загрузить страницу. Проверьте адрес.");
     }
+
     if (!pageRes.ok) {
       throw new Error(`Не удалось загрузить страницу (HTTP ${pageRes.status}).`);
     }
-    const ct = pageRes.headers.get("content-type") ?? "";
+
+    const contentType = pageRes.headers.get("content-type") ?? "";
     const html = await pageRes.text();
-    const text = ct.includes("html") ? stripHtml(html) : html.replace(/\s+/g, " ").trim();
+    const text = contentType.includes("html") ? stripHtml(html) : html.replace(/\s+/g, " ").trim();
 
     if (text.length < 200) {
       throw new Error("На странице слишком мало текста для создания колоды.");
     }
 
-    // Limit context to keep token usage sane
     const excerpt = text.slice(0, 12000);
-
     const system =
-      "Ты — лексикограф для русскоязычных студентов английского. " +
-      "На основе предоставленного фрагмента текста выбери самые полезные для изучения английские слова и выражения " +
-      "(существительные, глаголы, прилагательные, устойчивые выражения), которые действительно встречаются в тексте. " +
-      "Избегай имён собственных, чисел, дат, географических названий и слишком простых базовых слов (the, is, and и т. п.). " +
-      "Отвечай ТОЛЬКО валидным JSON без Markdown. Формат:\n" +
+      "Ты лексикограф для русскоязычных студентов английского. На основе фрагмента текста выбери самые полезные для изучения английские слова и выражения, которые действительно встречаются в тексте. Избегай имен собственных, чисел, дат, географических названий и слишком простых базовых слов. Отвечай только валидным JSON без Markdown. Формат: " +
       '{"name":"Название колоды","description":"Краткое описание","cards":[{"term":"слово/выражение","definition":"перевод на русский"}]}';
 
     const user =
       `Источник: ${data.url}\n` +
-      `Выбери ровно ${data.count} разных слов/выражений из текста ниже и дай каждому короткий перевод на русский. ` +
+      `Выбери ровно ${data.count} разных слов или выражений из текста ниже и дай каждому короткий перевод на русский. ` +
       `Название колоды — на русском, краткое, по теме текста. Описание — одно предложение на русском.\n\n` +
       `Текст:\n"""${excerpt}"""`;
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash-lite",
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-      }),
-    });
+    const raw = await callGemini(system, user, { json: true });
+    const parsed = parseJsonResponse<DeckPayload>(
+      raw,
+      "ИИ вернул невалидный JSON. Попробуйте еще раз.",
+    );
 
-    if (!res.ok) {
-      const body = await res.text();
-      if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
-      if (res.status === 402)
-        throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
-      throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
-    }
-
-    const json = (await res.json()) as {
-      choices?: { message?: { content?: string } }[];
-    };
-    const raw = json.choices?.[0]?.message?.content?.trim() ?? "";
-    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
-
-    let parsed: { name?: string; description?: string; cards?: { term: string; definition: string }[] };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("ИИ вернул невалидный JSON. Попробуйте ещё раз.");
-    }
-
-    const cards = (parsed.cards ?? []).filter((c) => c && c.term && c.definition);
+    const cards = (parsed.cards ?? []).filter((card) => card && card.term && card.definition);
     if (cards.length === 0) {
       throw new Error("Не удалось извлечь слова из текста. Попробуйте другой источник.");
     }
@@ -326,35 +255,10 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
 
     return {
       name: parsed.name ?? `Слова из ${host}`,
-      description: parsed.description ?? `Лексика, извлечённая из ${host}.`,
+      description: parsed.description ?? `Лексика, извлеченная из ${host}.`,
       cards,
     };
   });
-
-async function callAI(system: string, user: string) {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) throw new Error("LOVABLE_API_KEY не настроен");
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-lite",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    }),
-  });
-  if (!res.ok) {
-    const body = await res.text();
-    if (res.status === 429) throw new Error("Слишком много запросов. Попробуйте чуть позже.");
-    if (res.status === 402)
-      throw new Error("Закончились кредиты Lovable AI. Пополните баланс в настройках.");
-    throw new Error(`AI Gateway ошибка ${res.status}: ${body.slice(0, 200)}`);
-  }
-  const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
-  return (json.choices?.[0]?.message?.content ?? "").trim();
-}
 
 export const generateClozeSentence = createServerFn({ method: "POST" })
   .inputValidator(
@@ -365,20 +269,16 @@ export const generateClozeSentence = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const system =
-      "Ты помогаешь учить английские слова. Возвращай ТОЛЬКО JSON без Markdown. " +
-      'Формат: {"sentence":"...","explanation":"..."}. ' +
-      "sentence — короткое (8–16 слов) естественное английское предложение уровня B1, " +
-      "в котором ОБЯЗАТЕЛЬНО встречается заданное слово в его базовой или естественной форме. " +
-      "explanation — короткое пояснение на русском (1 предложение), почему это слово здесь уместно.";
+      "Ты помогаешь учить английские слова. Возвращай только JSON без Markdown. Формат: " +
+      '{"sentence":"...","explanation":"..."}. sentence — короткое естественное английское предложение уровня B1 на 8-16 слов, где обязательно встречается заданное слово в базовой или естественной форме. explanation — короткое пояснение на русском, почему слово уместно.';
+
     const user = `Слово: "${data.term}" (перевод: ${data.definition}). Сделай предложение и пояснение.`;
-    const raw = await callAI(system, user);
-    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
-    let parsed: { sentence?: string; explanation?: string };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("ИИ вернул невалидный ответ.");
-    }
+    const raw = await callGemini(system, user, { json: true });
+    const parsed = parseJsonResponse<{ sentence?: string; explanation?: string }>(
+      raw,
+      "ИИ вернул невалидный ответ.",
+    );
+
     if (!parsed.sentence) throw new Error("Не удалось сгенерировать предложение.");
     return { sentence: parsed.sentence, explanation: parsed.explanation ?? "" };
   });
@@ -392,21 +292,20 @@ export const generateAssociation = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const system =
-      "Ты создаёшь яркие мнемонические ассоциации на русском, чтобы помочь запомнить английские слова. " +
-      "Отвечай ТОЛЬКО JSON без Markdown. Формат: " +
-      '{"association":"...","story":"..."}. ' +
-      "association — 1–2 предложения: на что похоже звучание слова, какой образ возникает. " +
-      "story — короткая (2–3 предложения) история-мнемоника, связывающая образ с переводом.";
+      "Ты создаешь яркие мнемонические ассоциации на русском, чтобы помочь запомнить английские слова. Отвечай только JSON без Markdown. Формат: " +
+      '{"association":"...","story":"..."}. association — 1-2 предложения: на что похоже звучание слова, какой образ возникает. story — короткая история-мнемоника на 2-3 предложения, связывающая образ с переводом.';
+
     const user = `Слово: "${data.term}" — перевод: "${data.definition}".`;
-    const raw = await callAI(system, user);
-    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
-    let parsed: { association?: string; story?: string };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("ИИ вернул невалидный ответ.");
+    const raw = await callGemini(system, user, { json: true });
+    const parsed = parseJsonResponse<{ association?: string; story?: string }>(
+      raw,
+      "ИИ вернул невалидный ответ.",
+    );
+
+    if (!parsed.association && !parsed.story) {
+      throw new Error("Не удалось сгенерировать ассоциацию.");
     }
-    if (!parsed.association && !parsed.story) throw new Error("Не удалось сгенерировать ассоциацию.");
+
     return { association: parsed.association ?? "", story: parsed.story ?? "" };
   });
 
@@ -431,40 +330,24 @@ export const generateSessionFeedback = createServerFn({ method: "POST" })
           }),
         )
         .max(20),
-      confusions: z
-        .array(z.object({ a: z.string().max(80), b: z.string().max(80) }))
-        .max(10),
+      confusions: z.array(z.object({ a: z.string().max(80), b: z.string().max(80) })).max(10),
     }),
   )
   .handler(async ({ data }) => {
     const system =
-      "Ты — персональный AI-тренер по английской лексике для русскоязычного студента. " +
-      "На основе статистики сессии дай тёплый, конкретный и краткий разбор по-русски. " +
-      "Отвечай ТОЛЬКО JSON без Markdown. Формат: " +
-      '{"summary":"...","weakAnalysis":"...","confusions":[{"pair":"borrow vs lend","note":"..."}],"focus":["..."],"plan":"...","trend":"..."}. ' +
-      "summary — 1–2 предложения с общей оценкой. " +
-      "weakAnalysis — что объединяет слабые слова и как с ними работать. " +
-      "confusions — короткие пояснения частых путаниц похожих слов (если они есть). " +
-      "focus — массив из 2–4 коротких пунктов: на чём сделать акцент завтра. " +
-      "plan — рекомендация по режимам и количеству карточек на следующий день. " +
-      "trend — короткая фраза о динамике (улучшение/спад/стабильно).";
+      "Ты персональный AI-тренер по английской лексике для русскоязычного студента. На основе статистики сессии дай теплый, конкретный и краткий разбор по-русски. Отвечай только JSON без Markdown. Формат: " +
+      '{"summary":"...","weakAnalysis":"...","confusions":[{"pair":"borrow vs lend","note":"..."}],"focus":["..."],"plan":"...","trend":"..."}. summary — 1-2 предложения с общей оценкой. weakAnalysis — что объединяет слабые слова и как с ними работать. confusions — короткие пояснения частых путаниц похожих слов. focus — массив из 2-4 коротких пунктов на завтра. plan — рекомендация по режимам и количеству карточек. trend — короткая фраза о динамике.';
 
-    const user = JSON.stringify(data);
-    const raw = await callAI(system, user);
-    const cleaned = raw.replace(/^```json\s*/, "").replace(/```\s*$/, "").trim();
-    let parsed: {
+    const raw = await callGemini(system, JSON.stringify(data), { json: true });
+    const parsed = parseJsonResponse<{
       summary?: string;
       weakAnalysis?: string;
       confusions?: { pair: string; note: string }[];
       focus?: string[];
       plan?: string;
       trend?: string;
-    };
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch {
-      throw new Error("ИИ вернул невалидный ответ.");
-    }
+    }>(raw, "ИИ вернул невалидный ответ.");
+
     return {
       summary: parsed.summary ?? "",
       weakAnalysis: parsed.weakAnalysis ?? "",

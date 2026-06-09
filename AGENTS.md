@@ -41,8 +41,8 @@
 
 ## AI Keys and Models
 
-- This project currently uses `LOVABLE_API_KEY` for the Lovable AI Gateway. Treat it as a secret backend/server-only key.
-- If direct Gemini support is added later, use `GEMINI_API_KEY` only on the backend/server. Never expose it as `VITE_*`.
+- This project uses `GEMINI_API_KEY` for direct Gemini API calls. Treat it as a secret backend/server-only key.
+- Never expose Gemini keys as `VITE_*`.
 - For student projects, default Gemini model selection to `gemini-2.5-flash-lite` unless the user explicitly asks for another model.
 
 ## Before Deploy

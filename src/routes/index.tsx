@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { SiteHeader } from "@/components/SiteHeader";
 import {
   Brain,
   Clock,
@@ -11,7 +12,6 @@ import {
   TrendingUp,
   ArrowRight,
   Check,
-  Moon,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -37,20 +37,6 @@ export const Route = createFileRoute("/")({
 function Landing() {
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
-  const [dark, setDark] = useState(false);
-
-  useEffect(() => {
-    const saved = localStorage.getItem("theme") === "dark";
-    setDark(saved);
-    document.documentElement.classList.toggle("dark", saved);
-  }, []);
-
-  const toggleDark = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle("dark", next);
-    localStorage.setItem("theme", next ? "dark" : "light");
-  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
@@ -68,34 +54,7 @@ function Landing() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* Header */}
-      <header className="sticky top-0 z-30 backdrop-blur-xl bg-background/70 border-b border-border/60">
-        <div className="mx-auto max-w-6xl px-6 h-16 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="h-8 w-8 rounded-xl bg-gradient-to-br from-primary to-accent grid place-items-center text-primary-foreground font-display font-bold">
-              M
-            </div>
-            <span className="font-display text-lg font-bold tracking-tight">Memora</span>
-          </Link>
-          <nav className="hidden md:flex items-center gap-7 text-sm text-muted-foreground">
-            <a href="#features" className="hover:text-foreground transition-colors">Возможности</a>
-            <a href="#how" className="hover:text-foreground transition-colors">Как это работает</a>
-            <a href="#why" className="hover:text-foreground transition-colors">Почему Memora</a>
-          </nav>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleDark}
-              aria-label="Переключить тему"
-              className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-            >
-              <Moon className="h-4 w-4" />
-            </button>
-            <Button asChild className="rounded-full">
-              <Link to="/auth">Начать</Link>
-            </Button>
-          </div>
-        </div>
-      </header>
+      <SiteHeader />
 
       {/* Hero */}
       <section className="relative overflow-hidden">

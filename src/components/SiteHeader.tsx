@@ -1,9 +1,17 @@
 import { Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { BookOpenCheck, Languages, LogOut, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
+import { BookOpenCheck, Languages, LogOut, Menu, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { useLang, useT } from "@/lib/i18n";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export function SiteHeader() {
   const [dark, setDark] = useState(false);
@@ -59,7 +67,7 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
-      <div className="mx-auto max-w-6xl px-6 py-4 flex items-center gap-4">
+      <div className="mx-auto max-w-6xl px-6 py-4 flex flex-wrap items-center gap-3 md:gap-4">
         <Link to="/" className="flex items-center gap-2.5 group">
           <span className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-sm group-hover:scale-105 transition-transform">
             <BookOpenCheck className="h-4.5 w-4.5" strokeWidth={2.25} />
@@ -69,7 +77,7 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <div className="hidden md:flex flex-1 max-w-md mx-auto">
+        <div className="order-3 flex w-full md:order-none md:w-auto md:flex-1 md:max-w-md md:mx-auto">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
@@ -85,26 +93,18 @@ export function SiteHeader() {
         <nav className="ml-auto flex items-center gap-1 text-sm font-medium">
           <Link
             to="/"
-            className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
+            className="px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3"
             activeOptions={{ exact: true }}
-            activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
+            activeProps={{ className: "px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3" }}
           >
             {t("nav.decks")}
           </Link>
           <Link
             to="/collections"
-            className="px-3 py-2 rounded-full hover:bg-secondary transition-colors"
-            activeProps={{ className: "px-3 py-2 rounded-full bg-secondary text-primary" }}
+            className="px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3"
+            activeProps={{ className: "px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3" }}
           >
             {t("nav.collections")}
-          </Link>
-          <Link
-            to="/settings"
-            aria-label={t("nav.settings")}
-            className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-            activeProps={{ className: "h-9 w-9 inline-flex items-center justify-center rounded-full bg-secondary text-primary transition-colors" }}
-          >
-            <SettingsIcon className="h-4 w-4" />
           </Link>
           <button
             onClick={toggleLang}
@@ -122,28 +122,50 @@ export function SiteHeader() {
           >
             <Moon className="h-4 w-4" />
           </button>
-          {session ? (
-            <div className="flex items-center gap-2 pl-2">
-              <span className="hidden sm:inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                <User className="h-3.5 w-3.5" />
-                {session.user.email}
-              </span>
-              <button
-                onClick={handleLogout}
-                aria-label={t("nav.logout")}
-                className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            </div>
-          ) : (
-            <Link
-              to="/auth"
-              className="ml-2 px-4 py-2 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm"
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Open menu"
+              className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
             >
-              {t("nav.login")}
-            </Link>
-          )}
+              <Menu className="h-4 w-4" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              {session ? (
+                <>
+                  <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
+                    <User className="h-3.5 w-3.5" />
+                    <span className="truncate">{session.user.email}</span>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">
+                      <SettingsIcon className="h-4 w-4" />
+                      {t("nav.settings")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={handleLogout}>
+                    <LogOut className="h-4 w-4" />
+                    {t("nav.logout")}
+                  </DropdownMenuItem>
+                </>
+              ) : (
+                <>
+                  <DropdownMenuItem asChild>
+                    <Link to="/settings">
+                      <SettingsIcon className="h-4 w-4" />
+                      {t("nav.settings")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to="/auth">
+                      <User className="h-4 w-4" />
+                      {t("nav.login")}
+                    </Link>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </nav>
       </div>
     </header>
