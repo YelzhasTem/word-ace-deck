@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
+import { useServerFn } from "@tanstack/react-start";
 import { recordStreakToday } from "@/lib/streak";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat } from "lucide-react";
+import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat, Star } from "lucide-react";
+import { rateDeck } from "@/lib/community.functions";
 
 export const Route = createFileRoute("/study/$deckId")({
   component: StudyPage,
@@ -13,10 +15,12 @@ export const Route = createFileRoute("/study/$deckId")({
 function StudyPage() {
   const { deckId } = Route.useParams();
   const { deck, markCard, resetProgress } = useDeck(deckId);
+  const rateOriginalDeck = useServerFn(rateDeck);
 
   const [order, setOrder] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
+  const [rated, setRated] = useState(false);
 
   const queueSource = useMemo(
     () => (deck ? deck.cards.filter((c) => !c.known).map((c) => c.id) : []),
@@ -101,6 +105,12 @@ function StudyPage() {
   };
 
   const finished = !current;
+
+  const onRateOriginal = async (rating: number) => {
+    if (!deck?.sourceDeckId) return;
+    await rateOriginalDeck({ data: { deckId: deck.sourceDeckId, rating } });
+    setRated(true);
+  };
 
   return (
     <div className="min-h-screen">
@@ -190,6 +200,28 @@ function StudyPage() {
                 <RotateCcw className="h-4 w-4" /> Учить снова
               </Button>
             </div>
+            {deck.sourceDeckId && (
+              <div className="mx-auto mt-8 max-w-md rounded-2xl border border-border bg-background p-4">
+                <p className="text-sm font-medium">Оцените оригинальную community-колоду</p>
+                <p className="mt-1 text-xs text-muted-foreground">Это необязательно, но помогает другим пользователям находить полезные колоды.</p>
+                {rated ? (
+                  <p className="mt-3 text-sm text-primary">Спасибо, оценка сохранена.</p>
+                ) : (
+                  <div className="mt-3 flex justify-center gap-1">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        onClick={() => onRateOriginal(value)}
+                        className="rounded-full p-1 text-primary hover:bg-secondary"
+                        aria-label={`Rate ${value}`}
+                      >
+                        <Star className="h-6 w-6" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <>

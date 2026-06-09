@@ -70,7 +70,7 @@ export const getMyDecks = createServerFn({ method: "GET" })
 
     let decksRes = await supabase
       .from("decks")
-      .select("id, name, description, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at")
+      .select("id, name, description, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 

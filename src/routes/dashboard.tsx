@@ -668,10 +668,10 @@ function Home() {
             {hasMore && (
               <div className="mt-8 flex justify-center">
                 <Link
-                  to="/collections"
+                  to="/decks"
                   className="inline-flex items-center gap-2 rounded-full bg-secondary hover:bg-secondary/80 px-6 h-12 text-sm font-semibold transition-colors"
                 >
-                  {t("home.toCollections")} →
+                  {t("home.yourDecks")} →
                 </Link>
               </div>
             )}

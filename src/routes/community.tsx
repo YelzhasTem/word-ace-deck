@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Heart, Search, Star, Users } from "lucide-react";
+import { Archive, BookOpen, Copy, Heart, Search, Star, Users } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { getCommunityHome, searchPublicDecks } from "@/lib/community.functions";
+import { duplicatePublicCollection, getCommunityHome, searchPublicCollections, searchPublicDecks } from "@/lib/community.functions";
 
 export const Route = createFileRoute("/community")({
   component: CommunityPage,
@@ -16,6 +16,16 @@ type CommunityDeck = {
   title: string;
   description: string;
   cardCount: number;
+  totalLearners: number;
+  likes: number;
+  rating: number;
+};
+
+type CommunityCollection = {
+  id: string;
+  title: string;
+  description: string;
+  deckCount: number;
   totalLearners: number;
   likes: number;
   rating: number;
@@ -44,6 +54,30 @@ function DeckCard({ deck }: { deck: CommunityDeck }) {
   );
 }
 
+function CollectionCard({ collection, onCopy }: { collection: CommunityCollection; onCopy: (id: string) => void }) {
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
+      <div className="min-w-0">
+        <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.12em] text-primary">
+          <Archive className="h-3.5 w-3.5" />
+          Collection
+        </div>
+        <h3 className="mt-2 font-display text-xl font-bold tracking-tight">{collection.title}</h3>
+        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{collection.description || "No description yet."}</p>
+      </div>
+      <div className="mt-auto grid grid-cols-4 gap-2 text-xs text-muted-foreground">
+        <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{collection.deckCount}</span>
+        <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{collection.totalLearners}</span>
+        <span className="inline-flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{collection.likes}</span>
+        <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5" />{collection.rating || "New"}</span>
+      </div>
+      <Button variant="outline" className="rounded-full" onClick={() => onCopy(collection.id)}>
+        <Copy className="h-4 w-4" /> Add collection
+      </Button>
+    </div>
+  );
+}
+
 function Section({ title, decks }: { title: string; decks: CommunityDeck[] }) {
   if (decks.length === 0) return null;
   return (
@@ -59,6 +93,8 @@ function Section({ title, decks }: { title: string; decks: CommunityDeck[] }) {
 function CommunityPage() {
   const loadHome = useServerFn(getCommunityHome);
   const searchDecks = useServerFn(searchPublicDecks);
+  const searchCollections = useServerFn(searchPublicCollections);
+  const copyCollection = useServerFn(duplicatePublicCollection);
   const [home, setHome] = useState<{
     trending: CommunityDeck[];
     popular: CommunityDeck[];
@@ -67,6 +103,7 @@ function CommunityPage() {
     recommended: CommunityDeck[];
   } | null>(null);
   const [results, setResults] = useState<CommunityDeck[]>([]);
+  const [collectionResults, setCollectionResults] = useState<CommunityCollection[]>([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("popular");
   const [mode, setMode] = useState<"search" | "trending" | "following" | "saved">("search");
@@ -81,17 +118,33 @@ function CommunityPage() {
   useEffect(() => {
     if (!activeSearch) return;
     setLoading(true);
-    searchDecks({
-      data: {
-        query,
-        sort: mode === "trending" ? "popular" : sort,
-        followingOnly: mode === "following",
-        savedOnly: mode === "saved",
-      },
-    })
-      .then((res) => setResults(res.decks as CommunityDeck[]))
+    Promise.all([
+      searchDecks({
+        data: {
+          query,
+          sort: mode === "trending" ? "popular" : sort,
+          followingOnly: mode === "following",
+          savedOnly: mode === "saved",
+        },
+      }),
+      searchCollections({
+        data: {
+          query,
+          sort: mode === "trending" ? "popular" : sort,
+          savedOnly: mode === "saved",
+        },
+      }),
+    ])
+      .then(([deckRes, collectionRes]) => {
+        setResults(deckRes.decks as CommunityDeck[]);
+        setCollectionResults(collectionRes.collections as CommunityCollection[]);
+      })
       .finally(() => setLoading(false));
-  }, [activeSearch, mode, query, searchDecks, sort]);
+  }, [activeSearch, mode, query, searchCollections, searchDecks, sort]);
+
+  const onCopyCollection = async (collectionId: string) => {
+    await copyCollection({ data: { collectionId } });
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -102,7 +155,7 @@ function CommunityPage() {
             <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">Community</p>
             <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">Public Deck Marketplace</h1>
             <p className="mt-3 max-w-2xl text-muted-foreground">
-              Discover IELTS, business, travel, academic, and specialist vocabulary decks from other learners.
+              Discover IELTS, business, travel, academic, and specialist vocabulary decks and collections from other learners.
             </p>
           </div>
           <Button asChild className="rounded-full">
@@ -143,13 +196,27 @@ function CommunityPage() {
         {!loading && activeSearch && (
           <section className="space-y-4">
             <h2 className="font-display text-2xl font-bold tracking-tight">Results</h2>
-            {results.length === 0 ? (
+            {results.length === 0 && collectionResults.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
-                No public decks found.
+                No public decks or collections found.
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {results.map((deck) => <DeckCard key={deck.id} deck={deck} />)}
+              <div className="space-y-8">
+                {results.length > 0 && (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {results.map((deck) => <DeckCard key={deck.id} deck={deck} />)}
+                  </div>
+                )}
+                {collectionResults.length > 0 && (
+                  <section className="space-y-4">
+                    <h3 className="font-display text-xl font-bold tracking-tight">Collections</h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {collectionResults.map((collection) => (
+                        <CollectionCard key={collection.id} collection={collection} onCopy={onCopyCollection} />
+                      ))}
+                    </div>
+                  </section>
+                )}
               </div>
             )}
           </section>

@@ -2,22 +2,32 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+const CollectionVisibility = z.enum(["private", "unlisted", "public"]);
+
 export const getMyCollections = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    const [colRes, linkRes] = await Promise.all([
-      supabase
+    let colRes = await supabase
+      .from("collections")
+      .select("id, name, description, created_at, updated_at, visibility, keywords, learner_count, like_count, rating_sum, rating_count, published_at, copy_count")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+
+    if (colRes.error?.code === "42703") {
+      colRes = await supabase
         .from("collections")
         .select("id, name, description, created_at")
         .eq("user_id", userId)
-        .order("created_at", { ascending: false }),
-      supabase
-        .from("collection_decks")
-        .select("id, collection_id, deck_id, position")
-        .eq("user_id", userId)
-        .order("position", { ascending: true }),
-    ]);
+        .order("created_at", { ascending: false });
+    }
+
+    const linkRes = await supabase
+      .from("collection_decks")
+      .select("id, collection_id, deck_id, position")
+      .eq("user_id", userId)
+      .order("position", { ascending: true });
+
     if (colRes.error) throw new Error(colRes.error.message);
     if (linkRes.error) throw new Error(linkRes.error.message);
     return { collections: colRes.data ?? [], links: linkRes.data ?? [] };
@@ -78,5 +88,28 @@ export const setCollectionDecksRecord = createServerFn({ method: "POST" })
       );
       if (insErr) throw new Error(insErr.message);
     }
+    return { ok: true };
+  });
+
+export const updateCollectionPublishingRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({
+      collectionId: z.string().uuid(),
+      visibility: CollectionVisibility,
+      keywords: z.array(z.string().min(1).max(40)).max(12).default([]),
+    }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("collections")
+      .update({
+        visibility: data.visibility,
+        keywords: data.keywords.map((word) => word.trim()).filter(Boolean),
+        published_at: data.visibility === "public" ? new Date().toISOString() : null,
+      })
+      .eq("id", data.collectionId)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });

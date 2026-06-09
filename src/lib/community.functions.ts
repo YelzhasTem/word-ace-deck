@@ -44,12 +44,34 @@ type ProfileRow = {
   avatar_url?: string | null;
 };
 
+type CommunityCollectionRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+  visibility: "private" | "unlisted" | "public";
+  keywords: string[];
+  learner_count: number;
+  like_count: number;
+  rating_sum: number;
+  rating_count: number;
+  view_count: number;
+  copy_count: number;
+  published_at: string | null;
+};
+
 function ratingFor(deck: Pick<CommunityDeckRow, "rating_sum" | "rating_count">) {
   return deck.rating_count ? Number((deck.rating_sum / deck.rating_count).toFixed(1)) : 0;
 }
 
 function authorName(profile?: ProfileRow) {
   return profile?.display_name || profile?.email?.split("@")[0] || "Memora creator";
+}
+
+function ratingForCollection(collection: Pick<CommunityCollectionRow, "rating_sum" | "rating_count">) {
+  return collection.rating_count ? Number((collection.rating_sum / collection.rating_count).toFixed(1)) : 0;
 }
 
 async function attachCommunityMeta(supabase: any, decks: CommunityDeckRow[], userId: string) {
@@ -98,6 +120,54 @@ async function attachCommunityMeta(supabase: any, decks: CommunityDeckRow[], use
     copies: deck.copy_count,
     liked: liked.has(deck.id),
     saved: saved.has(deck.id),
+  }));
+}
+
+async function attachCollectionMeta(supabase: any, collections: CommunityCollectionRow[], userId: string) {
+  if (collections.length === 0) return [];
+  const collectionIds = collections.map((collection) => collection.id);
+  const authorIds = Array.from(new Set(collections.map((collection) => collection.user_id)));
+
+  const [profilesRes, linksRes, likesRes, savesRes] = await Promise.all([
+    supabase.from("profiles").select("user_id, display_name, email, avatar_url").in("user_id", authorIds),
+    supabase.from("collection_decks").select("collection_id, deck_id").in("collection_id", collectionIds),
+    supabase.from("collection_likes").select("collection_id").eq("user_id", userId).in("collection_id", collectionIds),
+    supabase.from("collection_saves").select("collection_id").eq("user_id", userId).in("collection_id", collectionIds),
+  ]);
+
+  if (profilesRes.error) throw new Error(profilesRes.error.message);
+  if (linksRes.error) throw new Error(linksRes.error.message);
+  if (likesRes.error) throw new Error(likesRes.error.message);
+  if (savesRes.error) throw new Error(savesRes.error.message);
+
+  const profiles = new Map<string, ProfileRow>((profilesRes.data ?? []).map((p: ProfileRow) => [p.user_id, p]));
+  const deckCounts = new Map<string, number>();
+  for (const link of linksRes.data ?? []) {
+    deckCounts.set(link.collection_id, (deckCounts.get(link.collection_id) ?? 0) + 1);
+  }
+  const liked = new Set<string>((likesRes.data ?? []).map((row: { collection_id: string }) => row.collection_id));
+  const saved = new Set<string>((savesRes.data ?? []).map((row: { collection_id: string }) => row.collection_id));
+
+  return collections.map((collection) => ({
+    id: collection.id,
+    title: collection.name,
+    description: collection.description ?? "",
+    authorId: collection.user_id,
+    authorName: authorName(profiles.get(collection.user_id)),
+    createdAt: collection.created_at,
+    updatedAt: collection.updated_at,
+    publishedAt: collection.published_at,
+    visibility: collection.visibility,
+    keywords: collection.keywords ?? [],
+    deckCount: deckCounts.get(collection.id) ?? 0,
+    totalLearners: collection.learner_count,
+    likes: collection.like_count,
+    rating: ratingForCollection(collection),
+    ratingCount: collection.rating_count,
+    views: collection.view_count,
+    copies: collection.copy_count,
+    liked: liked.has(collection.id),
+    saved: saved.has(collection.id),
   }));
 }
 
@@ -193,6 +263,63 @@ export const searchPublicDecks = createServerFn({ method: "GET" })
     if (error) throw new Error(error.message);
 
     return { decks: await attachCommunityMeta(supabase, decks ?? [], userId) };
+  });
+
+export const searchPublicCollections = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        query: z.string().max(120).default(""),
+        sort: z.enum(["popular", "rating", "learners", "newest", "updated", "likes"]).default("popular"),
+        savedOnly: z.boolean().default(false),
+        limit: z.number().int().min(1).max(48).default(24),
+      })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+
+    let collectionIdsFilter: string[] | null = null;
+    if (data.savedOnly) {
+      const { data: saves, error } = await (supabase as any)
+        .from("collection_saves")
+        .select("collection_id")
+        .eq("user_id", userId);
+      if (error) throw new Error(error.message);
+      collectionIdsFilter = (saves ?? []).map((row: { collection_id: string }) => row.collection_id);
+      if (collectionIdsFilter.length === 0) return { collections: [] };
+    }
+
+    let query = (supabase as any)
+      .from("collections")
+      .select(
+        "id, user_id, name, description, created_at, updated_at, visibility, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
+      )
+      .eq("visibility", "public")
+      .is("hidden_at", null)
+      .limit(data.limit);
+
+    if (collectionIdsFilter) query = query.in("id", collectionIdsFilter);
+
+    const search = data.query.trim();
+    if (search) {
+      const safe = search.replace(/[%_,]/g, " ");
+      const keywordClause = safe.includes(" ") ? "" : `,keywords.cs.{${safe}}`;
+      query = query.or(`name.ilike.%${safe}%,description.ilike.%${safe}%${keywordClause}`);
+    }
+
+    if (data.sort === "rating") query = query.order("rating_sum", { ascending: false });
+    else if (data.sort === "learners") query = query.order("learner_count", { ascending: false });
+    else if (data.sort === "newest") query = query.order("published_at", { ascending: false, nullsFirst: false });
+    else if (data.sort === "updated") query = query.order("updated_at", { ascending: false });
+    else if (data.sort === "likes") query = query.order("like_count", { ascending: false });
+    else query = query.order("learner_count", { ascending: false }).order("like_count", { ascending: false });
+
+    const { data: collections, error } = await query;
+    if (error) throw new Error(error.message);
+
+    return { collections: await attachCollectionMeta(supabase, collections ?? [], userId) };
   });
 
 export const getCommunityHome = createServerFn({ method: "GET" })
@@ -352,6 +479,26 @@ export const rateDeck = createServerFn({ method: "POST" })
     return { rating: rating_count ? rating_sum / rating_count : 0, ratingCount: rating_count };
   });
 
+export const rateCollection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ collectionId: z.string().uuid(), rating: z.number().int().min(1).max(5) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await (supabase as any)
+      .from("collection_ratings")
+      .upsert({ collection_id: data.collectionId, user_id: userId, rating: data.rating }, { onConflict: "collection_id,user_id" });
+    if (error) throw new Error(error.message);
+    const { data: ratings, error: ratingsError } = await (supabase as any)
+      .from("collection_ratings")
+      .select("rating")
+      .eq("collection_id", data.collectionId);
+    if (ratingsError) throw new Error(ratingsError.message);
+    const rating_sum = (ratings ?? []).reduce((sum: number, row: { rating: number }) => sum + row.rating, 0);
+    const rating_count = ratings?.length ?? 0;
+    await (supabase as any).from("collections").update({ rating_sum, rating_count }).eq("id", data.collectionId);
+    return { rating: rating_count ? rating_sum / rating_count : 0, ratingCount: rating_count };
+  });
+
 export const reportDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
@@ -415,6 +562,113 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
       .update({ copy_count: (deck.copy_count ?? 0) + 1, learner_count: (deck.learner_count ?? 0) + 1 })
       .eq("id", deck.id);
     return { id: newDeck.id };
+  });
+
+export const duplicatePublicCollection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ collectionId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: collection, error } = await (supabase as any)
+      .from("collections")
+      .select("id, name, description, keywords, copy_count, learner_count")
+      .eq("id", data.collectionId)
+      .in("visibility", ["public", "unlisted"])
+      .is("hidden_at", null)
+      .single();
+    if (error || !collection) throw new Error(error?.message ?? "Collection not found");
+
+    const { data: links, error: linksError } = await (supabase as any)
+      .from("collection_decks")
+      .select("deck_id, position")
+      .eq("collection_id", collection.id)
+      .order("position", { ascending: true });
+    if (linksError) throw new Error(linksError.message);
+
+    const sourceDeckIds = (links ?? []).map((link: { deck_id: string }) => link.deck_id);
+    const { data: sourceDecks, error: deckError } = sourceDeckIds.length
+      ? await (supabase as any)
+          .from("decks")
+          .select("id, name, description, category, keywords, copy_count, learner_count")
+          .in("id", sourceDeckIds)
+      : { data: [], error: null };
+    if (deckError) throw new Error(deckError.message);
+
+    const { data: newCollection, error: createCollectionError } = await (supabase as any)
+      .from("collections")
+      .insert({
+        user_id: userId,
+        name: `${collection.name} (copy)`,
+        description: collection.description ?? "",
+        keywords: collection.keywords ?? [],
+        source_collection_id: collection.id,
+        visibility: "private",
+      })
+      .select("id")
+      .single();
+    if (createCollectionError || !newCollection) {
+      throw new Error(createCollectionError?.message ?? "Failed to duplicate collection");
+    }
+
+    const decksById = new Map((sourceDecks ?? []).map((deck: any) => [deck.id, deck]));
+    const newLinks: { collection_id: string; deck_id: string; user_id: string; position: number }[] = [];
+
+    for (const [position, sourceDeckId] of sourceDeckIds.entries()) {
+      const deck = decksById.get(sourceDeckId);
+      if (!deck) continue;
+      const { data: cards, error: cardsError } = await (supabase as any)
+        .from("cards")
+        .select("term, definition, position")
+        .eq("deck_id", deck.id)
+        .order("position", { ascending: true });
+      if (cardsError) throw new Error(cardsError.message);
+
+      const { data: newDeck, error: createDeckError } = await (supabase as any)
+        .from("decks")
+        .insert({
+          user_id: userId,
+          name: `${deck.name} (copy)`,
+          description: deck.description ?? "",
+          category: deck.category,
+          keywords: deck.keywords ?? [],
+          source_deck_id: deck.id,
+          visibility: "private",
+        })
+        .select("id")
+        .single();
+      if (createDeckError || !newDeck) throw new Error(createDeckError?.message ?? "Failed to duplicate deck");
+
+      if ((cards ?? []).length > 0) {
+        const { error: insertCardsError } = await (supabase as any).from("cards").insert(
+          cards.map((card: { term: string; definition: string; position: number }, cardPosition: number) => ({
+            deck_id: newDeck.id,
+            user_id: userId,
+            term: card.term,
+            definition: card.definition,
+            position: cardPosition,
+          })),
+        );
+        if (insertCardsError) throw new Error(insertCardsError.message);
+      }
+
+      await (supabase as any)
+        .from("decks")
+        .update({ copy_count: (deck.copy_count ?? 0) + 1, learner_count: (deck.learner_count ?? 0) + 1 })
+        .eq("id", deck.id);
+      newLinks.push({ collection_id: newCollection.id, deck_id: newDeck.id, user_id: userId, position });
+    }
+
+    if (newLinks.length > 0) {
+      const { error: linkError } = await (supabase as any).from("collection_decks").insert(newLinks);
+      if (linkError) throw new Error(linkError.message);
+    }
+
+    await (supabase as any)
+      .from("collections")
+      .update({ copy_count: (collection.copy_count ?? 0) + 1, learner_count: (collection.learner_count ?? 0) + 1 })
+      .eq("id", collection.id);
+
+    return { id: newCollection.id };
   });
 
 export const getCreatorProfile = createServerFn({ method: "GET" })

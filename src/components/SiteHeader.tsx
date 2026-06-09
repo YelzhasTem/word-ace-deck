@@ -1,5 +1,5 @@
-import { Link, useNavigate, useLocation } from "@tanstack/react-router";
-import { BookOpenCheck, Languages, LogOut, Menu, Moon, Search, Settings as SettingsIcon, User } from "lucide-react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { BookOpenCheck, Languages, LogOut, Menu, Moon, Settings as SettingsIcon, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -17,15 +17,8 @@ export function SiteHeader() {
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const navigate = useNavigate();
-  const location = useLocation();
   const { lang, setLang } = useLang();
   const t = useT();
-
-  const [searchValue, setSearchValue] = useState(() => {
-    if (typeof window === "undefined") return "";
-    const params = new URLSearchParams(window.location.search);
-    return params.get("search") || "";
-  });
 
   useEffect(() => {
     const saved = localStorage.getItem("theme") === "dark";
@@ -36,20 +29,6 @@ export function SiteHeader() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
-
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    setSearchValue(value);
-    if (location.pathname === "/dashboard") {
-      const url = new URL(window.location.href);
-      if (value.trim()) {
-        url.searchParams.set("search", value.trim());
-      } else {
-        url.searchParams.delete("search");
-      }
-      window.history.replaceState({}, "", url);
-    }
-  };
 
   const toggleDark = () => {
     const next = !dark;
@@ -77,24 +56,10 @@ export function SiteHeader() {
           </span>
         </Link>
 
-        <div className="order-3 flex w-full md:order-none md:w-auto md:flex-1 md:max-w-md md:mx-auto">
-          <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="search"
-              placeholder={t("nav.search")}
-              value={searchValue}
-              onChange={handleSearchChange}
-              className="w-full h-10 rounded-full bg-secondary/70 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:bg-card transition-all"
-            />
-          </div>
-        </div>
-
         <nav className="ml-auto flex items-center gap-1 text-sm font-medium">
           <Link
-            to="/"
+            to="/decks"
             className="px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3"
-            activeOptions={{ exact: true }}
             activeProps={{ className: "px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3" }}
           >
             {t("nav.decks")}

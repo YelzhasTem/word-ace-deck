@@ -8,6 +8,7 @@ import {
   deleteCollectionRecord,
   getMyCollections,
   setCollectionDecksRecord,
+  updateCollectionPublishingRecord,
 } from "@/lib/collections.functions";
 
 export type Collection = {
@@ -16,6 +17,13 @@ export type Collection = {
   description: string;
   deckIds: string[];
   createdAt: number;
+  visibility: "private" | "unlisted" | "public";
+  keywords: string[];
+  totalLearners: number;
+  likes: number;
+  rating: number;
+  copies: number;
+  publishedAt: string | null;
 };
 
 const KEY = ["my-collections"] as const;
@@ -26,6 +34,7 @@ export function useCollections() {
   const createFn = useServerFn(createCollectionRecord);
   const deleteFn = useServerFn(deleteCollectionRecord);
   const setDecksFn = useServerFn(setCollectionDecksRecord);
+  const updatePublishingFn = useServerFn(updateCollectionPublishingRecord);
 
   const query = useQuery({
     queryKey: KEY,
@@ -43,6 +52,13 @@ export function useCollections() {
         description: c.description ?? "",
         deckIds: linksByCol.get(c.id) ?? [],
         createdAt: new Date(c.created_at).getTime(),
+        visibility: c.visibility ?? "private",
+        keywords: c.keywords ?? [],
+        totalLearners: c.learner_count ?? 0,
+        likes: c.like_count ?? 0,
+        rating: c.rating_count ? Number(((c.rating_sum ?? 0) / c.rating_count).toFixed(1)) : 0,
+        copies: c.copy_count ?? 0,
+        publishedAt: c.published_at ?? null,
       }));
     },
     staleTime: 30_000,
@@ -87,6 +103,16 @@ export function useCollections() {
     onError: onErr("Не удалось сохранить"),
   });
 
+  const updatePublishingMut = useMutation({
+    mutationFn: (vars: { collectionId: string; visibility: "private" | "unlisted" | "public"; keywords: string[] }) =>
+      updatePublishingFn({ data: vars }),
+    onSuccess: () => {
+      toast.success("Collection visibility updated");
+      invalidate();
+    },
+    onError: onErr("Не удалось обновить публикацию"),
+  });
+
   return {
     collections: query.data ?? [],
     isLoading: query.isLoading,
@@ -95,6 +121,11 @@ export function useCollections() {
     deleteCollection: (id: string) => deleteMut.mutate(id),
     setCollectionDecks: (collectionId: string, deckIds: string[]) =>
       setDecksMut.mutate({ collectionId, deckIds }),
+    updateCollectionPublishing: (
+      collectionId: string,
+      visibility: "private" | "unlisted" | "public",
+      keywords: string[],
+    ) => updatePublishingMut.mutateAsync({ collectionId, visibility, keywords }),
   };
 }
 

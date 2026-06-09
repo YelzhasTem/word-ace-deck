@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
-import { Plus, Trash2, FolderOpen, Check } from "lucide-react";
+import { Plus, Trash2, FolderOpen, Check, Globe2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { useCollections } from "@/lib/collections";
 import { useDecks } from "@/lib/decks";
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/collections")({
 });
 
 function CollectionsPage() {
-  const { collections, createCollection, deleteCollection, setCollectionDecks } =
+  const { collections, createCollection, deleteCollection, setCollectionDecks, updateCollectionPublishing } =
     useCollections();
   const { decks } = useDecks();
   const t = useT();
@@ -40,7 +40,11 @@ function CollectionsPage() {
   const [pickerFor, setPickerFor] = useState<string | null>(null);
   const [pickerSelected, setPickerSelected] = useState<Set<string>>(new Set());
   const [deleteColId, setDeleteColId] = useState<string | null>(null);
+  const [publishFor, setPublishFor] = useState<string | null>(null);
+  const [publishVisibility, setPublishVisibility] = useState<"private" | "unlisted" | "public">("private");
+  const [publishKeywords, setPublishKeywords] = useState("");
   const colToDelete = collections.find((c) => c.id === deleteColId);
+  const colToPublish = collections.find((c) => c.id === publishFor);
 
   const openPicker = (collectionId: string, current: string[]) => {
     setPickerFor(collectionId);
@@ -60,6 +64,28 @@ function CollectionsPage() {
     if (!pickerFor) return;
     setCollectionDecks(pickerFor, Array.from(pickerSelected));
     setPickerFor(null);
+  };
+
+  const openPublish = (collectionId: string) => {
+    const collection = collections.find((item) => item.id === collectionId);
+    if (!collection) return;
+    setPublishFor(collectionId);
+    setPublishVisibility(collection.visibility);
+    setPublishKeywords(collection.keywords.join(", "));
+  };
+
+  const savePublish = async () => {
+    if (!publishFor) return;
+    await updateCollectionPublishing(
+      publishFor,
+      publishVisibility,
+      publishKeywords
+        .split(",")
+        .map((word) => word.trim())
+        .filter(Boolean)
+        .slice(0, 12),
+    );
+    setPublishFor(null);
   };
 
   const handleCreate = () => {
@@ -146,7 +172,9 @@ function CollectionsPage() {
                   </div>
 
                   <div className="text-xs text-muted-foreground">
-                    {collectionDecks.length} {t("col.decksCount")}
+                    {collectionDecks.length} {t("col.decksCount")} · {c.visibility}
+                    {c.rating ? ` · ${c.rating} ★` : ""}
+                    {c.totalLearners ? ` · ${c.totalLearners} learners` : ""}
                   </div>
 
                   {collectionDecks.length > 0 && (
@@ -165,14 +193,22 @@ function CollectionsPage() {
                     </ul>
                   )}
 
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="mt-auto"
-                    onClick={() => openPicker(c.id, c.deckIds)}
-                  >
-                    {t("col.pickDecks")}
-                  </Button>
+                  <div className="mt-auto grid grid-cols-2 gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => openPicker(c.id, c.deckIds)}
+                    >
+                      {t("col.pickDecks")}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openPublish(c.id)}
+                    >
+                      <Globe2 className="h-4 w-4" /> Publish
+                    </Button>
+                  </div>
                 </div>
               );
             })}
@@ -218,6 +254,48 @@ function CollectionsPage() {
                 {t("col.cancel")}
               </Button>
               <Button onClick={savePicker}>{t("col.save")}</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={publishFor !== null} onOpenChange={(o) => !o && setPublishFor(null)}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Publish collection</DialogTitle>
+              <DialogDescription>
+                {colToPublish ? `Choose how "${colToPublish.name}" appears in Community.` : "Choose how this collection appears in Community."}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <label className="space-y-1.5 text-sm">
+                <span className="font-medium">Visibility</span>
+                <select
+                  value={publishVisibility}
+                  onChange={(event) => setPublishVisibility(event.target.value as "private" | "unlisted" | "public")}
+                  className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="private">Private</option>
+                  <option value="unlisted">Unlisted</option>
+                  <option value="public">Public</option>
+                </select>
+              </label>
+              <label className="space-y-1.5 text-sm">
+                <span className="font-medium">Keywords</span>
+                <Input
+                  placeholder="IELTS, business, travel"
+                  value={publishKeywords}
+                  onChange={(event) => setPublishKeywords(event.target.value)}
+                />
+              </label>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setPublishFor(null)}>
+                {t("col.cancel")}
+              </Button>
+              <Button onClick={savePublish}>
+                <Globe2 className="h-4 w-4" />
+                Save visibility
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

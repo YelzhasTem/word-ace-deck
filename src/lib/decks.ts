@@ -40,6 +40,7 @@ export type Deck = {
   likes: number;
   rating: number;
   publishedAt: string | null;
+  sourceDeckId: string | null;
 };
 
 type DbDeck = {
@@ -56,6 +57,7 @@ type DbDeck = {
   rating_sum?: number;
   rating_count?: number;
   published_at?: string | null;
+  source_deck_id?: string | null;
 };
 
 type DbCard = {
@@ -90,6 +92,7 @@ function mapDecks(decks: DbDeck[], cards: DbCard[]): Deck[] {
     likes: d.like_count ?? 0,
     rating: d.rating_count ? Number(((d.rating_sum ?? 0) / d.rating_count).toFixed(1)) : 0,
     publishedAt: d.published_at ?? null,
+    sourceDeckId: d.source_deck_id ?? null,
   }));
 }
 
