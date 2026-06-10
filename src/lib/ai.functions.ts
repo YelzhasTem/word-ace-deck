@@ -35,7 +35,7 @@ function cleanGeneratedDeckName(value: unknown, fallbackName: string) {
   return "Untitled";
 }
 
-function cleanDeckPayload(parsed: DeckPayload, fallbackName: string) {
+function cleanDeckPayload(parsed: DeckPayload, fallbackName: string, description = "") {
   const sourceCards = Array.isArray(parsed.cards) ? parsed.cards : [];
   const cards = sourceCards
     .map((card) => ({
@@ -46,7 +46,7 @@ function cleanDeckPayload(parsed: DeckPayload, fallbackName: string) {
 
   return {
     name: cleanGeneratedDeckName(parsed.name, fallbackName),
-    description: "",
+    description: cleanText(description, 300),
     cards,
   };
 }
@@ -228,6 +228,7 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       topic: z.string().min(1).max(200),
+      description: z.string().max(300).default(""),
       level: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]),
       count: z.number().int().min(3).max(30),
     }),
@@ -248,7 +249,7 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
       "ИИ вернул невалидный JSON. Попробуйте еще раз.",
     );
 
-    const deck = cleanDeckPayload(parsed, data.topic);
+    const deck = cleanDeckPayload(parsed, data.topic, data.description);
     if (deck.cards.length === 0) {
       throw new Error("ИИ не сгенерировал карточки. Попробуйте другую тему.");
     }

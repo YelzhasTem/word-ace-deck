@@ -215,7 +215,12 @@ function Home() {
     let result: Awaited<ReturnType<typeof genDeck>>;
     try {
       result = await genDeck({
-        data: { topic: aiTopic.trim(), level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2", count: aiCount },
+        data: {
+          topic: aiTopic.trim(),
+          description: aiDesc.trim(),
+          level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
+          count: aiCount,
+        },
       });
     } catch (err) {
       setAiError(`AI: ${errorMessage(err, "Could not generate deck")}`);
@@ -224,7 +229,7 @@ function Home() {
     }
 
     try {
-      const created = await createDeckWithCards(result.name, aiDesc.trim(), result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
       setAiTopic("");
       setAiDesc("");
       setOpen(false);
