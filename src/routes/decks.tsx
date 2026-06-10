@@ -73,7 +73,7 @@ function DecksPage() {
             </p>
           </div>
           <div className="text-sm text-muted-foreground">
-            {filteredDecks.length} / {decks.length} {t("home.decks.suffix")}
+            {decks.length} {t("home.decks.suffix")}
           </div>
         </section>
 
