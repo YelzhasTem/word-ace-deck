@@ -5,7 +5,12 @@ import { Archive, BookOpen, Copy, Heart, Search, Star, Users } from "lucide-reac
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { duplicatePublicCollection, getCommunityHome, searchPublicCollections, searchPublicDecks } from "@/lib/community.functions";
+import {
+  duplicatePublicCollection,
+  getCommunityHome,
+  searchPublicCollections,
+  searchPublicDecks,
+} from "@/lib/community.functions";
 
 export const Route = createFileRoute("/community")({
   component: CommunityPage,
@@ -42,19 +47,39 @@ function DeckCard({ deck }: { deck: CommunityDeck }) {
         >
           {deck.title}
         </Link>
-        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{deck.description || "No description yet."}</p>
+        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+          {deck.description || "No description yet."}
+        </p>
       </div>
       <div className="mt-auto grid grid-cols-4 gap-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{deck.cardCount}</span>
-        <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{deck.totalLearners}</span>
-        <span className="inline-flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{deck.likes}</span>
-        <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5" />{deck.rating || "New"}</span>
+        <span className="inline-flex items-center gap-1">
+          <BookOpen className="h-3.5 w-3.5" />
+          {deck.cardCount}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" />
+          {deck.totalLearners}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Heart className="h-3.5 w-3.5" />
+          {deck.likes}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Star className="h-3.5 w-3.5" />
+          {deck.rating || "New"}
+        </span>
       </div>
     </div>
   );
 }
 
-function CollectionCard({ collection, onCopy }: { collection: CommunityCollection; onCopy: (id: string) => void }) {
+function CollectionCard({
+  collection,
+  onCopy,
+}: {
+  collection: CommunityCollection;
+  onCopy: (id: string) => void;
+}) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
       <div className="min-w-0">
@@ -63,13 +88,27 @@ function CollectionCard({ collection, onCopy }: { collection: CommunityCollectio
           Collection
         </div>
         <h3 className="mt-2 font-display text-xl font-bold tracking-tight">{collection.title}</h3>
-        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{collection.description || "No description yet."}</p>
+        <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+          {collection.description || "No description yet."}
+        </p>
       </div>
       <div className="mt-auto grid grid-cols-4 gap-2 text-xs text-muted-foreground">
-        <span className="inline-flex items-center gap-1"><BookOpen className="h-3.5 w-3.5" />{collection.deckCount}</span>
-        <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{collection.totalLearners}</span>
-        <span className="inline-flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{collection.likes}</span>
-        <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5" />{collection.rating || "New"}</span>
+        <span className="inline-flex items-center gap-1">
+          <BookOpen className="h-3.5 w-3.5" />
+          {collection.deckCount}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Users className="h-3.5 w-3.5" />
+          {collection.totalLearners}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Heart className="h-3.5 w-3.5" />
+          {collection.likes}
+        </span>
+        <span className="inline-flex items-center gap-1">
+          <Star className="h-3.5 w-3.5" />
+          {collection.rating || "New"}
+        </span>
       </div>
       <Button variant="outline" className="rounded-full" onClick={() => onCopy(collection.id)}>
         <Copy className="h-4 w-4" /> Add collection
@@ -84,7 +123,9 @@ function Section({ title, decks }: { title: string; decks: CommunityDeck[] }) {
     <section className="space-y-4">
       <h2 className="font-display text-2xl font-bold tracking-tight">{title}</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {decks.map((deck) => <DeckCard key={deck.id} deck={deck} />)}
+        {decks.map((deck) => (
+          <DeckCard key={deck.id} deck={deck} />
+        ))}
       </div>
     </section>
   );
@@ -106,41 +147,61 @@ function CommunityPage() {
   const [collectionResults, setCollectionResults] = useState<CommunityCollection[]>([]);
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState("popular");
+  const [searchTarget, setSearchTarget] = useState<"all" | "decks" | "collections">("all");
   const [mode, setMode] = useState<"search" | "trending" | "following" | "saved">("search");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadHome().then(setHome).finally(() => setLoading(false));
+    loadHome()
+      .then(setHome)
+      .finally(() => setLoading(false));
   }, [loadHome]);
 
-  const activeSearch = useMemo(() => query || mode === "following" || mode === "saved", [query, mode]);
+  const activeSearch = useMemo(
+    () => Boolean(query) || mode === "following" || mode === "saved",
+    [query, mode],
+  );
 
   useEffect(() => {
-    if (!activeSearch) return;
+    const shouldSearch = Boolean(query) || mode === "following" || mode === "saved";
+    if (!shouldSearch) {
+      setResults([]);
+      setCollectionResults([]);
+      return;
+    }
+
     setLoading(true);
-    Promise.all([
-      searchDecks({
-        data: {
-          query,
-          sort: mode === "trending" ? "popular" : sort,
-          followingOnly: mode === "following",
-          savedOnly: mode === "saved",
-        },
-      }),
-      searchCollections({
-        data: {
-          query,
-          sort: mode === "trending" ? "popular" : sort,
-          savedOnly: mode === "saved",
-        },
-      }),
-    ])
+
+    const deckSearch =
+      searchTarget === "decks" || searchTarget === "all"
+        ? searchDecks({
+            data: {
+              query,
+              sort: mode === "trending" ? "popular" : sort,
+              followingOnly: mode === "following",
+              savedOnly: mode === "saved",
+            },
+          })
+        : Promise.resolve({ decks: [] as CommunityDeck[] });
+
+    const collectionSearch =
+      searchTarget === "collections" || searchTarget === "all"
+        ? searchCollections({
+            data: {
+              query,
+              sort: mode === "trending" ? "popular" : sort,
+              savedOnly: mode === "saved",
+            },
+          })
+        : Promise.resolve({ collections: [] as CommunityCollection[] });
+
+    Promise.all([deckSearch, collectionSearch])
       .then(([deckRes, collectionRes]) => {
         setResults(deckRes.decks as CommunityDeck[]);
         setCollectionResults(collectionRes.collections as CommunityCollection[]);
       })
       .finally(() => setLoading(false));
-  }, [activeSearch, mode, query, searchCollections, searchDecks, sort]);
+  }, [activeSearch, mode, query, searchCollections, searchDecks, sort, searchTarget]);
 
   const onCopyCollection = async (collectionId: string) => {
     await copyCollection({ data: { collectionId } });
@@ -152,10 +213,15 @@ function CommunityPage() {
       <main className="mx-auto max-w-6xl px-6 py-10 space-y-10">
         <section className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">Community</p>
-            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">Public Deck Marketplace</h1>
+            <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">
+              Community
+            </p>
+            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">
+              Public Deck Marketplace
+            </h1>
             <p className="mt-3 max-w-2xl text-muted-foreground">
-              Discover IELTS, business, travel, academic, and specialist vocabulary decks and collections from other learners.
+              Discover IELTS, business, travel, academic, and specialist vocabulary decks and
+              collections from other learners.
             </p>
           </div>
           <Button asChild className="rounded-full">
@@ -167,9 +233,18 @@ function CommunityPage() {
           <div className="grid gap-3 md:grid-cols-[1fr_220px]">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-10" placeholder="IELTS Vocabulary, Business English, Programming Terms..." value={query} onChange={(e) => setQuery(e.target.value)} />
+              <Input
+                className="pl-10"
+                placeholder="IELTS Vocabulary, Business English, Programming Terms..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
             </div>
-            <select value={sort} onChange={(e) => setSort(e.target.value)} className="h-10 rounded-md border border-input bg-background px-3 text-sm">
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value)}
+              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+            >
               <option value="popular">Popularity</option>
               <option value="rating">Rating</option>
               <option value="learners">Learners</option>
@@ -185,15 +260,39 @@ function CommunityPage() {
                 onClick={() => setMode(tab)}
                 className={`rounded-full px-3 py-1.5 text-sm transition-colors ${mode === tab ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
               >
-                {tab === "search" ? "Search Decks" : tab === "saved" ? "Saved Decks" : tab[0].toUpperCase() + tab.slice(1)}
+                {tab === "search"
+                  ? "Search"
+                  : tab === "saved"
+                    ? "Saved Decks"
+                    : tab[0].toUpperCase() + tab.slice(1)}
+              </button>
+            ))}
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {(["all", "decks", "collections"] as const).map((target) => (
+              <button
+                key={target}
+                type="button"
+                onClick={() => setSearchTarget(target)}
+                className={`rounded-full px-3 py-1.5 text-sm transition-colors ${searchTarget === target ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
+              >
+                {target === "all"
+                  ? "Decks + Collections"
+                  : target === "decks"
+                    ? "Decks"
+                    : "Collections"}
               </button>
             ))}
           </div>
         </section>
 
-        {loading && <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">Loading decks...</div>}
+        {loading && (
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
+            Loading decks...
+          </div>
+        )}
 
-        {!loading && activeSearch && (
+        {!loading && (Boolean(query) || mode === "following" || mode === "saved") && (
           <section className="space-y-4">
             <h2 className="font-display text-2xl font-bold tracking-tight">Results</h2>
             {results.length === 0 && collectionResults.length === 0 ? (
@@ -204,7 +303,9 @@ function CommunityPage() {
               <div className="space-y-8">
                 {results.length > 0 && (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {results.map((deck) => <DeckCard key={deck.id} deck={deck} />)}
+                    {results.map((deck) => (
+                      <DeckCard key={deck.id} deck={deck} />
+                    ))}
                   </div>
                 )}
                 {collectionResults.length > 0 && (
@@ -212,7 +313,11 @@ function CommunityPage() {
                     <h3 className="font-display text-xl font-bold tracking-tight">Collections</h3>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                       {collectionResults.map((collection) => (
-                        <CollectionCard key={collection.id} collection={collection} onCopy={onCopyCollection} />
+                        <CollectionCard
+                          key={collection.id}
+                          collection={collection}
+                          onCopy={onCopyCollection}
+                        />
                       ))}
                     </div>
                   </section>
@@ -222,7 +327,7 @@ function CommunityPage() {
           </section>
         )}
 
-        {!activeSearch && home && (
+        {searchTarget === "all" && !query && mode !== "following" && mode !== "saved" && home && (
           <div className="space-y-10">
             <Section title="Trending Decks" decks={home.trending} />
             <Section title="Most Popular" decks={home.popular} />
@@ -232,6 +337,11 @@ function CommunityPage() {
           </div>
         )}
 
+        {searchTarget !== "all" && !query && !loading && (
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
+            Start typing to search public {searchTarget === "decks" ? "decks" : "collections"}.
+          </div>
+        )}
       </main>
     </div>
   );
