@@ -10,7 +10,9 @@ export const getMyCollections = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     let colRes = await supabase
       .from("collections")
-      .select("id, name, description, created_at, updated_at, visibility, keywords, learner_count, like_count, rating_sum, rating_count, published_at, copy_count")
+      .select(
+        "id, name, description, created_at, updated_at, visibility, keywords, learner_count, like_count, rating_sum, rating_count, published_at, copy_count",
+      )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -36,10 +38,12 @@ export const getMyCollections = createServerFn({ method: "GET" })
 export const createCollectionRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      name: z.string().min(1).max(120),
-      description: z.string().max(300).default(""),
-    }).parse(input),
+    z
+      .object({
+        name: z.string().min(1).max(120),
+        description: z.string().max(300).default(""),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -61,13 +65,36 @@ export const deleteCollectionRecord = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const updateCollectionRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(120),
+        description: z.string().max(300).default(""),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("collections")
+      .update({ name: data.name, description: data.description })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 export const setCollectionDecksRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      collectionId: z.string().uuid(),
-      deckIds: z.array(z.string().uuid()).max(500),
-    }).parse(input),
+    z
+      .object({
+        collectionId: z.string().uuid(),
+        deckIds: z.array(z.string().uuid()).max(500),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -94,11 +121,13 @@ export const setCollectionDecksRecord = createServerFn({ method: "POST" })
 export const updateCollectionPublishingRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      collectionId: z.string().uuid(),
-      visibility: CollectionVisibility,
-      keywords: z.array(z.string().min(1).max(40)).max(12).default([]),
-    }).parse(input),
+    z
+      .object({
+        collectionId: z.string().uuid(),
+        visibility: CollectionVisibility,
+        keywords: z.array(z.string().min(1).max(40)).max(12).default([]),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase

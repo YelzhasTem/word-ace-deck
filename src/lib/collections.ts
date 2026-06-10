@@ -9,6 +9,7 @@ import {
   getMyCollections,
   setCollectionDecksRecord,
   updateCollectionPublishingRecord,
+  updateCollectionRecord,
 } from "@/lib/collections.functions";
 
 export type Collection = {
@@ -28,7 +29,8 @@ export type Collection = {
 
 const KEY = ["my-collections"] as const;
 const DEFAULT_COLLECTION_NAME = "My collection";
-const LEGACY_DEFAULT_COLLECTION_NAME = "\u041c\u043e\u044f \u043a\u043e\u043b\u043b\u0435\u043a\u0446\u0438\u044f";
+const LEGACY_DEFAULT_COLLECTION_NAME =
+  "\u041c\u043e\u044f \u043a\u043e\u043b\u043b\u0435\u043a\u0446\u0438\u044f";
 
 function displayCollectionName(name: string) {
   return name === LEGACY_DEFAULT_COLLECTION_NAME ? DEFAULT_COLLECTION_NAME : name;
@@ -40,6 +42,7 @@ export function useCollections() {
   const createFn = useServerFn(createCollectionRecord);
   const deleteFn = useServerFn(deleteCollectionRecord);
   const setDecksFn = useServerFn(setCollectionDecksRecord);
+  const updateCollectionFn = useServerFn(updateCollectionRecord);
   const updatePublishingFn = useServerFn(updateCollectionPublishingRecord);
 
   const query = useQuery({
@@ -100,8 +103,7 @@ export function useCollections() {
   });
 
   const setDecksMut = useMutation({
-    mutationFn: (vars: { collectionId: string; deckIds: string[] }) =>
-      setDecksFn({ data: vars }),
+    mutationFn: (vars: { collectionId: string; deckIds: string[] }) => setDecksFn({ data: vars }),
     onSuccess: () => {
       toast.success("Decks saved");
       invalidate();
@@ -109,9 +111,22 @@ export function useCollections() {
     onError: onErr("Could not save"),
   });
 
+  const updateCollectionMut = useMutation({
+    mutationFn: (vars: { id: string; name: string; description: string }) =>
+      updateCollectionFn({ data: vars }),
+    onSuccess: () => {
+      toast.success("Collection updated");
+      invalidate();
+    },
+    onError: onErr("Could not update collection"),
+  });
+
   const updatePublishingMut = useMutation({
-    mutationFn: (vars: { collectionId: string; visibility: "private" | "unlisted" | "public"; keywords: string[] }) =>
-      updatePublishingFn({ data: vars }),
+    mutationFn: (vars: {
+      collectionId: string;
+      visibility: "private" | "unlisted" | "public";
+      keywords: string[];
+    }) => updatePublishingFn({ data: vars }),
     onSuccess: () => {
       toast.success("Collection visibility updated");
       invalidate();
@@ -125,6 +140,8 @@ export function useCollections() {
     createCollection: (name: string, description: string) =>
       createMut.mutate({ name, description }),
     deleteCollection: (id: string) => deleteMut.mutate(id),
+    updateCollection: (id: string, name: string, description: string) =>
+      updateCollectionMut.mutate({ id, name, description }),
     setCollectionDecks: (collectionId: string, deckIds: string[]) =>
       setDecksMut.mutate({ collectionId, deckIds }),
     updateCollectionPublishing: (

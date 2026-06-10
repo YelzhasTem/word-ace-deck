@@ -1,10 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import {
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
@@ -17,6 +13,7 @@ import {
   getMyDecks,
   markCardRecord,
   resetDeckProgressRecord,
+  updateDeckRecord,
 } from "@/lib/decks.functions";
 
 export type Card = {
@@ -105,6 +102,7 @@ export function useDecks() {
   const createDeckWithCardsFn = useServerFn(createDeckWithCardsRecord);
   const addCardFn = useServerFn(addCardRecord);
   const deleteDeckFn = useServerFn(deleteDeckRecord);
+  const updateDeckFn = useServerFn(updateDeckRecord);
   const deleteCardFn = useServerFn(deleteCardRecord);
   const markCardFn = useServerFn(markCardRecord);
   const resetDeckProgressFn = useServerFn(resetDeckProgressRecord);
@@ -156,8 +154,7 @@ export function useDecks() {
     [queryClient],
   );
 
-  const notAuth = () =>
-    toast.error("Sign in to create decks and cards");
+  const notAuth = () => toast.error("Sign in to create decks and cards");
 
   const onError = (msg: string) => (error: unknown) => {
     if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
@@ -194,6 +191,13 @@ export function useDecks() {
     mutationFn: (id: string) => deleteDeckFn({ data: { id } }),
     onSuccess: invalidate,
     onError: onError("Could not delete"),
+  });
+
+  const updateDeckMut = useMutation({
+    mutationFn: (vars: { id: string; name: string; description: string }) =>
+      updateDeckFn({ data: vars }),
+    onSuccess: invalidate,
+    onError: onError("Could not update deck"),
   });
 
   const addCardMut = useMutation({
@@ -257,6 +261,8 @@ export function useDecks() {
       return createDeckWithCardsMut.mutateAsync({ name, description, cards, collectionId });
     },
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
+    updateDeck: (id: string, name: string, description: string) =>
+      updateDeckMut.mutate({ id, name, description }),
     addCard: (deckId: string, term: string, definition: string) => {
       const deck = decks.find((d) => d.id === deckId);
       const position = deck ? deck.cards.length : 0;

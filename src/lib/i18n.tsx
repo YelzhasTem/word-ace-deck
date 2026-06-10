@@ -115,6 +115,8 @@ const dict = {
     "col.deleteTitle": "Delete this collection?",
     "col.deleteDescGeneric": "The collection will be removed. Decks inside it will remain.",
     "col.cards": "cards",
+    "col.settings": "Settings",
+    "col.settingsTitle": "Collection settings",
 
     "dr.title": "Delayed Recall",
     "dr.offDesc": "Turn on the mode to move words from short-term to long-term memory through growing intervals.",

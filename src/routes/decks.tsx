@@ -1,8 +1,18 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
-import { BookOpen, Globe2, LayoutGrid, Search, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BookOpen, Globe2, LayoutGrid, Search, Settings2, Trash2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDecks } from "@/lib/decks";
 import { useT } from "@/lib/i18n";
@@ -12,9 +22,26 @@ export const Route = createFileRoute("/decks")({
 });
 
 function DecksPage() {
-  const { decks, isLoading, deleteDeck } = useDecks();
+  const { decks, isLoading, deleteDeck, updateDeck } = useDecks();
   const [query, setQuery] = useState("");
+  const [editDeckId, setEditDeckId] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editDescription, setEditDescription] = useState("");
   const t = useT();
+
+  const deckToEdit = editDeckId ? decks.find((d) => d.id === editDeckId) : undefined;
+
+  useEffect(() => {
+    if (!deckToEdit) return;
+    setEditName(deckToEdit.name);
+    setEditDescription(deckToEdit.description);
+  }, [deckToEdit]);
+
+  const closeEdit = () => {
+    setEditDeckId(null);
+    setEditName("");
+    setEditDescription("");
+  };
 
   const filteredDecks = useMemo(() => {
     const search = query.trim().toLowerCase();
@@ -147,6 +174,17 @@ function DecksPage() {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
+                        setEditDeckId(deck.id);
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                    >
+                      <Settings2 className="h-3.5 w-3.5" /> Settings
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                         deleteDeck(deck.id);
                       }}
                       title={t("home.deleteDeck")}
@@ -161,6 +199,43 @@ function DecksPage() {
           </div>
         )}
       </main>
+
+      <Dialog open={editDeckId !== null} onOpenChange={(open) => !open && closeEdit()}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit deck</DialogTitle>
+            <DialogDescription>Change the deck name and description.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <Input
+              value={editName}
+              onChange={(event) => setEditName(event.target.value)}
+              placeholder="Deck name"
+            />
+            <Textarea
+              value={editDescription}
+              onChange={(event) => setEditDescription(event.target.value)}
+              placeholder="Deck description"
+              rows={4}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" onClick={closeEdit}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!editDeckId) return;
+                updateDeck(editDeckId, editName.trim(), editDescription.trim());
+                closeEdit();
+              }}
+              disabled={!editName.trim()}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

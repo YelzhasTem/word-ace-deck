@@ -70,7 +70,9 @@ export const getMyDecks = createServerFn({ method: "GET" })
 
     let decksRes = await supabase
       .from("decks")
-      .select("id, name, description, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id")
+      .select(
+        "id, name, description, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id",
+      )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
 
@@ -94,15 +96,16 @@ export const getMyDecks = createServerFn({ method: "GET" })
     return { decks: decksRes.data ?? [], cards: cardsRes.data ?? [] };
   });
 
-
 export const createDeckRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      name: z.string().min(1).max(120),
-      description: z.string().max(300).default(""),
-      collectionId: z.string().uuid().optional().nullable(),
-    }).parse(input),
+    z
+      .object({
+        name: z.string().min(1).max(120),
+        description: z.string().max(300).default(""),
+        collectionId: z.string().uuid().optional().nullable(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -119,12 +122,14 @@ export const createDeckRecord = createServerFn({ method: "POST" })
 export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      name: z.string().min(1).max(120),
-      description: z.string().max(300).default(""),
-      cards: z.array(CardInput).min(0).max(100),
-      collectionId: z.string().uuid().optional().nullable(),
-    }).parse(input),
+    z
+      .object({
+        name: z.string().min(1).max(120),
+        description: z.string().max(300).default(""),
+        cards: z.array(CardInput).min(0).max(100),
+        collectionId: z.string().uuid().optional().nullable(),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -138,16 +143,20 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
 
     let cardIds: string[] = [];
     if (data.cards.length > 0) {
-      const { data: insertedCards, error: cardsErr } = await supabase.from("cards").insert(
-        data.cards.map((card, position) => ({
-          deck_id: deck.id,
-          user_id: userId,
-          term: card.term,
-          definition: card.definition,
-          position,
-        })),
-      ).select("id");
-      if (cardsErr) throw new Error(`Deck was created, but cards were not saved: ${cardsErr.message}`);
+      const { data: insertedCards, error: cardsErr } = await supabase
+        .from("cards")
+        .insert(
+          data.cards.map((card, position) => ({
+            deck_id: deck.id,
+            user_id: userId,
+            term: card.term,
+            definition: card.definition,
+            position,
+          })),
+        )
+        .select("id");
+      if (cardsErr)
+        throw new Error(`Deck was created, but cards were not saved: ${cardsErr.message}`);
       cardIds = insertedCards?.map((card) => card.id) ?? [];
     }
 
@@ -157,22 +166,51 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
 export const addCardRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) =>
-    z.object({
-      deckId: z.string().uuid(),
-      term: z.string().min(1).max(160),
-      definition: z.string().min(1).max(300),
-      position: z.number().int().min(0).max(10000),
-    }).parse(input),
+    z
+      .object({
+        deckId: z.string().uuid(),
+        term: z.string().min(1).max(160),
+        definition: z.string().min(1).max(300),
+        position: z.number().int().min(0).max(10000),
+      })
+      .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { data: card, error } = await supabase
       .from("cards")
-      .insert({ deck_id: data.deckId, user_id: userId, term: data.term, definition: data.definition, position: data.position })
+      .insert({
+        deck_id: data.deckId,
+        user_id: userId,
+        term: data.term,
+        definition: data.definition,
+        position: data.position,
+      })
       .select("id")
       .single();
     if (error || !card) throw new Error(error?.message ?? "Could not add card");
     return { id: card.id };
+  });
+
+export const updateDeckRecord = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(120),
+        description: z.string().max(300).default(""),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase
+      .from("decks")
+      .update({ name: data.name, description: data.description })
+      .eq("id", data.id)
+      .eq("user_id", context.userId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
   });
 
 export const deleteDeckRecord = createServerFn({ method: "POST" })
@@ -197,7 +235,10 @@ export const markCardRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid(), known: z.boolean() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("cards").update({ known: data.known }).eq("id", data.id);
+    const { error } = await context.supabase
+      .from("cards")
+      .update({ known: data.known })
+      .eq("id", data.id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -206,7 +247,10 @@ export const resetDeckProgressRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase.from("cards").update({ known: false }).eq("deck_id", data.deckId);
+    const { error } = await context.supabase
+      .from("cards")
+      .update({ known: false })
+      .eq("deck_id", data.deckId);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
