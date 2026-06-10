@@ -134,8 +134,9 @@ function DeckPage() {
     markDeckStudied(deckId);
   }, [deckId]);
   const navigate = useNavigate();
-  const { deck, addCard, deleteCard, resetProgress, isLoading } = useDeck(deckId);
+  const { deck, addCard, deleteCard, resetProgress, isLoading, isFetching, refetchDecks } = useDeck(deckId);
   const stats = useDeckStats(deckId);
+  const [didRetryLoad, setDidRetryLoad] = useState(false);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
   const generate = useServerFn(generateStudyText);
@@ -174,7 +175,18 @@ function DeckPage() {
     setAiLoading(false);
   };
 
-  if (isLoading) return <DeckLoading />;
+  useEffect(() => {
+    setDidRetryLoad(false);
+  }, [deckId]);
+
+  useEffect(() => {
+    if (!isLoading && !isFetching && !deck && !didRetryLoad) {
+      setDidRetryLoad(true);
+      void refetchDecks();
+    }
+  }, [deck, didRetryLoad, isFetching, isLoading, refetchDecks]);
+
+  if (isLoading || isFetching || (!deck && !didRetryLoad)) return <DeckLoading />;
 
   if (!deck) {
     return (
