@@ -34,9 +34,15 @@ function parseKeywords(value: string) {
 }
 
 function readPublishTarget(search: unknown): { type: PublishType; id: string } | null {
-  const params = new URLSearchParams(String(search ?? ""));
-  const type = params.get("type");
-  const id = params.get("id") ?? "";
+  if (!search) return null;
+  const params =
+    typeof search === "string"
+      ? Object.fromEntries(new URLSearchParams(search))
+      : typeof search === "object"
+        ? (search as Record<string, unknown>)
+        : {};
+  const type = params.type;
+  const id = typeof params.id === "string" ? params.id : "";
   if ((type === "deck" || type === "collection") && id) return { type, id };
   return null;
 }
@@ -98,22 +104,26 @@ function PublishPage() {
     }
   };
 
-  const backLink =
-    type === "deck" && selectedDeck
-      ? ({ to: "/deck/$deckId" as const, params: { deckId: selectedDeck.id } })
-      : ({ to: "/collections" as const, params: undefined });
-
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="mx-auto max-w-3xl px-6 py-10">
-        <Link
-          to={backLink.to}
-          params={backLink.params}
-          className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" /> Back
-        </Link>
+        {type === "deck" && selectedDeck ? (
+          <Link
+            to="/deck/$deckId"
+            params={{ deckId: selectedDeck.id }}
+            className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Link>
+        ) : (
+          <Link
+            to="/collections"
+            className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back
+          </Link>
+        )}
 
         <section className="mb-8">
           <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">Publishing</p>
