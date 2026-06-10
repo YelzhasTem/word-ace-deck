@@ -10,11 +10,30 @@ import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  ArrowLeft, Plus, Trash2, Play, RotateCcw, Sparkles, Loader2, Brain,
-  Keyboard, Shuffle, FileQuestion, Zap, Lightbulb, CalendarClock, LineChart, Hourglass, Globe2,
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Play,
+  RotateCcw,
+  Sparkles,
+  Loader2,
+  Brain,
+  Keyboard,
+  Shuffle,
+  FileQuestion,
+  Zap,
+  Lightbulb,
+  CalendarClock,
+  LineChart,
+  Hourglass,
+  Globe2,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
-import { useDelayedRecallEnabled, useDeckRecallSummary, scheduleNewCard } from "@/lib/delayed-recall";
+import {
+  useDelayedRecallEnabled,
+  useDeckRecallSummary,
+  scheduleNewCard,
+} from "@/lib/delayed-recall";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
@@ -91,7 +110,10 @@ function DeckLoading() {
           </div>
           <div className="space-y-3">
             {[0, 1, 2, 3].map((item) => (
-              <div key={item} className="flex items-center justify-between rounded-2xl bg-secondary/50 px-4 py-3">
+              <div
+                key={item}
+                className="flex items-center justify-between rounded-2xl bg-secondary/50 px-4 py-3"
+              >
                 <div className="w-full max-w-md space-y-2">
                   <Skeleton className="h-5 w-36" />
                   <Skeleton className="h-4 w-56 max-w-full" />
@@ -108,7 +130,9 @@ function DeckLoading() {
 
 function DeckPage() {
   const { deckId } = Route.useParams();
-  useEffect(() => { markDeckStudied(deckId); }, [deckId]);
+  useEffect(() => {
+    markDeckStudied(deckId);
+  }, [deckId]);
   const navigate = useNavigate();
   const { deck, addCard, deleteCard, resetProgress, isLoading } = useDeck(deckId);
   const stats = useDeckStats(deckId);
@@ -158,7 +182,9 @@ function DeckPage() {
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
+          <Link to="/" className="mt-6 inline-block text-accent underline">
+            Home
+          </Link>
         </main>
       </div>
     );
@@ -194,8 +220,8 @@ function DeckPage() {
               <p className="mt-3 text-muted-foreground max-w-xl">{deck.description}</p>
             )}
             <p className="mt-4 text-sm text-muted-foreground">
-              {total} {plural(total, ["card", "cards", "cards"])} ·{" "}
-              {known} {plural(known, ["learned", "learned", "learned"])}
+              {total} {plural(total, ["card", "cards", "cards"])} · {known}{" "}
+              {plural(known, ["learned", "learned", "learned"])}
             </p>
           </div>
           <div className="flex gap-2">
@@ -230,8 +256,8 @@ function DeckPage() {
                 <Hourglass className="h-5 w-5 text-accent" /> Delayed Recall
               </h2>
               <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                Improve long-term memory by reviewing words at growing intervals
-                (10 min · 1 d · 3 d · 7 d · 14 d · 30 d), instead of cramming them all at once.
+                Improve long-term memory by reviewing words at growing intervals (10 min · 1 d · 3 d
+                · 7 d · 14 d · 30 d), instead of cramming them all at once.
               </p>
             </div>
             <label className="flex items-center gap-3 shrink-0 cursor-pointer">
@@ -253,7 +279,9 @@ function DeckPage() {
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
                   <p className="text-xs text-muted-foreground">Retention</p>
-                  <p className="font-display text-2xl">{recallSummary.retention !== null ? `${recallSummary.retention}%` : "—"}</p>
+                  <p className="font-display text-2xl">
+                    {recallSummary.retention !== null ? `${recallSummary.retention}%` : "—"}
+                  </p>
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
                   <p className="text-xs text-muted-foreground">Mastered</p>
@@ -263,7 +291,8 @@ function DeckPage() {
               {recallSummary.ready > 0 && (
                 <div className="rounded-2xl bg-accent/10 text-foreground px-4 py-3 text-sm mb-4 flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-accent" />
-                  {recallSummary.ready} {recallSummary.ready === 1 ? "word ready" : "words ready"} for recall — a session is waiting.
+                  {recallSummary.ready} {recallSummary.ready === 1 ? "word ready" : "words ready"}{" "}
+                  for recall — a session is waiting.
                 </div>
               )}
               <div className="flex justify-end">
@@ -287,13 +316,42 @@ function DeckPage() {
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
-                { to: "/review/$deckId", icon: CalendarClock, title: "Daily review", desc: "SRS queue: only words due for review." },
-                { to: "/type/$deckId", icon: Keyboard, title: "Typed translation", desc: "Active recall with fuzzy matching." },
-                { to: "/builder/$deckId", icon: Shuffle, title: "Word builder", desc: "Build the word from letters. 3 difficulty levels." },
-                { to: "/blank/$deckId", icon: FileQuestion, title: "Fill-in-the-blank", desc: "A word in context: choices, word bank, or free input." },
-                { to: "/speed/$deckId", icon: Zap, title: "Speed challenge", desc: "30/60/120 sec. Combos and records." },
-                { to: "/assoc/$deckId", icon: Lightbulb, title: "Associations", desc: "AI mnemonics and your own." },
-                { to: "/deep/$deckId", icon: Brain, title: "Deep learning", desc: "4 translation options." },
+                {
+                  to: "/review/$deckId",
+                  icon: CalendarClock,
+                  title: "Daily review",
+                  desc: "SRS queue: only words due for review.",
+                },
+                {
+                  to: "/type/$deckId",
+                  icon: Keyboard,
+                  title: "Typed translation",
+                  desc: "Active recall with fuzzy matching.",
+                },
+                {
+                  to: "/builder/$deckId",
+                  icon: Shuffle,
+                  title: "Word builder",
+                  desc: "Build the word from letters. 3 difficulty levels.",
+                },
+                {
+                  to: "/blank/$deckId",
+                  icon: FileQuestion,
+                  title: "Fill-in-the-blank",
+                  desc: "A word in context: choices, word bank, or free input.",
+                },
+                {
+                  to: "/speed/$deckId",
+                  icon: Zap,
+                  title: "Speed challenge",
+                  desc: "30/60/120 sec. Combos and records.",
+                },
+                {
+                  to: "/deep/$deckId",
+                  icon: Brain,
+                  title: "Deep learning",
+                  desc: "4 translation options.",
+                },
               ].map((m) => {
                 const disabled = m.to === "/deep/$deckId" && deck.cards.length < 4;
                 return (
@@ -336,56 +394,67 @@ function DeckPage() {
         )}
 
         {/* Performance analytics */}
-        {deck.cards.length > 0 && (() => {
-          const weak = weakCardIds(deck.id).slice(0, 5);
-          const answered = Object.values(stats);
-          const totalCorrect = answered.reduce((s, x) => s + x.correct, 0);
-          const totalWrong = answered.reduce((s, x) => s + x.wrong, 0);
-          const acc = totalCorrect + totalWrong > 0 ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100) : null;
-          const mastered = answered.filter((x) => x.mastery >= 0.75).length;
-          return (
-            <section className="mb-8 rounded-3xl border border-border bg-card p-6">
-              <h2 className="font-display text-xl mb-4">Stats</h2>
-              <div className="grid grid-cols-3 gap-3 mb-4">
-                <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Answers</p>
-                  <p className="font-display text-2xl">{totalCorrect + totalWrong}</p>
-                </div>
-                <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Accuracy</p>
-                  <p className="font-display text-2xl">{acc !== null ? `${acc}%` : "—"}</p>
-                </div>
-                <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Mastered</p>
-                  <p className="font-display text-2xl">{mastered}<span className="text-base text-muted-foreground"> / {deck.cards.length}</span></p>
-                </div>
-              </div>
-              {weak.length > 0 && (
-                <div>
-                  <p className="text-sm font-semibold mb-2">Weak words</p>
-                  <div className="flex flex-wrap gap-2">
-                    {weak.map((id) => {
-                      const c = deck.cards.find((x) => x.id === id);
-                      if (!c) return null;
-                      const a = accuracyFor(stats[id]);
-                      return (
-                        <span key={id} className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs">
-                          {c.term}{a !== null ? ` · ${a}%` : ""}
-                        </span>
-                      );
-                    })}
+        {deck.cards.length > 0 &&
+          (() => {
+            const weak = weakCardIds(deck.id).slice(0, 5);
+            const answered = Object.values(stats);
+            const totalCorrect = answered.reduce((s, x) => s + x.correct, 0);
+            const totalWrong = answered.reduce((s, x) => s + x.wrong, 0);
+            const acc =
+              totalCorrect + totalWrong > 0
+                ? Math.round((totalCorrect / (totalCorrect + totalWrong)) * 100)
+                : null;
+            const mastered = answered.filter((x) => x.mastery >= 0.75).length;
+            return (
+              <section className="mb-8 rounded-3xl border border-border bg-card p-6">
+                <h2 className="font-display text-xl mb-4">Stats</h2>
+                <div className="grid grid-cols-3 gap-3 mb-4">
+                  <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                    <p className="text-xs text-muted-foreground">Answers</p>
+                    <p className="font-display text-2xl">{totalCorrect + totalWrong}</p>
+                  </div>
+                  <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                    <p className="text-xs text-muted-foreground">Accuracy</p>
+                    <p className="font-display text-2xl">{acc !== null ? `${acc}%` : "—"}</p>
+                  </div>
+                  <div className="rounded-2xl bg-background border border-border px-4 py-3">
+                    <p className="text-xs text-muted-foreground">Mastered</p>
+                    <p className="font-display text-2xl">
+                      {mastered}
+                      <span className="text-base text-muted-foreground">
+                        {" "}
+                        / {deck.cards.length}
+                      </span>
+                    </p>
                   </div>
                 </div>
-              )}
-            </section>
-          );
-        })()}
+                {weak.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold mb-2">Weak words</p>
+                    <div className="flex flex-wrap gap-2">
+                      {weak.map((id) => {
+                        const c = deck.cards.find((x) => x.id === id);
+                        if (!c) return null;
+                        const a = accuracyFor(stats[id]);
+                        return (
+                          <span
+                            key={id}
+                            className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs"
+                          >
+                            {c.term}
+                            {a !== null ? ` · ${a}%` : ""}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </section>
+            );
+          })()}
 
         {/* Add card */}
-        <form
-          onSubmit={handleAdd}
-          className="rounded-3xl border border-border bg-card p-6 mb-10"
-        >
+        <form onSubmit={handleAdd} className="rounded-3xl border border-border bg-card p-6 mb-10">
           <h2 className="font-display text-xl mb-4">Add card</h2>
           <div className="grid md:grid-cols-[1fr_1.4fr_auto] gap-3">
             <Input
@@ -445,8 +514,8 @@ function DeckPage() {
                 <Sparkles className="h-5 w-5 text-accent" /> Text for active review
               </h2>
               <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                AI will write a short English text using all words in the deck — read it and
-                meet the words in living context.
+                AI will write a short English text using all words in the deck — read it and meet
+                the words in living context.
               </p>
             </div>
             <div className="flex gap-2">
@@ -500,7 +569,6 @@ function DeckPage() {
           )}
         </section>
       </main>
-
     </div>
   );
 }
