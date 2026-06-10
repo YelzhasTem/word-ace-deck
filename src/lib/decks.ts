@@ -16,6 +16,8 @@ import {
   updateDeckRecord,
 } from "@/lib/decks.functions";
 
+const MAX_DECK_CARDS = 100;
+
 export type Card = {
   id: string;
   term: string;
@@ -266,6 +268,7 @@ export function useDecks() {
     addCard: (deckId: string, term: string, definition: string) => {
       const deck = decks.find((d) => d.id === deckId);
       const position = deck ? deck.cards.length : 0;
+      if (position >= MAX_DECK_CARDS) return;
       addCardMut.mutate({ deckId, term, definition, position });
     },
     deleteCard: (_deckId: string, cardId: string) => deleteCardMut.mutate(cardId),

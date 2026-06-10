@@ -9,6 +9,8 @@ const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-f
 const MAX_DECK_NAME = 120;
 const MAX_CARD_TERM = 160;
 const MAX_CARD_DEFINITION = 300;
+const MIN_DECK_CARDS = 4;
+const MAX_DECK_CARDS = 100;
 
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
@@ -42,7 +44,8 @@ function cleanDeckPayload(parsed: DeckPayload, fallbackName: string, description
       term: cleanText(card?.term, MAX_CARD_TERM),
       definition: cleanText(card?.definition, MAX_CARD_DEFINITION),
     }))
-    .filter((card) => card.term && card.definition);
+    .filter((card) => card.term && card.definition)
+    .slice(0, MAX_DECK_CARDS);
 
   return {
     name: cleanGeneratedDeckName(parsed.name, fallbackName),
@@ -230,7 +233,7 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
       topic: z.string().min(1).max(200),
       description: z.string().max(300).default(""),
       level: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]),
-      count: z.number().int().min(3).max(30),
+      count: z.number().int().min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
     }),
   )
   .handler(async ({ data }) => {
@@ -250,8 +253,8 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
     );
 
     const deck = cleanDeckPayload(parsed, data.topic, data.description);
-    if (deck.cards.length === 0) {
-      throw new Error("ИИ не сгенерировал карточки. Попробуйте другую тему.");
+    if (deck.cards.length < MIN_DECK_CARDS) {
+      throw new Error("ИИ сгенерировал слишком мало карточек. Попробуйте другую тему.");
     }
 
     return deck;
@@ -315,7 +318,7 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       url: z.string().url().max(2000),
-      count: z.number().int().min(3).max(40),
+      count: z.number().int().min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
     }),
   )
   .handler(async ({ data }) => {
@@ -369,7 +372,7 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
     }
 
     const deck = cleanDeckPayload(parsed, host);
-    if (deck.cards.length === 0) {
+    if (deck.cards.length < MIN_DECK_CARDS) {
       throw new Error("Не удалось извлечь слова из текста. Попробуйте другой источник.");
     }
 

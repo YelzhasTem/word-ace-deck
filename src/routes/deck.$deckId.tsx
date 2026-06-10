@@ -70,6 +70,8 @@ function plural(n: number, forms: [string, string, string]) {
   return forms[2];
 }
 
+const MAX_DECK_CARDS = 100;
+
 function DeckLoading() {
   return (
     <div className="min-h-screen">
@@ -204,7 +206,7 @@ function DeckPage() {
 
   const handleAdd = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!term.trim() || !def.trim()) return;
+    if (!term.trim() || !def.trim() || deck.cards.length >= MAX_DECK_CARDS) return;
     addCard(deck.id, term.trim(), def.trim());
     setTerm("");
     setDef("");
@@ -212,6 +214,7 @@ function DeckPage() {
 
   const total = deck.cards.length;
   const known = deck.cards.filter((c) => c.known).length;
+  const canAddCard = deck.cards.length < MAX_DECK_CARDS;
 
   return (
     <div className="min-h-screen">
@@ -473,16 +476,23 @@ function DeckPage() {
               placeholder="English word"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
+              disabled={!canAddCard}
             />
             <Input
               placeholder="Translation or definition"
               value={def}
               onChange={(e) => setDef(e.target.value)}
+              disabled={!canAddCard}
             />
-            <Button type="submit" className="rounded-full">
+            <Button type="submit" className="rounded-full" disabled={!canAddCard}>
               <Plus className="h-4 w-4" /> Add
             </Button>
           </div>
+          {!canAddCard && (
+            <p className="mt-3 text-sm text-muted-foreground">
+              This deck already has the maximum of {MAX_DECK_CARDS} cards.
+            </p>
+          )}
         </form>
 
         {/* Cards list */}

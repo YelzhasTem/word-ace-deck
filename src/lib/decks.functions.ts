@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const DEFAULT_COLLECTION_NAME = "My collection";
+const MIN_DECK_CARDS = 4;
+const MAX_DECK_CARDS = 100;
 
 async function ensureDefaultCollectionId(
   supabase: SupabaseClient,
@@ -126,7 +128,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
       .object({
         name: z.string().min(1).max(120),
         description: z.string().max(300).default(""),
-        cards: z.array(CardInput).min(0).max(100),
+        cards: z.array(CardInput).min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
         collectionId: z.string().uuid().optional().nullable(),
       })
       .parse(input),
@@ -177,6 +179,16 @@ export const addCardRecord = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const { count, error: countError } = await supabase
+      .from("cards")
+      .select("id", { count: "exact", head: true })
+      .eq("deck_id", data.deckId)
+      .eq("user_id", userId);
+    if (countError) throw new Error(countError.message);
+    if ((count ?? 0) >= MAX_DECK_CARDS) {
+      throw new Error(`A deck can have at most ${MAX_DECK_CARDS} cards`);
+    }
+
     const { data: card, error } = await supabase
       .from("cards")
       .insert({

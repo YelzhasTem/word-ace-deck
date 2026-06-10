@@ -47,6 +47,9 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+const MIN_DECK_CARDS = 4;
+const MAX_DECK_CARDS = 100;
+
 function clampCardCount(value: string, min: number, max: number, fallback: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
@@ -121,7 +124,7 @@ function Home() {
     if (!urlInput.trim()) return;
     setUrlLoading(true);
     setUrlError("");
-    const safeCount = clampCardCount(urlCount, 3, 40, 15);
+    const safeCount = clampCardCount(urlCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 15);
     setUrlCount(String(safeCount));
     let result: Awaited<ReturnType<typeof genDeckFromUrl>>;
     try {
@@ -159,7 +162,7 @@ function Home() {
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || manualCards.length === 0) return;
+    if (!name.trim() || manualCards.length < MIN_DECK_CARDS) return;
     try {
       const created = await createDeckWithCards(name.trim(), desc.trim(), manualCards, selectedCollectionId);
       resetManual();
@@ -201,7 +204,9 @@ function Home() {
   }, [handleLookup, wordInput, trWord]);
 
   const handlePickTranslation = (translation: string) => {
-    setManualCards((prev) => [...prev, { term: trWord, definition: translation }]);
+    setManualCards((prev) =>
+      prev.length >= MAX_DECK_CARDS ? prev : [...prev, { term: trWord, definition: translation }],
+    );
     setWordInput("");
     setTrWord("");
     setTrDirection("");
@@ -221,7 +226,7 @@ function Home() {
     if (!aiName.trim() || !aiTopic.trim()) return;
     setAiLoading(true);
     setAiError("");
-    const safeCount = clampCardCount(aiCount, 3, 30, 10);
+    const safeCount = clampCardCount(aiCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 10);
     setAiCount(String(safeCount));
     let result: Awaited<ReturnType<typeof genDeck>>;
     try {
@@ -376,7 +381,7 @@ function Home() {
                             placeholder={t("create.wordPh")}
                             value={wordInput}
                             onChange={(e) => setWordInput(e.target.value)}
-                            disabled={trLoading}
+                            disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
                           />
                         ) : (
                           <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
@@ -412,6 +417,7 @@ function Home() {
                                       key={opt}
                                       type="button"
                                       onClick={() => handlePickTranslation(opt)}
+                                      disabled={manualCards.length >= MAX_DECK_CARDS}
                                       className="px-3 py-1.5 rounded-full bg-card border border-border text-sm hover:border-primary hover:text-primary transition-colors"
                                     >
                                       {opt}
@@ -462,7 +468,7 @@ function Home() {
                         </Button>
                         <Button
                           onClick={handleCreate}
-                          disabled={!name.trim() || manualCards.length === 0}
+                          disabled={!name.trim() || manualCards.length < MIN_DECK_CARDS}
                         >
                           <Check className="h-4 w-4" /> {t("create.confirm")} ({manualCards.length})
                         </Button>
@@ -515,11 +521,13 @@ function Home() {
                           <label className="text-sm font-medium">{t("create.ai.count")}</label>
                           <Input
                             type="number"
-                            min={3}
-                            max={30}
+                            min={MIN_DECK_CARDS}
+                            max={MAX_DECK_CARDS}
                             value={aiCount}
                             onChange={(e) => setAiCount(e.target.value)}
-                            onBlur={() => setAiCount(String(clampCardCount(aiCount, 3, 30, 10)))}
+                            onBlur={() =>
+                              setAiCount(String(clampCardCount(aiCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 10)))
+                            }
                           />
                         </div>
                       </div>
@@ -570,11 +578,13 @@ function Home() {
                         <label className="text-sm font-medium">{t("create.ai.count")}</label>
                         <Input
                           type="number"
-                          min={3}
-                          max={40}
+                          min={MIN_DECK_CARDS}
+                          max={MAX_DECK_CARDS}
                           value={urlCount}
                           onChange={(e) => setUrlCount(e.target.value)}
-                          onBlur={() => setUrlCount(String(clampCardCount(urlCount, 3, 40, 15)))}
+                          onBlur={() =>
+                            setUrlCount(String(clampCardCount(urlCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 15)))
+                          }
                         />
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
