@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as PublishRouteImport } from './routes/publish'
 import { Route as DecksRouteImport } from './routes/decks'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as CommunityAdminRouteImport } from './routes/community-admin'
@@ -41,6 +42,11 @@ const SettingsRoute = SettingsRouteImport.update({
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
   id: '/reset-password',
   path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PublishRoute = PublishRouteImport.update({
+  id: '/publish',
+  path: '/publish',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DecksRoute = DecksRouteImport.update({
@@ -157,6 +163,7 @@ export interface FileRoutesByFullPath {
   '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
+  '/publish': typeof PublishRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
+  '/publish': typeof PublishRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
@@ -208,6 +216,7 @@ export interface FileRoutesById {
   '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
+  '/publish': typeof PublishRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
@@ -235,6 +244,7 @@ export interface FileRouteTypes {
     | '/community-admin'
     | '/dashboard'
     | '/decks'
+    | '/publish'
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
     | '/community-admin'
     | '/dashboard'
     | '/decks'
+    | '/publish'
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
@@ -285,6 +296,7 @@ export interface FileRouteTypes {
     | '/community-admin'
     | '/dashboard'
     | '/decks'
+    | '/publish'
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
@@ -311,6 +323,7 @@ export interface RootRouteChildren {
   CommunityAdminRoute: typeof CommunityAdminRoute
   DashboardRoute: typeof DashboardRoute
   DecksRoute: typeof DecksRoute
+  PublishRoute: typeof PublishRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   AssocDeckIdRoute: typeof AssocDeckIdRoute
@@ -342,6 +355,13 @@ declare module '@tanstack/react-router' {
       path: '/reset-password'
       fullPath: '/reset-password'
       preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/publish': {
+      id: '/publish'
+      path: '/publish'
+      fullPath: '/publish'
+      preLoaderRoute: typeof PublishRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/decks': {
@@ -514,6 +534,7 @@ const rootRouteChildren: RootRouteChildren = {
   CommunityAdminRoute: CommunityAdminRoute,
   DashboardRoute: DashboardRoute,
   DecksRoute: DecksRoute,
+  PublishRoute: PublishRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   AssocDeckIdRoute: AssocDeckIdRoute,
