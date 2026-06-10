@@ -1,11 +1,13 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { Archive, BookOpen, Copy, Heart, Search, Star, Users } from "lucide-react";
+import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  duplicatePublicDeck,
   duplicatePublicCollection,
   getCommunityHome,
   searchPublicCollections,
@@ -36,7 +38,7 @@ type CommunityCollection = {
   rating: number;
 };
 
-function DeckCard({ deck }: { deck: CommunityDeck }) {
+function DeckCard({ deck, onCopy }: { deck: CommunityDeck; onCopy: (id: string) => void }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
       <div className="min-w-0">
@@ -69,6 +71,9 @@ function DeckCard({ deck }: { deck: CommunityDeck }) {
           {deck.rating || "New"}
         </span>
       </div>
+      <Button variant="outline" className="rounded-full" onClick={() => onCopy(deck.id)}>
+        <Copy className="h-4 w-4" /> Add to library
+      </Button>
     </div>
   );
 }
@@ -117,14 +122,22 @@ function CollectionCard({
   );
 }
 
-function Section({ title, decks }: { title: string; decks: CommunityDeck[] }) {
+function Section({
+  title,
+  decks,
+  onCopy,
+}: {
+  title: string;
+  decks: CommunityDeck[];
+  onCopy: (id: string) => void;
+}) {
   if (decks.length === 0) return null;
   return (
     <section className="space-y-4">
       <h2 className="font-display text-2xl font-bold tracking-tight">{title}</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {decks.map((deck) => (
-          <DeckCard key={deck.id} deck={deck} />
+          <DeckCard key={deck.id} deck={deck} onCopy={onCopy} />
         ))}
       </div>
     </section>
@@ -132,9 +145,11 @@ function Section({ title, decks }: { title: string; decks: CommunityDeck[] }) {
 }
 
 function CommunityPage() {
+  const navigate = useNavigate();
   const loadHome = useServerFn(getCommunityHome);
   const searchDecks = useServerFn(searchPublicDecks);
   const searchCollections = useServerFn(searchPublicCollections);
+  const copyDeck = useServerFn(duplicatePublicDeck);
   const copyCollection = useServerFn(duplicatePublicCollection);
   const [home, setHome] = useState<{
     trending: CommunityDeck[];
@@ -203,8 +218,23 @@ function CommunityPage() {
       .finally(() => setLoading(false));
   }, [activeSearch, mode, query, searchCollections, searchDecks, sort, searchTarget]);
 
+  const onCopyDeck = async (deckId: string) => {
+    try {
+      const res = await copyDeck({ data: { deckId } });
+      toast.success("Deck copied into your library.");
+      navigate({ to: "/deck/$deckId", params: { deckId: res.id } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not add deck to your library.");
+    }
+  };
+
   const onCopyCollection = async (collectionId: string) => {
-    await copyCollection({ data: { collectionId } });
+    try {
+      await copyCollection({ data: { collectionId } });
+      toast.success("Collection copied into your library.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not add collection to your library.");
+    }
   };
 
   return (
@@ -304,7 +334,7 @@ function CommunityPage() {
                 {results.length > 0 && (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {results.map((deck) => (
-                      <DeckCard key={deck.id} deck={deck} />
+                      <DeckCard key={deck.id} deck={deck} onCopy={onCopyDeck} />
                     ))}
                   </div>
                 )}
@@ -329,11 +359,11 @@ function CommunityPage() {
 
         {searchTarget === "all" && !query && mode !== "following" && mode !== "saved" && home && (
           <div className="space-y-10">
-            <Section title="Trending Decks" decks={home.trending} />
-            <Section title="Most Popular" decks={home.popular} />
-            <Section title="New Decks" decks={home.newest} />
-            <Section title="Top Rated" decks={home.topRated} />
-            <Section title="Recommended For You" decks={home.recommended} />
+            <Section title="Trending Decks" decks={home.trending} onCopy={onCopyDeck} />
+            <Section title="Most Popular" decks={home.popular} onCopy={onCopyDeck} />
+            <Section title="New Decks" decks={home.newest} onCopy={onCopyDeck} />
+            <Section title="Top Rated" decks={home.topRated} onCopy={onCopyDeck} />
+            <Section title="Recommended For You" decks={home.recommended} onCopy={onCopyDeck} />
           </div>
         )}
 
