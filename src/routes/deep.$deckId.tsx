@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Brain, Check, RotateCcw, X } from "lucide-react";
@@ -84,8 +85,13 @@ function DeepPage() {
   const handlePick = (i: number) => {
     if (picked !== null) return;
     setPicked(i);
-    if (i === questions[idx].correctIndex) setCorrectCount((c) => c + 1);
-    else setWrongCount((c) => c + 1);
+    if (i === questions[idx].correctIndex) {
+      playCorrectSound();
+      setCorrectCount((c) => c + 1);
+    } else {
+      playWrongSound();
+      setWrongCount((c) => c + 1);
+    }
     recordStreakToday();
   };
 

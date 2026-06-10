@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, getSpeedRecords, recordSpeedRun } from "@/lib/stats";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Timer, Zap, Trophy, RotateCcw } from "lucide-react";
@@ -88,6 +89,8 @@ function SpeedPage() {
   const pick = (i: number) => {
     if (!cur || !running) return;
     const ok = i === cur.correct;
+    if (ok) playCorrectSound();
+    else playWrongSound();
     recordAnswer(deck.id, cur.card.id, ok);
     if (ok) {
       const newCombo = combo + 1;

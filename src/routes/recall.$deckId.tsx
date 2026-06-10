@@ -13,6 +13,7 @@ import {
 } from "@/lib/delayed-recall";
 import { isCloseMatch } from "@/lib/stats";
 import { recordStreakToday } from "@/lib/streak";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 
 export const Route = createFileRoute("/recall/$deckId")({
   component: RecallPage,
@@ -79,6 +80,8 @@ function RecallPage() {
     e?.preventDefault();
     if (!current || verdict) return;
     const ok = isCloseMatch(input, current.term);
+    if (ok) playCorrectSound();
+    else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
     recordRecallAnswer(deck.id, current.id, ok);
     if (ok) { setRight((r) => r + 1); recordStreakToday(); }

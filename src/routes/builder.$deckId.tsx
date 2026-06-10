@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, prioritise } from "@/lib/stats";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Shuffle, Check, X, Eraser, RotateCcw, Trophy } from "lucide-react";
@@ -119,6 +120,8 @@ function BuilderPage() {
     if (!current) return;
     const elapsed = Date.now() - start;
     const ok = built.toLowerCase() === current.term.toLowerCase();
+    if (ok) playCorrectSound();
+    else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
     recordAnswer(deck.id, current.id, ok, elapsed);
     if (ok) {

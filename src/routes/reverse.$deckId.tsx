@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
 import { recordAnswer, getDeckStats, accuracyFor } from "@/lib/stats";
 import { recordStreakToday } from "@/lib/streak";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -99,6 +100,8 @@ function ReversePage() {
 
   const handle = (correct: boolean) => {
     if (!current) return;
+    if (correct) playCorrectSound();
+    else playWrongSound();
     const ms = Date.now() - startedAt;
     recordAnswer(deck.id, statKey(current.cardId, current.dir), correct, ms);
     recordStreakToday();

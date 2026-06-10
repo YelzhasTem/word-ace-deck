@@ -16,6 +16,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { RecallNotifier } from "@/components/RecallNotifier";
 import { LanguageProvider } from "@/lib/i18n";
 import { AuthGate } from "@/components/AuthGate";
+import { playButtonSound } from "@/lib/sounds";
 
 const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password"]);
 
@@ -137,6 +138,25 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
   const requireAuth = !isPublicPath(location.pathname);
+
+  useEffect(() => {
+    const handlePointerUp = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) return;
+      const control = target.closest("button, a, [role='button']");
+      if (!control) return;
+      if (
+        control instanceof HTMLButtonElement &&
+        (control.disabled || control.getAttribute("aria-disabled") === "true")
+      ) {
+        return;
+      }
+      playButtonSound();
+    };
+
+    window.addEventListener("pointerup", handlePointerUp);
+    return () => window.removeEventListener("pointerup", handlePointerUp);
+  }, []);
 
   return (
     <QueryClientProvider client={queryClient}>

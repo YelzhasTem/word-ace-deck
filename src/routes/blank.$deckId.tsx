@@ -5,6 +5,7 @@ import { useDeck, type Card } from "@/lib/decks";
 import { generateClozeSentence } from "@/lib/ai.functions";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, isCloseMatch, prioritise } from "@/lib/stats";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,6 +99,8 @@ function BlankPage() {
     if (!answer) return;
     const elapsed = Date.now() - askedAt;
     const ok = isCloseMatch(answer, current.term);
+    if (ok) playCorrectSound();
+    else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
     recordAnswer(deck.id, current.id, ok, elapsed);
     if (ok) { setRight((r) => r + 1); recordStreakToday(); } else { setWrong((w) => w + 1); }

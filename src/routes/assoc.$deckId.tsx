@@ -5,6 +5,7 @@ import { useDeck } from "@/lib/decks";
 import { generateAssociation } from "@/lib/ai.functions";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, useAssocs, addAssoc, toggleFavoriteAssoc, removeAssoc } from "@/lib/stats";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,6 +75,8 @@ function AssocPage() {
   };
 
   const mark = (helped: boolean) => {
+    if (helped) playCorrectSound();
+    else playWrongSound();
     recordAnswer(deck.id, current.id, helped);
     if (helped) recordStreakToday();
     go(1);

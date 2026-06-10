@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
 import { useServerFn } from "@tanstack/react-start";
 import { recordStreakToday } from "@/lib/streak";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat, Star } from "lucide-react";
@@ -83,6 +84,7 @@ function StudyPage() {
 
   const handleKnown = () => {
     if (!current) return;
+    playCorrectSound();
     setFlipped(false);
     markCard(deck.id, current.id, true);
     recordStreakToday();
@@ -92,6 +94,7 @@ function StudyPage() {
 
   const handleAgain = () => {
     if (!current) return;
+    playWrongSound();
     setFlipped(false);
     setTimeout(() => {
       setOrder((prev) => {

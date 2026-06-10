@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, isCloseMatch, prioritise, accuracyFor, useDeckStats } from "@/lib/stats";
+import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,6 +50,8 @@ function TypePage() {
     if (!current || verdict) return;
     const elapsed = Date.now() - startedAt;
     const ok = isCloseMatch(input, current.definition);
+    if (ok) playCorrectSound();
+    else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
     recordAnswer(deck.id, current.id, ok, elapsed);
     if (ok) { setRight((r) => r + 1); recordStreakToday(); }
