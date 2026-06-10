@@ -56,22 +56,22 @@ export function SiteHeader() {
         <nav className="ml-auto flex items-center gap-1 text-sm font-medium">
           <Link
             to="/decks"
-            className="px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3"
-            activeProps={{ className: "px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3" }}
+            className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
+            activeProps={{ className: "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex" }}
           >
             {t("nav.decks")}
           </Link>
           <Link
             to="/collections"
-            className="px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3"
-            activeProps={{ className: "px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3" }}
+            className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
+            activeProps={{ className: "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex" }}
           >
             {t("nav.collections")}
           </Link>
           <Link
             to="/community"
-            className="px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3"
-            activeProps={{ className: "px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3" }}
+            className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
+            activeProps={{ className: "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex" }}
           >
             Community
           </Link>
@@ -90,6 +90,16 @@ export function SiteHeader() {
               <Menu className="h-4 w-4" />
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem asChild className="md:hidden">
+                <Link to="/decks">{t("nav.decks")}</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="md:hidden">
+                <Link to="/collections">{t("nav.collections")}</Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild className="md:hidden">
+                <Link to="/community">Community</Link>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="md:hidden" />
               {session ? (
                 <>
                   <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
