@@ -188,17 +188,6 @@ function DecksPage() {
                       onClick={(event) => {
                         event.preventDefault();
                         event.stopPropagation();
-                        setEditDeckId(deck.id);
-                      }}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-card px-3 py-2 text-sm font-semibold text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-                    >
-                      <Settings2 className="h-3.5 w-3.5" /> Settings
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
                         deleteDeck(deck.id);
                       }}
                       title={t("home.deleteDeck")}
