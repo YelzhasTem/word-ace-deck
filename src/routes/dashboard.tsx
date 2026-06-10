@@ -94,6 +94,7 @@ function Home() {
 
   // AI generation state
   const [aiTopic, setAiTopic] = useState("");
+  const [aiDesc, setAiDesc] = useState("");
   const [aiLevel, setAiLevel] = useState("B1");
   const [aiCount, setAiCount] = useState(10);
   const [aiLoading, setAiLoading] = useState(false);
@@ -102,6 +103,7 @@ function Home() {
 
   // URL-based generation state
   const [urlInput, setUrlInput] = useState("");
+  const [urlDesc, setUrlDesc] = useState("");
   const [urlCount, setUrlCount] = useState(15);
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState("");
@@ -123,8 +125,9 @@ function Home() {
     }
 
     try {
-      const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(result.name, urlDesc.trim(), result.cards, selectedCollectionId);
       setUrlInput("");
+      setUrlDesc("");
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
@@ -203,8 +206,9 @@ function Home() {
     }
 
     try {
-      const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(result.name, aiDesc.trim(), result.cards, selectedCollectionId);
       setAiTopic("");
+      setAiDesc("");
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
@@ -445,6 +449,15 @@ function Home() {
                           onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAIGenerate()}
                         />
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">{t("create.descLabel")}</label>
+                        <Textarea
+                          placeholder={t("create.descPh")}
+                          value={aiDesc}
+                          onChange={(e) => setAiDesc(e.target.value)}
+                          rows={2}
+                        />
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-2">
                           <label className="text-sm font-medium">{t("create.ai.level")}</label>
@@ -473,7 +486,7 @@ function Home() {
                         <p className="text-sm text-destructive">{aiError}</p>
                       )}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => setOpen(false)}>{t("create.cancel")}</Button>
+                        <Button variant="ghost" onClick={() => { setAiTopic(""); setAiDesc(""); setOpen(false); }}>{t("create.cancel")}</Button>
                         <Button onClick={handleAIGenerate} disabled={aiLoading || !aiTopic.trim()}>
                           {aiLoading ? (
                             <>
@@ -503,6 +516,15 @@ function Home() {
                           {t("create.url.hint")}
                         </p>
                       </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">{t("create.descLabel")}</label>
+                        <Textarea
+                          placeholder={t("create.descPh")}
+                          value={urlDesc}
+                          onChange={(e) => setUrlDesc(e.target.value)}
+                          rows={2}
+                        />
+                      </div>
                       <div className="space-y-2 max-w-[160px]">
                         <label className="text-sm font-medium">{t("create.ai.count")}</label>
                         <Input
@@ -515,7 +537,7 @@ function Home() {
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => setOpen(false)}>{t("create.cancel")}</Button>
+                        <Button variant="ghost" onClick={() => { setUrlInput(""); setUrlDesc(""); setOpen(false); }}>{t("create.cancel")}</Button>
                         <Button onClick={handleUrlGenerate} disabled={urlLoading || !urlInput.trim()}>
                           {urlLoading ? (
                             <>
