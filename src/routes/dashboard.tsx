@@ -165,9 +165,9 @@ function Home() {
     setTrLoading(true);
     setTrError("");
     setTrOptions([]);
+    setTrWord(w);
     try {
       const res = await fetchTranslations({ data: { word: w } });
-      setTrWord(w);
       setTrOptions(res.translations);
     } catch (err) {
       setTrError(err instanceof Error ? err.message : "Could not fetch translations");
@@ -336,7 +336,7 @@ function Home() {
 
                       <div className="space-y-2 pt-2 border-t border-border/60">
                         <label className="text-sm font-medium">{t("create.addWord")}</label>
-                        {trOptions.length === 0 ? (
+                        {!trWord ? (
                           <div className="flex gap-2">
                             <Input
                               placeholder={t("create.wordPh")}
@@ -365,9 +365,9 @@ function Home() {
                         ) : (
                           <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
                             <div className="flex items-center justify-between">
-                              <p className="text-sm">
-                                {t("create.pickTr")}{" "}
-                                <span className="font-semibold text-primary">{trWord}</span>
+                              <p className="text-sm text-muted-foreground">
+                                Word:{" "}
+                                <span className="font-semibold text-foreground">{trWord}</span>
                               </p>
                               <button
                                 type="button"
@@ -377,18 +377,30 @@ function Home() {
                                 {t("create.cancel")}
                               </button>
                             </div>
-                            <div className="flex flex-wrap gap-2">
-                              {trOptions.map((opt) => (
-                                <button
-                                  key={opt}
-                                  type="button"
-                                  onClick={() => handlePickTranslation(opt)}
-                                  className="px-3 py-1.5 rounded-full bg-card border border-border text-sm hover:border-primary hover:text-primary transition-colors"
-                                >
-                                  {opt}
-                                </button>
-                              ))}
-                            </div>
+                            {trLoading ? (
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <Loader2 className="h-4 w-4 animate-spin text-accent" />
+                                Finding translations...
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-sm font-medium">
+                                  {t("create.pickTr")} <span className="text-primary">{trWord}</span>
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  {trOptions.map((opt) => (
+                                    <button
+                                      key={opt}
+                                      type="button"
+                                      onClick={() => handlePickTranslation(opt)}
+                                      className="px-3 py-1.5 rounded-full bg-card border border-border text-sm hover:border-primary hover:text-primary transition-colors"
+                                    >
+                                      {opt}
+                                    </button>
+                                  ))}
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
                         {trError && <p className="text-sm text-destructive">{trError}</p>}
