@@ -663,9 +663,9 @@ function Home() {
                         <Link
                           to="/study/$deckId"
                           params={{ deckId: deck.id }}
-                          className="text-sm font-semibold text-primary-foreground bg-primary px-4 py-2 rounded-full hover:bg-primary/90 transition-colors"
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-foreground bg-primary px-3 py-2 rounded-full hover:bg-primary/90 transition-colors"
                         >
-                          {t("home.study")} →
+                          <BookOpen className="h-3.5 w-3.5" /> {t("home.study")}
                         </Link>
                         <Link
                           to="/deck/$deckId"
