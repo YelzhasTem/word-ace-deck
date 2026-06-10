@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 const STORAGE_KEY = "lingocards.streak.v1";
 
@@ -28,6 +29,49 @@ function load(): StreakData {
 
 function save(data: StreakData) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  window.dispatchEvent(new Event("streak:changed"));
+}
+
+function normalizeDays(days: string[]) {
+  return Array.from(new Set(days)).sort();
+}
+
+async function loadAccountDays(): Promise<string[] | null> {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return null;
+
+  const { data, error } = await (supabase as any)
+    .from("streak_days")
+    .select("day")
+    .eq("user_id", userId)
+    .order("day", { ascending: true });
+
+  if (error) {
+    console.warn("[Streak] Could not load account streak days:", error.message);
+    return null;
+  }
+
+  return normalizeDays(
+    (data ?? [])
+      .map((row: { day?: string }) => row.day)
+      .filter((day: unknown): day is string => typeof day === "string"),
+  );
+}
+
+async function saveAccountDay(day: string) {
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user.id;
+  if (!userId) return;
+
+  const { error } = await (supabase as any)
+    .from("streak_days")
+    .upsert({ user_id: userId, day }, { onConflict: "user_id,day" });
+
+  if (error) {
+    console.warn("[Streak] Could not save account streak day:", error.message);
+    return;
+  }
   window.dispatchEvent(new Event("streak:changed"));
 }
 
@@ -114,11 +158,30 @@ export function useStreak() {
   const [data, setData] = useState<StreakData>({ days: [] });
 
   useEffect(() => {
-    setData(load());
-    const h = () => setData(load());
+    let cancelled = false;
+
+    const refresh = async () => {
+      const local = load();
+      setData(local);
+
+      const accountDays = await loadAccountDays();
+      if (!cancelled && accountDays) {
+        setData({ days: accountDays });
+      }
+    };
+
+    void refresh();
+    const h = () => void refresh();
+    const authSub = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
+        void refresh();
+      }
+    });
     window.addEventListener("streak:changed", h);
     window.addEventListener("storage", h);
     return () => {
+      cancelled = true;
+      authSub.data.subscription.unsubscribe();
       window.removeEventListener("streak:changed", h);
       window.removeEventListener("storage", h);
     };
@@ -127,8 +190,10 @@ export function useStreak() {
   const recordToday = useCallback(() => {
     const today = todayKey();
     const cur = load();
-    if (cur.days.includes(today)) return;
-    save({ days: [...cur.days, today] });
+    if (!cur.days.includes(today)) {
+      save({ days: normalizeDays([...cur.days, today]) });
+    }
+    void saveAccountDay(today);
   }, []);
 
   return {
@@ -145,6 +210,8 @@ export function recordStreakToday() {
   if (typeof window === "undefined") return;
   const today = todayKey();
   const cur = load();
-  if (cur.days.includes(today)) return;
-  save({ days: [...cur.days, today] });
+  if (!cur.days.includes(today)) {
+    save({ days: normalizeDays([...cur.days, today]) });
+  }
+  void saveAccountDay(today);
 }
