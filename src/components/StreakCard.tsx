@@ -1,26 +1,11 @@
 import { useStreak } from "@/lib/streak";
 import { Flame, Trophy, CalendarCheck } from "lucide-react";
-import { useT, useLang } from "@/lib/i18n";
-
-function pluralRu(n: number, forms: [string, string, string]) {
-  const mod10 = n % 10;
-  const mod100 = n % 100;
-  if (mod10 === 1 && mod100 !== 11) return forms[0];
-  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return forms[1];
-  return forms[2];
-}
+import { useT } from "@/lib/i18n";
 
 export function StreakCard() {
   const { current, longest, totalDays, week } = useStreak();
   const t = useT();
-  const { lang } = useLang();
-
-  const dayWord =
-    lang === "ru"
-      ? pluralRu(current, [t("streak.day.one"), t("streak.day.few"), t("streak.day.many")])
-      : current === 1
-        ? t("streak.day.one")
-        : t("streak.day.many");
+  const dayWord = current === 1 ? t("streak.day.one") : t("streak.day.many");
 
   const dowKeys = [
     "streak.dow.mon",

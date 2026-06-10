@@ -4,6 +4,7 @@ import {
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
@@ -14,6 +15,14 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 import { RecallNotifier } from "@/components/RecallNotifier";
 import { LanguageProvider } from "@/lib/i18n";
+import { AuthGate } from "@/components/AuthGate";
+
+const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password"]);
+
+function isPublicPath(pathname: string) {
+  const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
+  return PUBLIC_PATHS.has(normalized);
+}
 
 function NotFoundComponent() {
   return (
@@ -112,7 +121,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="ru">
+    <html lang="en">
       <head>
         <HeadContent />
       </head>
@@ -126,12 +135,16 @@ function RootShell({ children }: { children: ReactNode }) {
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  const location = useLocation();
+  const requireAuth = !isPublicPath(location.pathname);
 
   return (
     <QueryClientProvider client={queryClient}>
       <LanguageProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
+        <AuthGate requireAuth={requireAuth}>
+          {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+          <Outlet />
+        </AuthGate>
         <RecallNotifier />
         <Toaster />
       </LanguageProvider>

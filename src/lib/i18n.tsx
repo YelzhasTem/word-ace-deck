@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, type ReactNode } from "react";
 
-export type Lang = "ru" | "en";
+export type Lang = "en";
 
 const dict = {
   ru: {
@@ -274,32 +274,19 @@ const dict = {
   },
 } as const;
 
-type Key = keyof (typeof dict)["ru"];
+type Key = keyof (typeof dict)["en"];
 
-const LangCtx = createContext<{ lang: Lang; setLang: (l: Lang) => void }>({
-  lang: "ru",
-  setLang: () => {},
+const LangCtx = createContext<{ lang: Lang }>({
+  lang: "en",
 });
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>("ru");
-
   useEffect(() => {
-    const saved = (typeof window !== "undefined" && localStorage.getItem("lang")) as Lang | null;
-    if (saved === "ru" || saved === "en") setLangState(saved);
+    if (typeof window !== "undefined") localStorage.setItem("lang", "en");
+    if (typeof document !== "undefined") document.documentElement.lang = "en";
   }, []);
 
-  const setLang = (l: Lang) => {
-    setLangState(l);
-    if (typeof window !== "undefined") localStorage.setItem("lang", l);
-    if (typeof document !== "undefined") document.documentElement.lang = l;
-  };
-
-  return <LangCtx.Provider value={{ lang, setLang }}>{children}</LangCtx.Provider>;
-}
-
-export function useLang() {
-  return useContext(LangCtx);
+  return <LangCtx.Provider value={{ lang: "en" }}>{children}</LangCtx.Provider>;
 }
 
 export function useT() {

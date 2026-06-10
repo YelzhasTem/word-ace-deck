@@ -4,31 +4,29 @@ import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Hourglass } from "lucide-react";
 import { useDelayedRecallEnabled, scheduleNewCard, RECALL_INTERVALS } from "@/lib/delayed-recall";
 import { useDecks } from "@/lib/decks";
-import { useLang, useT } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 
 export const Route = createFileRoute("/settings")({
   head: () => ({
     meta: [
-      { title: "Настройки — Memora" },
-      { name: "description", content: "Управление режимами обучения и предпочтениями." },
+      { title: "Settings — Memora" },
+      { name: "description", content: "Manage learning modes and app preferences." },
     ],
   }),
   component: SettingsPage,
 });
 
-function fmtInterval(ms: number, lang: "ru" | "en") {
+function fmtInterval(ms: number) {
   const MIN = 60 * 1000, HOUR = 60 * MIN, DAY = 24 * HOUR;
-  const u = lang === "ru" ? { m: "мин", h: "ч", d: "д" } : { m: "min", h: "h", d: "d" };
-  if (ms < HOUR) return `${Math.round(ms / MIN)} ${u.m}`;
-  if (ms < DAY) return `${Math.round(ms / HOUR)} ${u.h}`;
-  return `${Math.round(ms / DAY)} ${u.d}`;
+  if (ms < HOUR) return `${Math.round(ms / MIN)} min`;
+  if (ms < DAY) return `${Math.round(ms / HOUR)} h`;
+  return `${Math.round(ms / DAY)} d`;
 }
 
 function SettingsPage() {
   const [recallEnabled, setRecallEnabled] = useDelayedRecallEnabled();
   const { decks } = useDecks();
   const t = useT();
-  const { lang } = useLang();
 
   const toggle = (on: boolean) => {
     setRecallEnabled(on);
@@ -60,7 +58,7 @@ function SettingsPage() {
               <div className="mt-4 flex flex-wrap gap-1.5">
                 {RECALL_INTERVALS.map((ms, i) => (
                   <span key={i} className="px-2.5 py-1 rounded-full bg-secondary text-xs font-medium text-muted-foreground">
-                    {fmtInterval(ms, lang)}
+                    {fmtInterval(ms)}
                   </span>
                 ))}
               </div>

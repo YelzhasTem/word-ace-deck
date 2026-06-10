@@ -1,9 +1,9 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpenCheck, Languages, LogOut, Menu, Moon, Settings as SettingsIcon, User } from "lucide-react";
+import { BookOpenCheck, LogOut, Menu, Moon, Settings as SettingsIcon, User } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
-import { useLang, useT } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,7 +17,6 @@ export function SiteHeader() {
   const [dark, setDark] = useState(false);
   const [session, setSession] = useState<Session | null>(null);
   const navigate = useNavigate();
-  const { lang, setLang } = useLang();
   const t = useT();
 
   useEffect(() => {
@@ -36,8 +35,6 @@ export function SiteHeader() {
     document.documentElement.classList.toggle("dark", next);
     localStorage.setItem("theme", next ? "dark" : "light");
   };
-
-  const toggleLang = () => setLang(lang === "ru" ? "en" : "ru");
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -78,15 +75,6 @@ export function SiteHeader() {
           >
             Community
           </Link>
-          <button
-            onClick={toggleLang}
-            aria-label={t("nav.lang")}
-            title={t("nav.lang")}
-            className="h-9 px-2.5 inline-flex items-center gap-1.5 rounded-full hover:bg-secondary text-muted-foreground transition-colors"
-          >
-            <Languages className="h-4 w-4" />
-            <span className="text-xs font-semibold uppercase">{lang}</span>
-          </button>
           <button
             onClick={toggleDark}
             aria-label={t("nav.theme")}
