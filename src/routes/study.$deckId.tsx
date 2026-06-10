@@ -96,14 +96,17 @@ function StudyPage() {
     if (!current) return;
     playWrongSound();
     setFlipped(false);
-    setTimeout(() => {
-      setOrder((prev) => {
-        const next = [...prev];
-        const [cur] = next.splice(idx, 1);
-        next.push(cur);
-        return next;
-      });
-    }, 150);
+    const currentIndex = order.indexOf(current.id);
+    setOrder((prev) => {
+      if (prev.length <= 1 || currentIndex === -1) return prev;
+      const next = [...prev];
+      const [cur] = next.splice(currentIndex, 1);
+      next.push(cur);
+      return next;
+    });
+    if (order.length > 1 && currentIndex !== -1) {
+      setIdx(currentIndex >= order.length - 1 ? 0 : currentIndex);
+    }
   };
 
   const shuffle = () => {

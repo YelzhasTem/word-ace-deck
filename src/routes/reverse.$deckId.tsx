@@ -108,13 +108,20 @@ function ReversePage() {
     setTick((t) => t + 1);
     // Re-insert incorrect near the end for quick re-test
     if (!correct) {
+      const currentIndex = queue.findIndex(
+        (item) => item.cardId === current.cardId && item.dir === current.dir,
+      );
       setQueue((prev) => {
+        if (prev.length <= 1 || currentIndex === -1) return prev;
         const next = [...prev];
-        const [cur] = next.splice(idx, 1);
-        const insertAt = Math.min(next.length, idx + 3);
+        const [cur] = next.splice(currentIndex, 1);
+        const insertAt = Math.min(next.length, currentIndex + 3);
         next.splice(insertAt, 0, cur);
         return next;
       });
+      if (queue.length > 1 && currentIndex !== -1) {
+        setIdx(currentIndex >= queue.length - 1 ? 0 : currentIndex);
+      }
       setFlipped(false);
     } else {
       setFlipped(false);
