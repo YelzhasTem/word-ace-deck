@@ -47,6 +47,12 @@ function errorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
+function clampCardCount(value: string, min: number, max: number, fallback: number) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(parsed)));
+}
+
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
   const navigate = useNavigate();
@@ -98,7 +104,7 @@ function Home() {
   const [aiTopic, setAiTopic] = useState("");
   const [aiDesc, setAiDesc] = useState("");
   const [aiLevel, setAiLevel] = useState("B1");
-  const [aiCount, setAiCount] = useState(10);
+  const [aiCount, setAiCount] = useState("10");
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const genDeck = useServerFn(generateDeckWithAI);
@@ -106,7 +112,7 @@ function Home() {
   // URL-based generation state
   const [urlInput, setUrlInput] = useState("");
   const [urlDesc, setUrlDesc] = useState("");
-  const [urlCount, setUrlCount] = useState(15);
+  const [urlCount, setUrlCount] = useState("15");
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState("");
   const genDeckFromUrl = useServerFn(generateDeckFromUrl);
@@ -115,10 +121,12 @@ function Home() {
     if (!urlInput.trim()) return;
     setUrlLoading(true);
     setUrlError("");
+    const safeCount = clampCardCount(urlCount, 3, 40, 15);
+    setUrlCount(String(safeCount));
     let result: Awaited<ReturnType<typeof genDeckFromUrl>>;
     try {
       result = await genDeckFromUrl({
-        data: { url: urlInput.trim(), count: urlCount },
+        data: { url: urlInput.trim(), count: safeCount },
       });
     } catch (err) {
       setUrlError(`AI: ${errorMessage(err, "Could not extract words")}`);
@@ -213,6 +221,8 @@ function Home() {
     if (!aiName.trim() || !aiTopic.trim()) return;
     setAiLoading(true);
     setAiError("");
+    const safeCount = clampCardCount(aiCount, 3, 30, 10);
+    setAiCount(String(safeCount));
     let result: Awaited<ReturnType<typeof genDeck>>;
     try {
       result = await genDeck({
@@ -220,7 +230,7 @@ function Home() {
           topic: aiTopic.trim(),
           description: aiDesc.trim(),
           level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
-          count: aiCount,
+          count: safeCount,
         },
       });
     } catch (err) {
@@ -508,7 +518,8 @@ function Home() {
                             min={3}
                             max={30}
                             value={aiCount}
-                            onChange={(e) => setAiCount(Math.min(30, Math.max(3, Number(e.target.value) || 0)))}
+                            onChange={(e) => setAiCount(e.target.value)}
+                            onBlur={() => setAiCount(String(clampCardCount(aiCount, 3, 30, 10)))}
                           />
                         </div>
                       </div>
@@ -562,7 +573,8 @@ function Home() {
                           min={3}
                           max={40}
                           value={urlCount}
-                          onChange={(e) => setUrlCount(Math.min(40, Math.max(3, Number(e.target.value) || 0)))}
+                          onChange={(e) => setUrlCount(e.target.value)}
+                          onBlur={() => setUrlCount(String(clampCardCount(urlCount, 3, 40, 15)))}
                         />
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
