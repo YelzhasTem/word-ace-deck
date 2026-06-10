@@ -162,12 +162,15 @@ function BlankPage() {
                   const isPicked = pick === opt;
                   const show = verdict !== null;
                   const cls = !show
-                    ? `border-border bg-card hover:border-accent hover:bg-accent/5 ${isPicked ? "border-accent bg-accent/5" : ""}`
+                    ? isPicked
+                      ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-sm"
+                      : "border-border bg-card hover:border-accent hover:bg-accent/5"
                     : correct ? "border-[color:var(--success)] bg-[color:var(--success)]/10"
                     : isPicked ? "border-destructive bg-destructive/10" : "border-border bg-card opacity-60";
                   return (
                     <button key={i} disabled={!!verdict} onClick={() => setPick(opt)}
-                      className={`text-left rounded-2xl border-2 px-5 py-4 ${cls}`}>
+                      aria-pressed={isPicked}
+                      className={`text-left rounded-2xl border-2 px-5 py-4 transition-all ${cls}`}>
                       {opt}
                     </button>
                   );
@@ -178,7 +181,12 @@ function BlankPage() {
               <div className="flex flex-wrap gap-2 mb-4">
                 {options.map((opt, i) => (
                   <button key={i} disabled={!!verdict} onClick={() => setPick(opt)}
-                    className={`px-4 py-2 rounded-full border ${pick===opt ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:border-accent"}`}>
+                    aria-pressed={pick === opt}
+                    className={`px-4 py-2 rounded-full border transition-all ${
+                      pick === opt
+                        ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-sm"
+                        : "bg-card border-border hover:border-accent"
+                    }`}>
                     {opt}
                   </button>
                 ))}
