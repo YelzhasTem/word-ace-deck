@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
 import { useServerFn } from "@tanstack/react-start";
 import { recordStreakToday } from "@/lib/streak";
+import { recordAnswer } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ function StudyPage() {
   const [flipped, setFlipped] = useState(false);
   const [reverseSides, setReverseSides] = useState(false);
   const [rated, setRated] = useState(false);
+  const [sessionCorrect, setSessionCorrect] = useState(0);
+  const [sessionWrong, setSessionWrong] = useState(0);
 
   const queueSource = useMemo(
     () => (deck ? deck.cards.filter((c) => !c.known).map((c) => c.id) : []),
@@ -33,6 +36,8 @@ function StudyPage() {
     setOrder(queueSource);
     setIdx(0);
     setFlipped(false);
+    setSessionCorrect(0);
+    setSessionWrong(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId]);
 
@@ -86,6 +91,8 @@ function StudyPage() {
     if (!current) return;
     playCorrectSound();
     setFlipped(false);
+    recordAnswer(deck.id, current.id, true);
+    setSessionCorrect((count) => count + 1);
     markCard(deck.id, current.id, true);
     recordStreakToday();
     // The card automatically leaves the queue through queueSource,
@@ -96,6 +103,8 @@ function StudyPage() {
     if (!current) return;
     playWrongSound();
     setFlipped(false);
+    recordAnswer(deck.id, current.id, false);
+    setSessionWrong((count) => count + 1);
     const currentIndex = order.indexOf(current.id);
     setOrder((prev) => {
       if (prev.length <= 1 || currentIndex === -1) return prev;
@@ -116,6 +125,7 @@ function StudyPage() {
   };
 
   const finished = !current;
+  const sessionAnswered = sessionCorrect + sessionWrong;
 
   const onRateOriginal = async (rating: number) => {
     if (!deck?.sourceDeckId) return;
@@ -165,6 +175,8 @@ function StudyPage() {
                 resetProgress(deck.id);
                 setIdx(0);
                 setFlipped(false);
+                setSessionCorrect(0);
+                setSessionWrong(0);
               }}
             >
               <RotateCcw className="h-4 w-4" /> Reset
@@ -197,6 +209,11 @@ function StudyPage() {
             <p className="mt-3 text-muted-foreground">
               You know {knownCount} of {total} cards.
             </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Correct answers:{" "}
+              <span className="font-semibold text-foreground">{sessionCorrect}</span>
+              {sessionAnswered > 0 ? ` of ${sessionAnswered}` : ""}
+            </p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
                 <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
@@ -207,6 +224,8 @@ function StudyPage() {
                   resetProgress(deck.id);
                   setIdx(0);
                   setFlipped(false);
+                  setSessionCorrect(0);
+                  setSessionWrong(0);
                 }}
               >
                 <RotateCcw className="h-4 w-4" /> Study again
