@@ -19,12 +19,20 @@ function hasCyrillic(value: string) {
   return /[\u0400-\u04ff]/.test(value);
 }
 
+function normalizeGeneratedDeckName(value: string) {
+  return value
+    .replace(/\b(vocabulary|words?|deck|flashcards?|cards?|list)\b/gi, " ")
+    .replace(/\b(for|from|about|on)\b\s*$/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function cleanGeneratedDeckName(value: unknown, fallbackName: string) {
-  const name = cleanText(value, MAX_DECK_NAME);
+  const name = normalizeGeneratedDeckName(cleanText(value, MAX_DECK_NAME));
   if (name && !hasCyrillic(name)) return name;
-  const fallback = cleanText(fallbackName, MAX_DECK_NAME);
+  const fallback = normalizeGeneratedDeckName(cleanText(fallbackName, MAX_DECK_NAME));
   if (fallback && !hasCyrillic(fallback)) return fallback;
-  return "Vocabulary Deck";
+  return "Untitled";
 }
 
 function cleanDeckPayload(parsed: DeckPayload, fallbackName: string) {
@@ -227,11 +235,11 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const system =
       "Ты лексикограф для русскоязычных студентов английского. Сгенерируй колоду карточек для запоминания английских слов. Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"name":"English deck name","cards":[{"term":"english word","definition":"перевод на русский"}]}. Название колоды в поле name должно быть только на английском языке.';
+      '{"name":"English name","cards":[{"term":"english word","definition":"перевод на русский"}]}. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
 
     const user =
       `Создай колоду из ${data.count} английских слов или выражений на тему "${data.topic}" уровня ${data.level}. ` +
-      `Для каждого слова дай перевод на русский. Название колоды должно быть на английском, краткое и емкое. Не используй русский язык в названии колоды. ` +
+      `Для каждого слова дай перевод на русский. Название колоды должно быть только названием темы на английском, без добавленных слов вроде Deck, Vocabulary, Words, Flashcards, Cards или List. Не используй русский язык в названии колоды. ` +
       `Не создавай описание колоды. Отвечай строго JSON без комментариев.`;
 
     const raw = await callGemini(system, user, { json: true });
@@ -338,12 +346,12 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
     const excerpt = text.slice(0, 12000);
     const system =
       "Ты лексикограф для русскоязычных студентов английского. На основе фрагмента текста выбери самые полезные для изучения английские слова и выражения, которые действительно встречаются в тексте. Избегай имен собственных, чисел, дат, географических названий и слишком простых базовых слов. Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"name":"English deck name","cards":[{"term":"english word/expression","definition":"перевод на русский"}]}. Название колоды в поле name должно быть только на английском языке.';
+      '{"name":"English name","cards":[{"term":"english word/expression","definition":"перевод на русский"}]}. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
 
     const user =
       `Источник: ${data.url}\n` +
       `Выбери ровно ${data.count} разных слов или выражений из текста ниже и дай каждому короткий перевод на русский. ` +
-      `Название колоды — на английском, краткое, по теме текста. Не используй русский язык в названии колоды. Не создавай описание колоды.\n\n` +
+      `Название колоды — на английском, только краткая тема текста, без добавленных слов вроде Deck, Vocabulary, Words, Flashcards, Cards или List. Не используй русский язык в названии колоды. Не создавай описание колоды.\n\n` +
       `Текст:\n"""${excerpt}"""`;
 
     const raw = await callGemini(system, user, { json: true });
@@ -359,7 +367,7 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
       host = "source";
     }
 
-    const deck = cleanDeckPayload(parsed, `Words from ${host}`);
+    const deck = cleanDeckPayload(parsed, host);
     if (deck.cards.length === 0) {
       throw new Error("Не удалось извлечь слова из текста. Попробуйте другой источник.");
     }
