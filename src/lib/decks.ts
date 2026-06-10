@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
+import { getUserErrorMessage } from "@/lib/user-errors";
 import {
   addCardRecord,
   createDeckRecord,
@@ -160,7 +161,7 @@ export function useDecks() {
 
   const onError = (msg: string) => (error: unknown) => {
     if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
-    toast.error(`${msg}: ${error instanceof Error ? error.message : "unknown error"}`);
+    toast.error(`${msg}: ${getUserErrorMessage(error, "unknown error")}`);
   };
 
   const createDeckMut = useMutation({

@@ -24,6 +24,7 @@ import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid,
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
 import { useCollections } from "@/lib/collections";
+import { getUserErrorMessage } from "@/lib/user-errors";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -44,7 +45,7 @@ function plural(n: number, forms: [string, string, string]) {
 }
 
 function errorMessage(error: unknown, fallback: string) {
-  return error instanceof Error ? error.message : fallback;
+  return getUserErrorMessage(error, fallback);
 }
 
 const MIN_DECK_CARDS = 4;
