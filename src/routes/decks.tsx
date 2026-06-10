@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BookOpen, Globe2, LayoutGrid, Search } from "lucide-react";
+import { BookOpen, Globe2, LayoutGrid, Search, Trash2 } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +12,7 @@ export const Route = createFileRoute("/decks")({
 });
 
 function DecksPage() {
-  const { decks, isLoading } = useDecks();
+  const { decks, isLoading, deleteDeck } = useDecks();
   const [query, setQuery] = useState("");
   const t = useT();
 
@@ -23,7 +23,11 @@ function DecksPage() {
       (deck) =>
         deck.name.toLowerCase().includes(search) ||
         deck.description.toLowerCase().includes(search) ||
-        deck.cards.some((card) => card.term.toLowerCase().includes(search) || card.definition.toLowerCase().includes(search)),
+        deck.cards.some(
+          (card) =>
+            card.term.toLowerCase().includes(search) ||
+            card.definition.toLowerCase().includes(search),
+        ),
     );
   }, [decks, query]);
 
@@ -34,7 +38,9 @@ function DecksPage() {
         <section className="mb-8 flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
           <div>
             <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">Library</p>
-            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">{t("home.yourDecks")}</h1>
+            <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">
+              {t("home.yourDecks")}
+            </h1>
             <p className="mt-3 max-w-2xl text-muted-foreground">
               Browse every deck in your account, search by title or word, and jump into study modes.
             </p>
@@ -74,7 +80,9 @@ function DecksPage() {
           </div>
         ) : filteredDecks.length === 0 ? (
           <div className="rounded-3xl border-2 border-dashed border-border bg-card/50 p-16 text-center">
-            <p className="text-muted-foreground">{query ? t("home.searchNothing") : t("home.empty")}</p>
+            <p className="text-muted-foreground">
+              {query ? t("home.searchNothing") : t("home.empty")}
+            </p>
           </div>
         ) : (
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
@@ -88,9 +96,13 @@ function DecksPage() {
                   className="rounded-3xl border border-border/70 bg-card p-6 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-card)]"
                 >
                   <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="block">
-                    <h2 className="font-display text-xl font-bold leading-tight tracking-tight">{deck.name}</h2>
+                    <h2 className="font-display text-xl font-bold leading-tight tracking-tight">
+                      {deck.name}
+                    </h2>
                     {deck.description && (
-                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">{deck.description}</p>
+                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                        {deck.description}
+                      </p>
                     )}
                     <div className="mt-6">
                       <div className="mb-1.5 flex justify-between text-xs font-medium text-muted-foreground">
@@ -100,7 +112,10 @@ function DecksPage() {
                         <span className="text-primary tabular-nums">{pct}%</span>
                       </div>
                       <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-                        <div className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500" style={{ width: `${pct}%` }} />
+                        <div
+                          className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500"
+                          style={{ width: `${pct}%` }}
+                        />
                       </div>
                     </div>
                   </Link>
@@ -127,6 +142,18 @@ function DecksPage() {
                     >
                       <Globe2 className="h-3.5 w-3.5" /> Publish
                     </Link>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        deleteDeck(deck.id);
+                      }}
+                      title={t("home.deleteDeck")}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
                   </div>
                 </div>
               );
