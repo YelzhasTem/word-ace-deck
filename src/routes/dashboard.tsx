@@ -94,6 +94,7 @@ function Home() {
   const fetchTranslations = useServerFn(getTranslations);
 
   // AI generation state
+  const [aiName, setAiName] = useState("");
   const [aiTopic, setAiTopic] = useState("");
   const [aiDesc, setAiDesc] = useState("");
   const [aiLevel, setAiLevel] = useState("B1");
@@ -209,7 +210,7 @@ function Home() {
   };
 
   const handleAIGenerate = async () => {
-    if (!aiTopic.trim()) return;
+    if (!aiName.trim() || !aiTopic.trim()) return;
     setAiLoading(true);
     setAiError("");
     let result: Awaited<ReturnType<typeof genDeck>>;
@@ -229,7 +230,8 @@ function Home() {
     }
 
     try {
-      const created = await createDeckWithCards(result.name, result.description, result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(aiName.trim(), result.description, result.cards, selectedCollectionId);
+      setAiName("");
       setAiTopic("");
       setAiDesc("");
       setOpen(false);
@@ -459,9 +461,18 @@ function Home() {
 
                     <TabsContent value="ai" className="mt-4 space-y-4">
                       <div className="space-y-2">
-                        <label className="text-sm font-medium">{t("create.ai.topic")}</label>
+                        <label className="text-sm font-medium">{t("create.name")}</label>
                         <Input
                           autoFocus
+                          placeholder={t("create.namePh")}
+                          value={aiName}
+                          onChange={(e) => setAiName(e.target.value)}
+                          onKeyDown={(e) => e.key === "Enter" && !aiLoading && handleAIGenerate()}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">{t("create.ai.topic")}</label>
+                        <Input
                           placeholder={t("create.ai.topicPh")}
                           value={aiTopic}
                           onChange={(e) => setAiTopic(e.target.value)}
@@ -505,8 +516,8 @@ function Home() {
                         <p className="text-sm text-destructive">{aiError}</p>
                       )}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => { setAiTopic(""); setAiDesc(""); setOpen(false); }}>{t("create.cancel")}</Button>
-                        <Button onClick={handleAIGenerate} disabled={aiLoading || !aiTopic.trim()}>
+                        <Button variant="ghost" onClick={() => { setAiName(""); setAiTopic(""); setAiDesc(""); setOpen(false); }}>{t("create.cancel")}</Button>
+                        <Button onClick={handleAIGenerate} disabled={aiLoading || !aiName.trim() || !aiTopic.trim()}>
                           {aiLoading ? (
                             <>
                               <Loader2 className="h-4 w-4 animate-spin" /> {t("create.ai.generating")}
