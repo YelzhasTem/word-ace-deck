@@ -646,11 +646,6 @@ function Home() {
                       params={{ deckId: deck.id }}
                       className="block"
                     >
-                      {pct === 100 && total > 0 && (
-                        <div className="mb-3 flex justify-end">
-                          <span className="text-[10px] uppercase tracking-wider font-bold text-success">{t("home.done")}</span>
-                        </div>
-                      )}
                       <h3 className="font-display text-xl font-bold leading-tight tracking-tight">{deck.name}</h3>
                       {deck.description && (
                         <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{deck.description}</p>

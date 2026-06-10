@@ -34,7 +34,6 @@ const dict = {
     "home.deleteDeckDescGeneric": "The deck and all its cards will be permanently removed.",
     "home.cards.suffix": "cards",
     "home.decks.suffix": "decks",
-    "home.done": "done",
     "home.modes": "Modes",
     "home.footer": "Calm. Focused. At your own pace.",
 
