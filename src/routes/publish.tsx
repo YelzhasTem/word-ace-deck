@@ -14,13 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useCollections } from "@/lib/collections";
 import { useDecks } from "@/lib/decks";
 import { DECK_CATEGORIES, updateDeckPublishing } from "@/lib/community.functions";
 
 type PublishType = "deck" | "collection";
-type Visibility = "private" | "unlisted" | "public";
+type PublishingVisibility = "unlisted" | "public";
 
 export const Route = createFileRoute("/publish")({
   component: PublishPage,
@@ -34,59 +33,52 @@ function parseKeywords(value: string) {
     .slice(0, 12);
 }
 
+function readPublishTarget(search: unknown): { type: PublishType; id: string } | null {
+  const params = new URLSearchParams(String(search ?? ""));
+  const type = params.get("type");
+  const id = params.get("id") ?? "";
+  if ((type === "deck" || type === "collection") && id) return { type, id };
+  return null;
+}
+
+function nextVisibility(current: string): PublishingVisibility {
+  return current === "unlisted" ? "unlisted" : "public";
+}
+
 function PublishPage() {
   const location = useLocation();
-  const query = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const initialType = query.get("type") === "collection" ? "collection" : "deck";
-  const initialId = query.get("id") ?? "";
+  const target = useMemo(() => readPublishTarget(location.search), [location.search]);
+  const type = target?.type ?? "deck";
+  const targetId = target?.id ?? "";
 
   const { decks, isLoading: decksLoading } = useDecks();
-  const { collections, updateCollectionPublishing } = useCollections();
+  const { collections, isLoading: collectionsLoading, updateCollectionPublishing } = useCollections();
   const updateDeck = useServerFn(updateDeckPublishing);
 
-  const [type, setType] = useState<PublishType>(initialType);
-  const [selectedId, setSelectedId] = useState(initialId);
-  const [visibility, setVisibility] = useState<Visibility>("private");
-  const [category, setCategory] = useState<(typeof DECK_CATEGORIES)[number]>("General English");
+  const selectedDeck = type === "deck" ? decks.find((deck) => deck.id === targetId) : undefined;
+  const selectedCollection =
+    type === "collection" ? collections.find((collection) => collection.id === targetId) : undefined;
+  const selectedItem = selectedDeck ?? selectedCollection;
+  const isLoading = type === "deck" ? decksLoading : collectionsLoading;
+
+  const [visibility, setVisibility] = useState<PublishingVisibility>("public");
   const [keywords, setKeywords] = useState("");
   const [saving, setSaving] = useState(false);
 
-  const selectedDeck = type === "deck" ? decks.find((deck) => deck.id === selectedId) : undefined;
-  const selectedCollection =
-    type === "collection" ? collections.find((collection) => collection.id === selectedId) : undefined;
-  const selectedItem = selectedDeck ?? selectedCollection;
-  const isLoading = decksLoading && decks.length === 0;
-
   useEffect(() => {
-    const nextId = type === "deck" ? decks[0]?.id : collections[0]?.id;
-    if (!selectedId && nextId) setSelectedId(nextId);
-  }, [collections, decks, selectedId, type]);
-
-  useEffect(() => {
-    const item = selectedDeck ?? selectedCollection;
-    if (!item) return;
-    setVisibility(item.visibility);
-    setKeywords(item.keywords.join(", "));
-    if (selectedDeck) {
-      setCategory(
-        DECK_CATEGORIES.includes(selectedDeck.category as never)
-          ? (selectedDeck.category as (typeof DECK_CATEGORIES)[number])
-          : "General English",
-      );
-    }
-  }, [selectedCollection, selectedDeck]);
-
-  const switchType = (nextType: PublishType) => {
-    setType(nextType);
-    const nextId = nextType === "deck" ? decks[0]?.id : collections[0]?.id;
-    setSelectedId(nextId ?? "");
-  };
+    if (!selectedItem) return;
+    setVisibility(nextVisibility(selectedItem.visibility));
+    setKeywords(selectedItem.keywords.join(", "));
+  }, [selectedItem]);
 
   const handleSave = async () => {
     if (!selectedItem) return;
     setSaving(true);
     try {
       if (type === "deck") {
+        const category = selectedDeck && DECK_CATEGORIES.includes(selectedDeck.category as never)
+          ? selectedDeck.category
+          : "General English";
         await updateDeck({
           data: {
             deckId: selectedItem.id,
@@ -106,13 +98,18 @@ function PublishPage() {
     }
   };
 
+  const backLink =
+    type === "deck" && selectedDeck
+      ? ({ to: "/deck/$deckId" as const, params: { deckId: selectedDeck.id } })
+      : ({ to: "/collections" as const, params: undefined });
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
-      <main className="mx-auto max-w-4xl px-6 py-10">
+      <main className="mx-auto max-w-3xl px-6 py-10">
         <Link
-          to={type === "deck" && selectedDeck ? "/deck/$deckId" : "/collections"}
-          params={type === "deck" && selectedDeck ? { deckId: selectedDeck.id } : undefined}
+          to={backLink.to}
+          params={backLink.params}
           className="mb-8 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" /> Back
@@ -120,9 +117,11 @@ function PublishPage() {
 
         <section className="mb-8">
           <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">Publishing</p>
-          <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">Publish your content</h1>
+          <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">
+            Publish {type === "deck" ? "deck" : "collection"}
+          </h1>
           <p className="mt-3 max-w-2xl text-muted-foreground">
-            Choose whether a deck or collection stays private, opens by direct link, or appears in Community.
+            Choose whether this {type} appears in Community or opens only by direct link.
           </p>
         </section>
 
@@ -132,62 +131,89 @@ function PublishPage() {
             <Skeleton className="mt-5 h-24 w-full" />
             <Skeleton className="mt-5 h-10 w-36 rounded-full" />
           </section>
+        ) : !target || !selectedItem ? (
+          <section className="rounded-3xl border border-dashed border-border bg-card p-10 text-center">
+            <Globe2 className="mx-auto h-9 w-9 text-muted-foreground" />
+            <h2 className="mt-4 font-display text-2xl font-semibold">Nothing selected</h2>
+            <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+              Open publishing from a specific deck or collection so Memora knows what to publish.
+            </p>
+            <div className="mt-6 flex flex-wrap justify-center gap-2">
+              <Button asChild variant="outline">
+                <Link to="/decks">Go to decks</Link>
+              </Button>
+              <Button asChild>
+                <Link to="/collections">Go to collections</Link>
+              </Button>
+            </div>
+          </section>
         ) : (
           <section className="rounded-3xl border border-border bg-card p-6">
-            <Tabs value={type} onValueChange={(value) => switchType(value as PublishType)}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="deck" className="gap-2">
-                  <BookOpen className="h-4 w-4" /> Deck
-                </TabsTrigger>
-                <TabsTrigger value="collection" className="gap-2">
-                  <FolderOpen className="h-4 w-4" /> Collection
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="deck" className="mt-6 space-y-5">
-                <PublishForm
-                  emptyText="Create a deck before publishing."
-                  items={decks.map((deck) => ({ id: deck.id, name: deck.name }))}
-                  selectedId={selectedId}
-                  setSelectedId={setSelectedId}
-                  visibility={visibility}
-                  setVisibility={setVisibility}
-                  category={category}
-                  setCategory={setCategory}
-                  keywords={keywords}
-                  setKeywords={setKeywords}
-                  selectedItem={selectedDeck}
-                  type="deck"
-                />
-              </TabsContent>
-
-              <TabsContent value="collection" className="mt-6 space-y-5">
-                <PublishForm
-                  emptyText="Create a collection before publishing."
-                  items={collections.map((collection) => ({ id: collection.id, name: collection.name }))}
-                  selectedId={selectedId}
-                  setSelectedId={setSelectedId}
-                  visibility={visibility}
-                  setVisibility={setVisibility}
-                  keywords={keywords}
-                  setKeywords={setKeywords}
-                  selectedItem={selectedCollection}
-                  type="collection"
-                />
-              </TabsContent>
-            </Tabs>
-
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
-              <div className="text-sm text-muted-foreground">
-                {selectedItem ? (
-                  <>
-                    Current status: <span className="font-medium capitalize text-foreground">{selectedItem.visibility}</span>
-                  </>
-                ) : (
-                  "Select an item to configure publishing."
+            <div className="mb-6 flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                {type === "deck" ? <BookOpen className="h-5 w-5" /> : <FolderOpen className="h-5 w-5" />}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  {type === "deck" ? "Deck" : "Collection"}
+                </p>
+                <h2 className="truncate font-display text-2xl font-semibold">{selectedItem.name}</h2>
+                {selectedItem.description && (
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{selectedItem.description}</p>
                 )}
               </div>
-              <Button className="rounded-full" onClick={handleSave} disabled={!selectedItem || saving}>
+            </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="space-y-1.5 text-sm">
+                <span className="font-medium">Visibility</span>
+                <Select value={visibility} onValueChange={(value) => setVisibility(value as PublishingVisibility)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="unlisted">Unlisted</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+
+              <label className="space-y-1.5 text-sm">
+                <span className="font-medium">Keywords</span>
+                <Input
+                  value={keywords}
+                  onChange={(event) => setKeywords(event.target.value)}
+                  placeholder="IELTS, business, travel"
+                />
+              </label>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-4">
+              <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                <p className="text-xs text-muted-foreground">Current status</p>
+                <p className="font-semibold capitalize">{selectedItem.visibility}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                <p className="text-xs text-muted-foreground">Learners</p>
+                <p className="font-semibold">{selectedItem.totalLearners}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                <p className="text-xs text-muted-foreground">Likes</p>
+                <p className="font-semibold">{selectedItem.likes}</p>
+              </div>
+              <div className="rounded-2xl border border-border bg-background px-4 py-3">
+                <p className="text-xs text-muted-foreground">Rating</p>
+                <p className="font-semibold">{selectedItem.rating || "New"}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-5">
+              <p className="text-sm text-muted-foreground">
+                {visibility === "public"
+                  ? "Public items can appear in Community."
+                  : "Unlisted items open only by direct link."}
+              </p>
+              <Button className="rounded-full" onClick={handleSave} disabled={saving}>
                 {saving ? (
                   <>
                     <Globe2 className="h-4 w-4 animate-spin" /> Saving
@@ -215,134 +241,5 @@ function PublishPage() {
         )}
       </main>
     </div>
-  );
-}
-
-function PublishForm({
-  emptyText,
-  items,
-  selectedId,
-  setSelectedId,
-  visibility,
-  setVisibility,
-  category,
-  setCategory,
-  keywords,
-  setKeywords,
-  selectedItem,
-  type,
-}: {
-  emptyText: string;
-  items: { id: string; name: string }[];
-  selectedId: string;
-  setSelectedId: (id: string) => void;
-  visibility: Visibility;
-  setVisibility: (visibility: Visibility) => void;
-  category?: (typeof DECK_CATEGORIES)[number];
-  setCategory?: (category: (typeof DECK_CATEGORIES)[number]) => void;
-  keywords: string;
-  setKeywords: (keywords: string) => void;
-  selectedItem?: {
-    id: string;
-    name: string;
-    description: string;
-    visibility: Visibility;
-    keywords: string[];
-    totalLearners: number;
-    likes: number;
-    rating: number;
-  };
-  type: PublishType;
-}) {
-  if (items.length === 0) {
-    return (
-      <div className="rounded-2xl border border-dashed border-border bg-background p-8 text-center text-sm text-muted-foreground">
-        {emptyText}
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <div className="grid gap-4 md:grid-cols-[1.2fr_0.8fr]">
-        <label className="space-y-1.5 text-sm">
-          <span className="font-medium">{type === "deck" ? "Deck" : "Collection"}</span>
-          <Select value={selectedId} onValueChange={setSelectedId}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {items.map((item) => (
-                <SelectItem key={item.id} value={item.id}>
-                  {item.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-
-        <label className="space-y-1.5 text-sm">
-          <span className="font-medium">Visibility</span>
-          <Select value={visibility} onValueChange={(value) => setVisibility(value as Visibility)}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="private">Private</SelectItem>
-              <SelectItem value="unlisted">Unlisted</SelectItem>
-              <SelectItem value="public">Public</SelectItem>
-            </SelectContent>
-          </Select>
-        </label>
-      </div>
-
-      {type === "deck" && category && setCategory && (
-        <label className="block space-y-1.5 text-sm">
-          <span className="font-medium">Category</span>
-          <Select value={category} onValueChange={(value) => setCategory(value as (typeof DECK_CATEGORIES)[number])}>
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {DECK_CATEGORIES.map((item) => (
-                <SelectItem key={item} value={item}>
-                  {item}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </label>
-      )}
-
-      <label className="block space-y-1.5 text-sm">
-        <span className="font-medium">Keywords</span>
-        <Input
-          value={keywords}
-          onChange={(event) => setKeywords(event.target.value)}
-          placeholder="IELTS, business, travel"
-        />
-      </label>
-
-      {selectedItem && (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <div className="rounded-2xl border border-border bg-background px-4 py-3">
-            <p className="text-xs text-muted-foreground">Visibility</p>
-            <p className="font-semibold capitalize">{selectedItem.visibility}</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-background px-4 py-3">
-            <p className="text-xs text-muted-foreground">Learners</p>
-            <p className="font-semibold">{selectedItem.totalLearners}</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-background px-4 py-3">
-            <p className="text-xs text-muted-foreground">Likes</p>
-            <p className="font-semibold">{selectedItem.likes}</p>
-          </div>
-          <div className="rounded-2xl border border-border bg-background px-4 py-3">
-            <p className="text-xs text-muted-foreground">Rating</p>
-            <p className="font-semibold">{selectedItem.rating || "New"}</p>
-          </div>
-        </div>
-      )}
-    </>
   );
 }
