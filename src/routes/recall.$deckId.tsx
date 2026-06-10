@@ -49,8 +49,8 @@ function RecallPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -60,10 +60,10 @@ function RecallPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Режим отложенного припоминания выключен</h1>
-          <p className="mt-3 text-muted-foreground">Включите его на странице колоды, чтобы начать сессию.</p>
+          <h1 className="font-display text-3xl">Delayed Recall is turned off</h1>
+          <p className="mt-3 text-muted-foreground">Turn it on from the deck page to start a session.</p>
           <Button asChild className="mt-8 rounded-full">
-            <Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link>
+            <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
           </Button>
         </main>
       </div>
@@ -94,26 +94,26 @@ function RecallPage() {
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
           <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
-            <Hourglass className="h-4 w-4" /> Отложенное припоминание
+            <Hourglass className="h-4 w-4" /> Delayed Recall
           </span>
         </div>
 
         {empty ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">⏳</p>
-            <h2 className="font-display text-3xl font-semibold">Слов к припоминанию нет</h2>
-            <p className="mt-3 text-muted-foreground">Все запланированные слова ещё не подошли. Загляните позже — мы сами подскажем.</p>
+            <h2 className="font-display text-3xl font-semibold">No words to recall</h2>
+            <p className="mt-3 text-muted-foreground">No scheduled words are due yet. Check back later — we will remind you.</p>
             <Button asChild className="mt-8 rounded-full">
-              <Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link>
+              <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
             </Button>
           </div>
         ) : finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">🧠</p>
-            <h2 className="font-display text-3xl font-semibold">Сессия завершена</h2>
-            <p className="mt-3 text-muted-foreground">Правильно: {right} из {total}. Следующие интервалы рассчитаны автоматически.</p>
+            <h2 className="font-display text-3xl font-semibold">Session complete</h2>
+            <p className="mt-3 text-muted-foreground">Correct: {right} of {total}. Next intervals were calculated automatically.</p>
             <Button asChild className="mt-8 rounded-full">
-              <Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link>
+              <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
             </Button>
           </div>
         ) : current ? (
@@ -129,34 +129,34 @@ function RecallPage() {
             </div>
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Подсказка — вспомните слово</span>
+              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Hint — recall the word</span>
               <p className="mt-6 font-display text-3xl md:text-4xl font-semibold leading-tight">{current.definition}</p>
-              <p className="mt-6 text-sm text-muted-foreground">Введите английское слово, соответствующее этому определению.</p>
+              <p className="mt-6 text-sm text-muted-foreground">Type the English word that matches this definition.</p>
             </div>
 
             <form onSubmit={submit} className="space-y-3">
-              <Input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Слово…" disabled={!!verdict} className="h-14 text-lg rounded-2xl" />
+              <Input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Word…" disabled={!!verdict} className="h-14 text-lg rounded-2xl" />
               {verdict === "ok" && (
                 <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm flex items-center gap-2">
-                  <Check className="h-4 w-4" /> Верно! {current.term}
+                  <Check className="h-4 w-4" /> Correct! {current.term}
                 </div>
               )}
               {verdict === "miss" && (
                 <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-center gap-2">
-                  <X className="h-4 w-4" /> Правильный ответ: <span className="font-semibold">{current.term}</span>
+                  <X className="h-4 w-4" /> Correct answer: <span className="font-semibold">{current.term}</span>
                 </div>
               )}
               <div className="flex justify-end">
                 {!verdict ? (
-                  <Button type="submit" className="rounded-full">Проверить</Button>
+                  <Button type="submit" className="rounded-full">Check</Button>
                 ) : (
                   <Button type="button" className="rounded-full" onClick={next}>
-                    <RotateCcw className="h-4 w-4" /> {idx + 1 < total ? "Дальше" : "Завершить"}
+                    <RotateCcw className="h-4 w-4" /> {idx + 1 < total ? "Next" : "Finish"}
                   </Button>
                 )}
               </div>
               <p className="text-center text-xs text-muted-foreground pt-2">
-                Текущая стадия: {RECALL_STAGES[Math.min(4, Math.max(0, 0))]}
+                Current stage: {RECALL_STAGES[Math.min(4, Math.max(0, 0))]}
               </p>
             </form>
           </>

@@ -33,7 +33,7 @@ function saveAll(data: Record<string, DeckStats>) {
 }
 
 // Stage names + intervals (ms) for SRS
-export const STAGE_NAMES = ["Новое", "Изучение", "Повторение", "Уверенно", "Освоено"] as const;
+export const STAGE_NAMES = ["New", "Learning", "Reviewing", "Confident", "Mastered"] as const;
 const STAGE_INTERVALS = [
   1000 * 60 * 10, // New → 10 min
   1000 * 60 * 60 * 8, // Learning → 8 h

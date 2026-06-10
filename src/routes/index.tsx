@@ -17,17 +17,17 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Memora — учим английские слова и запоминаем надолго" },
+      { title: "Memora — learn English words and remember them longer" },
       {
         name: "description",
         content:
-          "Memora — приложение для изучения английской лексики с интервальными повторениями. Откладывайте слова в долгосрочную память и больше их не забывайте.",
+          "Memora is an English vocabulary app with spaced repetition. Move words into long-term memory and stop forgetting them.",
       },
-      { property: "og:title", content: "Memora — учим английские слова надолго" },
+      { property: "og:title", content: "Memora — learn English words for the long term" },
       {
         property: "og:description",
         content:
-          "Учите vocabulary по карточкам с интервальными повторениями — слова закрепляются в долгосрочной памяти.",
+          "Learn vocabulary with flashcards and spaced repetition so words stick in long-term memory.",
       },
     ],
   }),
@@ -62,27 +62,27 @@ function Landing() {
         <div className="mx-auto max-w-6xl px-6 py-20 md:py-28 text-center">
           <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-accent mb-6">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-            Vocabulary, который остаётся с вами
+            Vocabulary that stays with you
           </p>
           <h1 className="font-display text-5xl md:text-7xl font-extrabold leading-[1.02] tracking-tight max-w-4xl mx-auto">
-            Учите английские слова{" "}
-            <span className="text-primary">и запоминайте их навсегда</span>
+            Learn English words{" "}
+            <span className="text-primary">and remember them for good</span>
           </h1>
           <p className="mt-7 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed text-muted-foreground">
-            Memora использует систему интервальных повторений, которая откладывает каждое слово в
-            долгосрочную память. Никакой зубрёжки — только короткие повторы в нужный момент.
+            Memora uses spaced repetition to move every word into
+            long-term memory. No cramming, just short reviews at the right time.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="rounded-full px-7 h-13 text-base">
               <Link to="/auth">
-                Начать учить <ArrowRight className="h-4 w-4" />
+                Start learning <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Без рекламы</span>
-            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> AI-генерация колод</span>
-            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Прогресс синхронизируется</span>
+            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Ad-free</span>
+            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> AI deck generation</span>
+            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Progress syncs</span>
           </div>
         </div>
       </section>
@@ -92,23 +92,23 @@ function Landing() {
         <div className="rounded-3xl border border-border bg-card p-6 md:p-10 grid md:grid-cols-[1.1fr_1fr] gap-6 items-center">
           <div>
             <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-[0.14em] text-primary mb-3">
-              <Brain className="h-3.5 w-3.5" /> Главная фишка
+              <Brain className="h-3.5 w-3.5" /> Main feature
             </p>
             <h2 className="font-display text-2xl md:text-3xl font-bold leading-tight tracking-tight">
-              Слова переходят в долгосрочную память — не вылетают через день
+              Words move into long-term memory instead of vanishing the next day
             </h2>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              Memora отслеживает, как хорошо вы знаете каждое слово, и сам выбирает, когда повторить:
-              через 10 минут, день, неделю, месяц. Это
-              <span className="text-foreground font-medium"> интервальные повторения</span> — проверенный
-              метод запоминания.
+              Memora tracks how well you know each word and chooses when to review it:
+              after 10 minutes, a day, a week, a month. This is
+              <span className="text-foreground font-medium"> spaced repetition</span>, a proven
+              memorization method.
             </p>
             <ul className="mt-4 space-y-2 text-sm">
               {[
-                "Персональный график повторений для каждого слова",
-                "Сложные слова — чаще, лёгкие — реже",
-                "Уведомления, когда пора повторить",
-                "Прогресс: учится → запомнено → освоено",
+                "A personal review schedule for every word",
+                "Hard words more often, easy words less often",
+                "Reminders when it is time to review",
+                "Progress: learning -> remembered -> mastered",
               ].map((line) => (
                 <li key={line} className="flex items-start gap-2.5">
                   <Check className="h-4 w-4 text-primary mt-0.5 shrink-0" />
@@ -119,12 +119,12 @@ function Landing() {
           </div>
           <div className="grid grid-cols-2 gap-2.5">
             {[
-              { label: "10 мин", sub: "Новое" },
-              { label: "1 день", sub: "Учится" },
-              { label: "3 дня", sub: "Запомнено" },
-              { label: "1 неделя", sub: "Уверенно" },
-              { label: "2 недели", sub: "Освоено" },
-              { label: "1 месяц", sub: "В памяти" },
+              { label: "10 min", sub: "New" },
+              { label: "1 day", sub: "Learning" },
+              { label: "3 days", sub: "Remembered" },
+              { label: "1 week", sub: "Confident" },
+              { label: "2 weeks", sub: "Mastered" },
+              { label: "1 month", sub: "In memory" },
             ].map((s, i) => (
               <div
                 key={s.label}
@@ -143,10 +143,10 @@ function Landing() {
       <section id="features" className="mx-auto max-w-6xl px-6 py-12">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight">
-            Всё, что нужно для словарного запаса
+            Everything you need for vocabulary growth
           </h2>
           <p className="mt-4 text-muted-foreground">
-            Карточки, режимы тренировок, AI-генерация и аналитика прогресса — в одном месте.
+            Flashcards, training modes, AI generation, and progress analytics in one place.
           </p>
         </div>
 
@@ -154,33 +154,33 @@ function Landing() {
           {[
             {
               icon: Clock,
-              title: "Интервальные повторения",
-              desc: "Сердце Memora — алгоритм, который сам распределяет повторы во времени, чтобы слова оседали в долгосрочной памяти.",
+              title: "Spaced repetition",
+              desc: "At the heart of Memora is an algorithm that spaces reviews over time so words settle into long-term memory.",
             },
             {
               icon: Sparkles,
-              title: "AI-генерация колод",
-              desc: "Введите тему, уровень или ссылку на статью — ИИ соберёт готовую колоду с переводами за секунды.",
+              title: "AI deck generation",
+              desc: "Enter a topic, level, or article link, and AI builds a ready-to-study deck with translations in seconds.",
             },
             {
               icon: Repeat,
-              title: "7 режимов тренировок",
-              desc: "Карточки, ввод с клавиатуры, обратный перевод, ассоциации, скоростной режим и глубокая проработка.",
+              title: "7 training modes",
+              desc: "Flashcards, keyboard input, reverse translation, associations, speed mode, and deeper practice.",
             },
             {
               icon: BookOpen,
-              title: "Свои колоды",
-              desc: "Создавайте колоды под себя: путешествия, IELTS, работа, любимый сериал. Без ограничений.",
+              title: "Your own decks",
+              desc: "Create decks for your own life: travel, IELTS, work, a favorite show. No limits.",
             },
             {
               icon: TrendingUp,
-              title: "Прогресс и стрики",
-              desc: "Видите retention, количество освоенных слов и поддерживаете стрик ежедневных занятий.",
+              title: "Progress and streaks",
+              desc: "Track retention, mastered words, and keep a daily study streak.",
             },
             {
               icon: Brain,
-              title: "Умные напоминания",
-              desc: "Memora подскажет, когда колода «созрела» для повтора — не раньше и не позже.",
+              title: "Smart reminders",
+              desc: "Memora tells you when a deck is ready for review, not too early and not too late.",
             },
           ].map((f) => (
             <div
@@ -201,16 +201,16 @@ function Landing() {
       <section id="how" className="mx-auto max-w-6xl px-6 py-20">
         <div className="text-center max-w-2xl mx-auto mb-12">
           <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight">
-            Как это работает
+            How it works
           </h2>
-          <p className="mt-4 text-muted-foreground">Четыре шага — от первого слова до уверенного владения.</p>
+          <p className="mt-4 text-muted-foreground">Four steps from your first word to confident recall.</p>
         </div>
         <div className="grid md:grid-cols-4 gap-4">
           {[
-            { n: "01", t: "Создайте колоду", d: "Вручную, через AI или из ссылки на статью." },
-            { n: "02", t: "Учите карточки", d: "Выберите удобный режим — от простых карточек до ввода." },
-            { n: "03", t: "Повторяйте по графику", d: "Memora напомнит, когда вернуться к словам." },
-            { n: "04", t: "Запоминайте надолго", d: "Слова переходят в долгосрочную память." },
+            { n: "01", t: "Create a deck", d: "Manually, with AI, or from an article link." },
+            { n: "02", t: "Study cards", d: "Choose a mode that fits, from simple cards to typed recall." },
+            { n: "03", t: "Review on schedule", d: "Memora reminds you when to come back to the words." },
+            { n: "04", t: "Remember longer", d: "Words move into long-term memory." },
           ].map((s) => (
             <div key={s.n} className="rounded-2xl border border-border bg-card p-6">
               <div className="text-xs font-mono text-primary mb-3">{s.n}</div>
@@ -225,10 +225,10 @@ function Landing() {
       <section className="mx-auto max-w-6xl px-6 py-20">
         <div className="rounded-3xl bg-gradient-to-br from-primary to-accent p-10 md:p-16 text-center text-primary-foreground">
           <h2 className="font-display text-3xl md:text-5xl font-bold tracking-tight">
-            Начните учить слова, которые останутся с вами
+            Start learning words that stay with you
           </h2>
           <p className="mt-5 max-w-xl mx-auto opacity-90 text-lg">
-            Бесплатно. Без рекламы. Регистрация занимает 20 секунд.
+            Free. Ad-free. Sign-up takes 20 seconds.
           </p>
           <div className="mt-8">
             <Button
@@ -238,7 +238,7 @@ function Landing() {
               className="rounded-full px-8 h-13 text-base"
             >
               <Link to="/auth">
-                Создать аккаунт <ArrowRight className="h-4 w-4" />
+                Create account <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
           </div>
@@ -251,11 +251,11 @@ function Landing() {
             <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-primary to-accent grid place-items-center text-primary-foreground font-display font-bold text-xs">
               M
             </div>
-            <span>© {new Date().getFullYear()} Memora. Учите слова — навсегда.</span>
+            <span>© {new Date().getFullYear()} Memora. Learn words for good.</span>
           </div>
           <div className="flex items-center gap-5">
-            <Link to="/auth" className="hover:text-foreground transition-colors">Войти</Link>
-            <Link to="/auth" className="hover:text-foreground transition-colors">Регистрация</Link>
+            <Link to="/auth" className="hover:text-foreground transition-colors">Sign in</Link>
+            <Link to="/auth" className="hover:text-foreground transition-colors">Sign up</Link>
           </div>
         </div>
       </footer>

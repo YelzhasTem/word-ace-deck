@@ -84,8 +84,8 @@ function BuilderPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -151,7 +151,7 @@ function BuilderPage() {
           {(["easy","medium","hard"] as Difficulty[]).map((d) => (
             <button key={d} onClick={() => setDifficulty(d)}
               className={`px-4 py-1.5 rounded-full text-sm border transition-colors ${difficulty===d ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>
-              {d === "easy" ? "Лёгкий" : d === "medium" ? "Средний" : "Сложный"}
+              {d === "easy" ? "Easy" : d === "medium" ? "Medium" : "Hard"}
             </button>
           ))}
         </div>
@@ -159,29 +159,29 @@ function BuilderPage() {
         {finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <Trophy className="h-12 w-12 mx-auto text-accent mb-3" />
-            <h2 className="font-display text-3xl font-semibold">Готово</h2>
+            <h2 className="font-display text-3xl font-semibold">Done</h2>
             <p className="mt-3 text-muted-foreground">
-              Очки: <span className="text-foreground font-semibold">{score}</span> · Безошибочно: {perfect}/{total} · Ошибки: {mistakes} · Время: {Math.round((Date.now()-start)/1000)} с
+              Score: <span className="text-foreground font-semibold">{score}</span> · Perfect: {perfect}/{total} · Mistakes: {mistakes} · Time: {Math.round((Date.now()-start)/1000)} s
             </p>
             <div className="mt-8 flex justify-center gap-3">
-              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link></Button>
-              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Ещё раз</Button>
+              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link></Button>
+              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Try again</Button>
             </div>
           </div>
         ) : current ? (
           <>
             <div className="mb-6 flex justify-between text-xs text-muted-foreground">
               <span>{idx + 1} / {total}</span>
-              <span>Очки: <span className="text-foreground font-semibold">{score}</span></span>
+              <span>Score: <span className="text-foreground font-semibold">{score}</span></span>
             </div>
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-8 text-center mb-6">
-              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Соберите слово</span>
+              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Build the word</span>
               <p className="mt-4 font-display text-2xl text-muted-foreground">{current.definition}</p>
 
               <div className="mt-8 min-h-[64px] flex flex-wrap justify-center gap-2">
                 {picked.length === 0 ? (
-                  <span className="text-muted-foreground/50 text-sm self-center">Нажимайте буквы ниже…</span>
+                  <span className="text-muted-foreground/50 text-sm self-center">Tap letters below...</span>
                 ) : picked.map((poolIdx, place) => (
                   <button key={place} onClick={() => unpick(place)}
                     className="h-12 w-10 rounded-xl bg-primary text-primary-foreground font-display text-xl uppercase">
@@ -202,28 +202,28 @@ function BuilderPage() {
 
             {verdict === "ok" && (
               <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm mb-4 flex items-center gap-2">
-                <Check className="h-4 w-4" /> {hadMistake ? "Правильно!" : "Идеально!"}
+                <Check className="h-4 w-4" /> {hadMistake ? "Correct!" : "Perfect!"}
               </div>
             )}
             {verdict === "miss" && (
               <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm mb-4 flex items-center gap-2">
-                <X className="h-4 w-4" /> Не то слово. Правильно: <span className="font-semibold">{current.term}</span>
+                <X className="h-4 w-4" /> Not the word. Correct: <span className="font-semibold">{current.term}</span>
               </div>
             )}
 
             <div className="flex justify-between gap-2">
               <Button variant="ghost" className="rounded-full" onClick={clearAll} disabled={!!verdict}>
-                <Eraser className="h-4 w-4" /> Очистить
+                <Eraser className="h-4 w-4" /> Clear
               </Button>
               {!verdict ? (
-                <Button className="rounded-full" onClick={check} disabled={picked.length === 0}>Проверить</Button>
+                <Button className="rounded-full" onClick={check} disabled={picked.length === 0}>Check</Button>
               ) : verdict === "miss" ? (
                 <div className="flex gap-2">
-                  <Button variant="outline" className="rounded-full" onClick={tryAgain}><RotateCcw className="h-4 w-4" /> Попробовать снова</Button>
-                  <Button className="rounded-full" onClick={next}>Дальше</Button>
+                  <Button variant="outline" className="rounded-full" onClick={tryAgain}><RotateCcw className="h-4 w-4" /> Try again</Button>
+                  <Button className="rounded-full" onClick={next}>Next</Button>
                 </div>
               ) : (
-                <Button className="rounded-full" onClick={next}>{idx + 1 < total ? "Дальше" : "Завершить"}</Button>
+                <Button className="rounded-full" onClick={next}>{idx + 1 < total ? "Next" : "Finish"}</Button>
               )}
             </div>
           </>

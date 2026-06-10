@@ -66,8 +66,8 @@ function DeepPage() {
       <div className="min-h-screen">
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -117,21 +117,21 @@ function DeepPage() {
 
         {!canPlay ? (
           <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">
-            Для этого режима нужно минимум 4 карточки в колоде.
+            This mode needs at least 4 cards in the deck.
           </div>
         ) : finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">🧠</p>
-            <h2 className="font-display text-3xl font-semibold">Раунд завершён</h2>
+            <h2 className="font-display text-3xl font-semibold">Round complete</h2>
             <p className="mt-3 text-muted-foreground">
-              Правильно: {correctCount} из {total}
+              Correct: {correctCount} of {total}
             </p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link>
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
               </Button>
               <Button className="rounded-full" onClick={restart}>
-                <RotateCcw className="h-4 w-4" /> Ещё раз
+                <RotateCcw className="h-4 w-4" /> Try again
               </Button>
             </div>
           </div>
@@ -155,7 +155,7 @@ function DeepPage() {
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
               <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
-                Выберите перевод
+                Choose the translation
               </span>
               <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
                 {current.card.term}
@@ -199,7 +199,7 @@ function DeepPage() {
             {picked !== null && (
               <div className="mt-6 flex justify-end">
                 <Button className="rounded-full" onClick={next}>
-                  {idx + 1 < total ? "Дальше" : "Завершить"}
+                  {idx + 1 < total ? "Next" : "Finish"}
                 </Button>
               </div>
             )}

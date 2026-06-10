@@ -57,8 +57,8 @@ function SpeedPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -126,23 +126,23 @@ function SpeedPage() {
         </div>
 
         {!canPlay ? (
-          <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">Нужно минимум 4 карточки.</div>
+          <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">At least 4 cards are required.</div>
         ) : !running && !finished ? (
           <div className="rounded-3xl border border-border bg-card p-10 text-center">
             <Timer className="h-12 w-12 mx-auto text-accent mb-3" />
-            <h2 className="font-display text-3xl font-semibold">Выберите длительность</h2>
+            <h2 className="font-display text-3xl font-semibold">Choose duration</h2>
             <div className="mt-6 flex justify-center gap-3 flex-wrap">
               {([30,60,120] as Duration[]).map((d) => (
-                <Button key={d} className="rounded-full" onClick={() => start(d)}>{d} сек</Button>
+                <Button key={d} className="rounded-full" onClick={() => start(d)}>{d} sec</Button>
               ))}
             </div>
             {records.length > 0 && (
               <div className="mt-10 text-left">
-                <p className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Trophy className="h-4 w-4" /> Топ результатов</p>
+                <p className="text-sm font-semibold mb-2 flex items-center gap-1.5"><Trophy className="h-4 w-4" /> Top scores</p>
                 <ul className="space-y-1 text-sm">
                   {records.map((r, i) => (
                     <li key={i} className="flex justify-between text-muted-foreground border-b border-border/50 py-1.5">
-                      <span>{r.duration}с · {new Date(r.at).toLocaleDateString()}</span>
+                      <span>{r.duration}s · {new Date(r.at).toLocaleDateString()}</span>
                       <span><span className="text-foreground font-semibold">{r.score}</span> · {r.accuracy}%</span>
                     </li>
                   ))}
@@ -153,20 +153,20 @@ function SpeedPage() {
         ) : finished ? (
           <div className="rounded-3xl border border-border bg-card p-10 text-center">
             <Trophy className="h-12 w-12 mx-auto text-accent mb-3" />
-            <h2 className="font-display text-3xl font-semibold">Итоги</h2>
-            <p className="mt-3 text-lg">Очки: <span className="font-semibold">{score}</span></p>
-            <p className="text-sm text-muted-foreground mt-2">Точность {right+wrong > 0 ? Math.round((right/(right+wrong))*100) : 0}% · Ответов {right+wrong} · Макс. комбо {maxCombo}</p>
+            <h2 className="font-display text-3xl font-semibold">Results</h2>
+            <p className="mt-3 text-lg">Score: <span className="font-semibold">{score}</span></p>
+            <p className="text-sm text-muted-foreground mt-2">Accuracy {right+wrong > 0 ? Math.round((right/(right+wrong))*100) : 0}% · Answers {right+wrong} · Max combo {maxCombo}</p>
             {weak.length > 0 && (
               <div className="mt-6 text-left max-w-md mx-auto">
-                <p className="text-sm font-semibold mb-2">Слабые слова:</p>
+                <p className="text-sm font-semibold mb-2">Weak words:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   {weak.map((c) => <li key={c.id}>· <span className="text-foreground font-medium">{c.term}</span> — {c.definition}</li>)}
                 </ul>
               </div>
             )}
             <div className="mt-8 flex justify-center gap-3">
-              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link></Button>
-              <Button className="rounded-full" onClick={() => start(duration)}><RotateCcw className="h-4 w-4" /> Ещё раз</Button>
+              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link></Button>
+              <Button className="rounded-full" onClick={() => start(duration)}><RotateCcw className="h-4 w-4" /> Try again</Button>
             </div>
           </div>
         ) : (
@@ -177,7 +177,7 @@ function SpeedPage() {
                 <span className="font-display text-3xl tabular-nums">{left}s</span>
               </div>
               <div className="text-sm text-muted-foreground">
-                Очки <span className="text-foreground font-semibold">{score}</span> · Комбо ×{combo}
+                Score <span className="text-foreground font-semibold">{score}</span> · Combo ×{combo}
               </div>
             </div>
             {cur && (

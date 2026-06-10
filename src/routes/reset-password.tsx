@@ -24,7 +24,7 @@ function ResetPasswordPage() {
       if (code) {
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          toast.error("Ссылка сброса пароля устарела или недействительна.");
+          toast.error("The password reset link is expired or invalid.");
           console.error("[Password recovery]", error);
         }
       }
@@ -44,10 +44,10 @@ function ResetPasswordPage() {
     setLoading(false);
     if (error) {
       console.error("[Password update]", error);
-      return toast.error("Не удалось обновить пароль. Откройте свежую ссылку из письма.");
+      return toast.error("Could not update the password. Open a fresh link from your email.");
     }
 
-    toast.success("Пароль обновлен");
+    toast.success("Password updated");
     navigate({ to: "/dashboard" });
   };
 
@@ -57,9 +57,9 @@ function ResetPasswordPage() {
         onSubmit={handleSubmit}
         className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm space-y-4"
       >
-        <h1 className="text-2xl font-bold tracking-tight">Новый пароль</h1>
+        <h1 className="text-2xl font-bold tracking-tight">New password</h1>
         <div className="space-y-2">
-          <Label htmlFor="password">Пароль</Label>
+          <Label htmlFor="password">Password</Label>
           <Input
             id="password"
             type="password"
@@ -70,7 +70,7 @@ function ResetPasswordPage() {
           />
         </div>
         <Button type="submit" className="w-full" disabled={loading || !ready}>
-          {loading ? "Загрузка..." : "Обновить пароль"}
+          {loading ? "Loading..." : "Update password"}
         </Button>
       </form>
     </div>

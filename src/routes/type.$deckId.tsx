@@ -33,8 +33,8 @@ function TypePage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -65,17 +65,17 @@ function TypePage() {
           <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"><Keyboard className="h-4 w-4" /> Ввод перевода</span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"><Keyboard className="h-4 w-4" /> Typed translation</span>
         </div>
 
         {finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">⌨️</p>
-            <h2 className="font-display text-3xl font-semibold">Раунд завершён</h2>
-            <p className="mt-3 text-muted-foreground">Правильно: {right} из {total} · точность {total ? Math.round((right/total)*100) : 0}%</p>
+            <h2 className="font-display text-3xl font-semibold">Round complete</h2>
+            <p className="mt-3 text-muted-foreground">Correct: {right} of {total} · accuracy {total ? Math.round((right/total)*100) : 0}%</p>
             {wrongIds.length > 0 && (
               <div className="mt-6 text-left max-w-md mx-auto">
-                <p className="text-sm font-semibold mb-2">К повторению:</p>
+                <p className="text-sm font-semibold mb-2">To review:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   {wrongIds.map((id) => {
                     const c = deck.cards.find((x) => x.id === id);
@@ -85,8 +85,8 @@ function TypePage() {
               </div>
             )}
             <div className="mt-8 flex justify-center gap-3">
-              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link></Button>
-              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Ещё раз</Button>
+              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link></Button>
+              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Try again</Button>
             </div>
           </div>
         ) : (
@@ -102,10 +102,10 @@ function TypePage() {
             </div>
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
-              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Введите перевод</span>
+              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Type the translation</span>
               <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">{current.term}</p>
               {(() => { const a = accuracyFor(stats[current.id]); return a !== null ? (
-                <p className="mt-4 text-xs text-muted-foreground">Ваша точность по слову: {a}%</p>
+                <p className="mt-4 text-xs text-muted-foreground">Your accuracy for this word: {a}%</p>
               ) : null; })()}
             </div>
 
@@ -114,26 +114,26 @@ function TypePage() {
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Перевод на русском…"
+                placeholder="Russian translation..."
                 disabled={!!verdict}
                 className="h-14 text-lg rounded-2xl"
               />
               {verdict === "ok" && (
                 <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm flex items-center gap-2">
-                  <Check className="h-4 w-4" /> Верно! {current.definition}
+                  <Check className="h-4 w-4" /> Correct! {current.definition}
                 </div>
               )}
               {verdict === "miss" && (
                 <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-center gap-2">
-                  <X className="h-4 w-4" /> Правильный ответ: <span className="font-semibold">{current.definition}</span>
+                  <X className="h-4 w-4" /> Correct answer: <span className="font-semibold">{current.definition}</span>
                 </div>
               )}
               <div className="flex justify-end gap-2">
                 {!verdict ? (
-                  <Button type="submit" className="rounded-full">Проверить</Button>
+                  <Button type="submit" className="rounded-full">Check</Button>
                 ) : (
                   <Button type="button" className="rounded-full" onClick={next}>
-                    {idx + 1 < total ? "Дальше" : "Завершить"}
+                    {idx + 1 < total ? "Next" : "Finish"}
                   </Button>
                 )}
               </div>

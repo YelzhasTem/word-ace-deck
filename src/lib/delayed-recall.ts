@@ -44,7 +44,7 @@ export const RECALL_INTERVALS = [
   30 * DAY,
 ];
 
-export const RECALL_STAGES = ["Новое", "Учится", "Запомнено", "Уверенно", "Освоено"] as const;
+export const RECALL_STAGES = ["New", "Learning", "Remembered", "Confident", "Mastered"] as const;
 export type RecallStageIdx = 0 | 1 | 2 | 3 | 4;
 
 export type RecallEntry = {
@@ -222,8 +222,8 @@ export function useAllRecallSummary(): RecallSummary & { nextDue: number | null 
 
 export function formatDueIn(ms: number): string {
   const diff = ms - Date.now();
-  if (diff <= 0) return "сейчас";
-  if (diff < HOUR) return `через ${Math.max(1, Math.round(diff / MIN))} мин`;
-  if (diff < DAY) return `через ${Math.round(diff / HOUR)} ч`;
-  return `через ${Math.round(diff / DAY)} д`;
+  if (diff <= 0) return "now";
+  if (diff < HOUR) return `in ${Math.max(1, Math.round(diff / MIN))} min`;
+  if (diff < DAY) return `in ${Math.round(diff / HOUR)} h`;
+  return `in ${Math.round(diff / DAY)} d`;
 }

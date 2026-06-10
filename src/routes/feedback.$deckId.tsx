@@ -99,7 +99,7 @@ function FeedbackPage() {
   const run = async () => {
     if (!deck) return;
     if (totals.answered === 0) {
-      setError("Пока нет данных за сегодня. Позанимайтесь в любом режиме и возвращайтесь.");
+      setError("No data for today yet. Study in any mode and come back.");
       return;
     }
     setLoading(true);
@@ -116,7 +116,7 @@ function FeedbackPage() {
       });
       setFb(r);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось получить разбор");
+      setError(e instanceof Error ? e.message : "Could not get feedback");
     }
     setLoading(false);
   };
@@ -131,8 +131,8 @@ function FeedbackPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -154,24 +154,24 @@ function FeedbackPage() {
           <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"><Sparkles className="h-4 w-4" /> AI-разбор</span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"><Sparkles className="h-4 w-4" /> AI feedback</span>
         </div>
 
         {/* Real performance summary */}
         <section className="rounded-3xl border border-border bg-card p-6 mb-6">
-          <h2 className="font-display text-xl mb-4">Сегодняшняя сессия</h2>
+          <h2 className="font-display text-xl mb-4">Today's session</h2>
           <div className="grid grid-cols-3 gap-3 mb-4">
             <div className="rounded-2xl bg-background border border-border px-4 py-3">
-              <p className="text-xs text-muted-foreground">Ответов</p>
+              <p className="text-xs text-muted-foreground">Answers</p>
               <p className="font-display text-2xl">{totals.answered}</p>
             </div>
             <div className="rounded-2xl bg-background border border-border px-4 py-3">
-              <p className="text-xs text-muted-foreground">Точность</p>
+              <p className="text-xs text-muted-foreground">Accuracy</p>
               <p className="font-display text-2xl">{acc !== null ? `${acc}%` : "—"}</p>
             </div>
             <div className="rounded-2xl bg-background border border-border px-4 py-3">
-              <p className="text-xs text-muted-foreground">Среднее время</p>
-              <p className="font-display text-2xl">{totals.avgMs ? `${(totals.avgMs/1000).toFixed(1)}с` : "—"}</p>
+              <p className="text-xs text-muted-foreground">Average time</p>
+              <p className="font-display text-2xl">{totals.avgMs ? `${(totals.avgMs/1000).toFixed(1)}s` : "—"}</p>
             </div>
           </div>
 
@@ -187,9 +187,9 @@ function FeedbackPage() {
         {/* AI feedback */}
         <section className="rounded-3xl border border-border bg-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-xl flex items-center gap-2"><Brain className="h-5 w-5 text-accent" /> Персональный разбор</h2>
+            <h2 className="font-display text-xl flex items-center gap-2"><Brain className="h-5 w-5 text-accent" /> Personal feedback</h2>
             <Button size="sm" className="rounded-full" onClick={run} disabled={loading || totals.answered === 0}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Обновить
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Refresh
             </Button>
           </div>
 
@@ -199,7 +199,7 @@ function FeedbackPage() {
 
           {loading && !fb && (
             <div className="rounded-2xl border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
-              ИИ анализирует вашу статистику…
+              AI is analyzing your stats...
             </div>
           )}
 
@@ -207,7 +207,7 @@ function FeedbackPage() {
             <div className="space-y-5">
               {fb.summary && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Итог</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Summary</p>
                   <p className="text-base leading-relaxed">{fb.summary}</p>
                 </div>
               )}
@@ -218,7 +218,7 @@ function FeedbackPage() {
               )}
               {fb.weakAnalysis && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Слабые слова</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Weak words</p>
                   <p className="text-base leading-relaxed">{fb.weakAnalysis}</p>
                   {weakTerms.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -233,7 +233,7 @@ function FeedbackPage() {
               )}
               {fb.confusions.length > 0 && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">Похожие слова</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">Similar words</p>
                   <ul className="space-y-2">
                     {fb.confusions.map((c, i) => (
                       <li key={i} className="rounded-2xl border border-border px-4 py-3">
@@ -246,7 +246,7 @@ function FeedbackPage() {
               )}
               {fb.focus.length > 0 && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><Target className="h-4 w-4" /> На чём сфокусироваться завтра</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><Target className="h-4 w-4" /> What to focus on tomorrow</p>
                   <ul className="space-y-1.5">
                     {fb.focus.map((f, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
@@ -258,7 +258,7 @@ function FeedbackPage() {
               )}
               {fb.plan && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5"><ListChecks className="h-4 w-4" /> План на завтра</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5"><ListChecks className="h-4 w-4" /> Plan for tomorrow</p>
                   <p className="text-base leading-relaxed">{fb.plan}</p>
                 </div>
               )}

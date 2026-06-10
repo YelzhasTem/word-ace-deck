@@ -27,6 +27,12 @@ export type Collection = {
 };
 
 const KEY = ["my-collections"] as const;
+const DEFAULT_COLLECTION_NAME = "My collection";
+const LEGACY_DEFAULT_COLLECTION_NAME = "\u041c\u043e\u044f \u043a\u043e\u043b\u043b\u0435\u043a\u0446\u0438\u044f";
+
+function displayCollectionName(name: string) {
+  return name === LEGACY_DEFAULT_COLLECTION_NAME ? DEFAULT_COLLECTION_NAME : name;
+}
 
 export function useCollections() {
   const qc = useQueryClient();
@@ -48,7 +54,7 @@ export function useCollections() {
       });
       return res.collections.map<Collection>((c) => ({
         id: c.id,
-        name: c.name,
+        name: displayCollectionName(c.name),
         description: c.description ?? "",
         deckIds: linksByCol.get(c.id) ?? [],
         createdAt: new Date(c.created_at).getTime(),
@@ -76,31 +82,31 @@ export function useCollections() {
   const invalidate = () => qc.invalidateQueries({ queryKey: KEY });
 
   const onErr = (msg: string) => (e: unknown) =>
-    toast.error(`${msg}: ${e instanceof Error ? e.message : "ошибка"}`);
+    toast.error(`${msg}: ${e instanceof Error ? e.message : "error"}`);
 
   const createMut = useMutation({
     mutationFn: (vars: { name: string; description: string }) => createFn({ data: vars }),
     onSuccess: () => {
-      toast.success("Коллекция создана");
+      toast.success("Collection created");
       invalidate();
     },
-    onError: onErr("Не удалось создать коллекцию"),
+    onError: onErr("Could not create collection"),
   });
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteFn({ data: { id } }),
     onSuccess: invalidate,
-    onError: onErr("Не удалось удалить"),
+    onError: onErr("Could not delete"),
   });
 
   const setDecksMut = useMutation({
     mutationFn: (vars: { collectionId: string; deckIds: string[] }) =>
       setDecksFn({ data: vars }),
     onSuccess: () => {
-      toast.success("Колоды сохранены");
+      toast.success("Decks saved");
       invalidate();
     },
-    onError: onErr("Не удалось сохранить"),
+    onError: onErr("Could not save"),
   });
 
   const updatePublishingMut = useMutation({
@@ -110,7 +116,7 @@ export function useCollections() {
       toast.success("Collection visibility updated");
       invalidate();
     },
-    onError: onErr("Не удалось обновить публикацию"),
+    onError: onErr("Could not update publishing"),
   });
 
   return {

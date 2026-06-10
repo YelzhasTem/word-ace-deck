@@ -27,13 +27,13 @@ export function RecallNotifier() {
     const firstDeck = decks[0]?.deckId;
     toast.message(
       summary.ready === 1
-        ? "1 слово готово к припоминанию"
-        : `${summary.ready} слов готовы к припоминанию`,
+        ? "1 word is ready for recall"
+        : `${summary.ready} words are ready for recall`,
       {
-        description: "Ваша отложенная сессия ждёт.",
+        description: "Your delayed recall session is waiting.",
         action: firstDeck
           ? {
-              label: "Начать",
+              label: "Start",
               onClick: () => {
                 window.location.href = `/recall/${firstDeck}`;
               },

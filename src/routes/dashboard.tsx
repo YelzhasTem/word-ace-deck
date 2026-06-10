@@ -28,8 +28,8 @@ import { useCollections } from "@/lib/collections";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Memora — учим английские слова" },
-      { name: "description", content: "Создавайте свои колоды и учите английские слова по карточкам." },
+      { title: "Memora — learn English words" },
+      { name: "description", content: "Create your own decks and study English words with flashcards." },
     ],
   }),
   component: Home,
@@ -55,7 +55,7 @@ function Home() {
   const selectedCollectionId = collectionId === "__default__" ? null : collectionId;
   const COLLECTIONS_PAGE_SIZE = 3;
   const [collectionPage, setCollectionPage] = useState(0);
-  const extraCollections = collections.filter((c) => c.name !== "Моя коллекция");
+  const extraCollections = collections.filter((c) => c.name !== "My collection");
   const totalCollectionPages = Math.max(1, Math.ceil(extraCollections.length / COLLECTIONS_PAGE_SIZE));
   const safeCollectionPage = Math.min(collectionPage, totalCollectionPages - 1);
   const pagedCollections = extraCollections.slice(
@@ -117,7 +117,7 @@ function Home() {
         data: { url: urlInput.trim(), count: urlCount },
       });
     } catch (err) {
-      setUrlError(`AI: ${errorMessage(err, "Не удалось извлечь слова")}`);
+      setUrlError(`AI: ${errorMessage(err, "Could not extract words")}`);
       setUrlLoading(false);
       return;
     }
@@ -128,7 +128,7 @@ function Home() {
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
-      setUrlError(`Сохранение: ${errorMessage(err, "Не удалось создать колоду")}`);
+      setUrlError(`Saving: ${errorMessage(err, "Could not create deck")}`);
     } finally {
       setUrlLoading(false);
     }
@@ -167,7 +167,7 @@ function Home() {
       setTrWord(w);
       setTrOptions(res.translations);
     } catch (err) {
-      setTrError(err instanceof Error ? err.message : "Не удалось получить переводы");
+      setTrError(err instanceof Error ? err.message : "Could not fetch translations");
     } finally {
       setTrLoading(false);
     }
@@ -197,7 +197,7 @@ function Home() {
         data: { topic: aiTopic.trim(), level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2", count: aiCount },
       });
     } catch (err) {
-      setAiError(`AI: ${errorMessage(err, "Не удалось сгенерировать колоду")}`);
+      setAiError(`AI: ${errorMessage(err, "Could not generate deck")}`);
       setAiLoading(false);
       return;
     }
@@ -208,7 +208,7 @@ function Home() {
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
-      setAiError(`Сохранение: ${errorMessage(err, "Не удалось создать колоду")}`);
+      setAiError(`Saving: ${errorMessage(err, "Could not create deck")}`);
     } finally {
       setAiLoading(false);
     }

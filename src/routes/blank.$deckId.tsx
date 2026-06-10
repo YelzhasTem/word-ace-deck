@@ -67,7 +67,7 @@ function BlankPage() {
       setSentence(r.sentence);
       setExplanation(r.explanation);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось загрузить предложение");
+      setError(e instanceof Error ? e.message : "Could not load sentence");
     }
     setLoading(false);
   };
@@ -79,8 +79,8 @@ function BlankPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -116,7 +116,7 @@ function BlankPage() {
         </div>
 
         <div className="flex gap-2 mb-6">
-          {([["choice","Варианты"],["bank","Банк слов"],["free","Свободный ввод"]] as [Mode,string][]).map(([m,label]) => (
+          {([["choice","Choices"],["bank","Word bank"],["free","Free input"]] as [Mode,string][]).map(([m,label]) => (
             <button key={m} onClick={() => setMode(m)} disabled={!!verdict}
               className={`px-4 py-1.5 rounded-full text-sm border transition-colors ${mode===m ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>
               {label}
@@ -127,11 +127,11 @@ function BlankPage() {
         {finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">📝</p>
-            <h2 className="font-display text-3xl font-semibold">Раунд завершён</h2>
-            <p className="mt-3 text-muted-foreground">Правильно: {right} из {total}</p>
+            <h2 className="font-display text-3xl font-semibold">Round complete</h2>
+            <p className="mt-3 text-muted-foreground">Correct: {right} of {total}</p>
             <div className="mt-8 flex justify-center gap-3">
-              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link></Button>
-              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Ещё раз</Button>
+              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link></Button>
+              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Try again</Button>
             </div>
           </div>
         ) : (
@@ -143,9 +143,9 @@ function BlankPage() {
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-8 mb-6">
               {loading ? (
-                <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Готовим предложение…</div>
+                <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Preparing sentence...</div>
               ) : error ? (
-                <div className="text-destructive text-sm">{error} <button className="underline ml-2" onClick={() => current && load(current)}>повторить</button></div>
+                <div className="text-destructive text-sm">{error} <button className="underline ml-2" onClick={() => current && load(current)}>retry</button></div>
               ) : (
                 <p className="font-display text-2xl leading-relaxed">{maskSentence(sentence, current!.term)}</p>
               )}
@@ -182,14 +182,14 @@ function BlankPage() {
               </div>
             )}
             {mode === "free" && (
-              <Input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Введите слово…" disabled={!!verdict} className="h-12 rounded-2xl mb-4" />
+              <Input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type the word..." disabled={!!verdict} className="h-12 rounded-2xl mb-4" />
             )}
 
             {verdict === "ok" && (
               <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-5 py-4 mb-4 flex items-start gap-3">
                 <Check className="h-6 w-6 mt-0.5 shrink-0" />
                 <div className="text-sm leading-relaxed">
-                  <p className="font-semibold">Верно — {current!.term}</p>
+                  <p className="font-semibold">Correct — {current!.term}</p>
                   <p className="mt-1 opacity-90">{explanation}</p>
                 </div>
               </div>
@@ -198,7 +198,7 @@ function BlankPage() {
               <div className="rounded-2xl bg-destructive/10 text-destructive px-5 py-4 mb-4 flex items-start gap-3">
                 <X className="h-6 w-6 mt-0.5 shrink-0" />
                 <div className="text-sm leading-relaxed">
-                  <p className="font-semibold">Правильный ответ: {current!.term}</p>
+                  <p className="font-semibold">Correct answer: {current!.term}</p>
                   <p className="mt-1 opacity-90">{explanation}</p>
                 </div>
               </div>
@@ -206,9 +206,9 @@ function BlankPage() {
 
             <div className="flex justify-end">
               {!verdict ? (
-                <Button className="rounded-full" onClick={submit} disabled={loading || (mode==="free" ? !input.trim() : !pick)}>Проверить</Button>
+                <Button className="rounded-full" onClick={submit} disabled={loading || (mode==="free" ? !input.trim() : !pick)}>Check</Button>
               ) : (
-                <Button className="rounded-full" onClick={next}>{idx + 1 < total ? "Дальше" : "Завершить"}</Button>
+                <Button className="rounded-full" onClick={next}>{idx + 1 < total ? "Next" : "Finish"}</Button>
               )}
             </div>
           </>

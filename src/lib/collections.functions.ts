@@ -48,7 +48,7 @@ export const createCollectionRecord = createServerFn({ method: "POST" })
       .insert({ user_id: userId, name: data.name, description: data.description })
       .select("id")
       .single();
-    if (error || !col) throw new Error(error?.message ?? "Не удалось создать коллекцию");
+    if (error || !col) throw new Error(error?.message ?? "Could not create collection");
     return { id: col.id };
   });
 

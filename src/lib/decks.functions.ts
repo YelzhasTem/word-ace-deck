@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const DEFAULT_COLLECTION_NAME = "Моя коллекция";
+const DEFAULT_COLLECTION_NAME = "My collection";
 
 async function ensureDefaultCollectionId(
   supabase: SupabaseClient,
@@ -111,7 +111,7 @@ export const createDeckRecord = createServerFn({ method: "POST" })
       .insert({ user_id: userId, name: data.name, description: data.description })
       .select("id")
       .single();
-    if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
+    if (error || !deck) throw new Error(error?.message ?? "Could not create deck");
     await addDeckToCollection(supabase, userId, deck.id, data.collectionId);
     return { id: deck.id };
   });
@@ -133,7 +133,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
       .insert({ user_id: userId, name: data.name, description: data.description })
       .select("id")
       .single();
-    if (error || !deck) throw new Error(error?.message ?? "Не удалось создать колоду");
+    if (error || !deck) throw new Error(error?.message ?? "Could not create deck");
     await addDeckToCollection(supabase, userId, deck.id, data.collectionId);
 
     let cardIds: string[] = [];
@@ -147,7 +147,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
           position,
         })),
       ).select("id");
-      if (cardsErr) throw new Error(`Колода создана, но карточки не сохранились: ${cardsErr.message}`);
+      if (cardsErr) throw new Error(`Deck was created, but cards were not saved: ${cardsErr.message}`);
       cardIds = insertedCards?.map((card) => card.id) ?? [];
     }
 
@@ -171,7 +171,7 @@ export const addCardRecord = createServerFn({ method: "POST" })
       .insert({ deck_id: data.deckId, user_id: userId, term: data.term, definition: data.definition, position: data.position })
       .select("id")
       .single();
-    if (error || !card) throw new Error(error?.message ?? "Не удалось добавить карточку");
+    if (error || !card) throw new Error(error?.message ?? "Could not add card");
     return { id: card.id };
   });
 

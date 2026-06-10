@@ -90,8 +90,8 @@ function ReversePage() {
       <div className="min-h-screen">
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -164,7 +164,7 @@ function ReversePage() {
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
           <Button variant="ghost" size="sm" className="rounded-full" onClick={restart}>
-            <RotateCcw className="h-4 w-4" /> Начать заново
+            <RotateCcw className="h-4 w-4" /> Restart
           </Button>
         </div>
 
@@ -173,7 +173,7 @@ function ReversePage() {
             <Repeat className="h-6 w-6 text-accent" /> Reverse Cards Mode
           </h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-xl">
-            Учите слова в обе стороны, чтобы укрепить долговременную память и активное припоминание.
+            Study words both ways to strengthen long-term memory and active recall.
           </p>
         </div>
 
@@ -182,7 +182,7 @@ function ReversePage() {
           <div>
             <p className="font-semibold">Enable Reverse Cards Mode</p>
             <p className="text-xs text-muted-foreground">
-              Случайное направление каждой карточки: EN → RU и RU → EN.
+              Random direction for each card: EN to RU and RU to EN.
             </p>
           </div>
           <Switch
@@ -197,14 +197,14 @@ function ReversePage() {
             <p className="text-xs text-muted-foreground">EN → RU</p>
             <p className="font-display text-2xl">{accFwd !== null ? `${accFwd}%` : "—"}</p>
             <p className="text-xs text-muted-foreground">
-              {sumFwd.correct} верно · {sumFwd.wrong} ошибок
+              {sumFwd.correct} correct · {sumFwd.wrong} mistakes
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-card px-4 py-3">
             <p className="text-xs text-muted-foreground">RU → EN</p>
             <p className="font-display text-2xl">{accRev !== null ? `${accRev}%` : "—"}</p>
             <p className="text-xs text-muted-foreground">
-              {sumRev.correct} верно · {sumRev.wrong} ошибок
+              {sumRev.correct} correct · {sumRev.wrong} mistakes
             </p>
           </div>
         </div>
@@ -212,14 +212,14 @@ function ReversePage() {
         {finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">🎉</p>
-            <h2 className="font-display text-3xl font-semibold">Подход завершён</h2>
-            <p className="mt-3 text-muted-foreground">Все направления пройдены.</p>
+            <h2 className="font-display text-3xl font-semibold">Run complete</h2>
+            <p className="mt-3 text-muted-foreground">All directions are complete.</p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link>
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
               </Button>
               <Button className="rounded-full" onClick={restart}>
-                <RotateCcw className="h-4 w-4" /> Ещё круг
+                <RotateCcw className="h-4 w-4" /> Another round
               </Button>
             </div>
           </div>
@@ -237,22 +237,22 @@ function ReversePage() {
                 className={`flip-card cursor-pointer ${flipped ? "is-flipped" : ""}`}
                 onClick={() => setFlipped((f) => !f)}
                 role="button"
-                aria-label="Перевернуть карточку"
+                aria-label="Flip card"
               >
                 <div className="flip-face rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
                   <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold mb-6">
-                    {current!.dir === "fwd" ? "Слово" : "Перевод"}
+                    {current!.dir === "fwd" ? "Word" : "Translation"}
                   </span>
                   <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-foreground">
                     {front}
                   </p>
                   <span className="mt-8 text-xs text-muted-foreground">
-                    Подумайте — затем нажмите, чтобы открыть ответ
+                    Think, then click to reveal the answer
                   </span>
                 </div>
                 <div className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
                   <span className="text-xs uppercase tracking-[0.2em] opacity-70 font-semibold mb-6">
-                    {current!.dir === "fwd" ? "Перевод" : "Слово"}
+                    {current!.dir === "fwd" ? "Translation" : "Word"}
                   </span>
                   <p className="font-display text-3xl md:text-4xl font-bold leading-snug">
                     {back}
@@ -268,28 +268,28 @@ function ReversePage() {
                 className="rounded-full h-14 text-base border-border hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40"
                 onClick={() => handle(false)}
               >
-                <X className="h-5 w-5" /> Не знаю
+                <X className="h-5 w-5" /> Do not know
               </Button>
               <Button
                 size="lg"
                 className="rounded-full h-14 text-base bg-success text-white hover:bg-success/90"
                 onClick={() => handle(true)}
               >
-                <Check className="h-5 w-5" /> Знаю
+                <Check className="h-5 w-5" /> Know it
               </Button>
             </div>
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Пробел</kbd> — перевернуть ·{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> не знаю ·{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">→</kbd> знаю
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> — flip ·{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> do not know ·{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">→</kbd> know it
             </p>
           </>
         )}
 
         {hardestReverse.length > 0 && (
           <section className="mt-10 rounded-3xl border border-border bg-card p-6">
-            <h2 className="font-display text-xl mb-3">Сложнее всего в обратном направлении</h2>
+            <h2 className="font-display text-xl mb-3">Hardest in reverse direction</h2>
             <div className="flex flex-wrap gap-2">
               {hardestReverse.map(({ c, acc }) => (
                 <span key={c.id} className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs">

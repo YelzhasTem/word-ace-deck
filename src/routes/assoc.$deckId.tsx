@@ -29,8 +29,8 @@ function AssocPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -44,7 +44,7 @@ function AssocPage() {
     return (
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center text-muted-foreground">
-          В колоде нет карточек.
+          This deck has no cards.
         </main>
       </div>
     );
@@ -56,7 +56,7 @@ function AssocPage() {
       const r = await gen({ data: { term: current.term, definition: current.definition } });
       addAssoc(current.id, { text: `${r.association}\n\n${r.story}`.trim(), source: "ai", at: Date.now() });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Не удалось сгенерировать ассоциацию");
+      setError(e instanceof Error ? e.message : "Could not generate association");
     }
     setLoading(false);
   };
@@ -96,59 +96,59 @@ function AssocPage() {
         </div>
 
         <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
-          <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Слово</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Word</span>
           <p className="mt-4 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">{current.term}</p>
           {revealed ? (
             <p className="mt-6 font-display text-2xl text-primary">{current.definition}</p>
           ) : (
             <Button variant="outline" className="rounded-full mt-6" onClick={() => setRevealed(true)}>
-              <Eye className="h-4 w-4" /> Показать перевод
+              <Eye className="h-4 w-4" /> Show translation
             </Button>
           )}
         </div>
 
         <section className="rounded-3xl border border-border bg-card p-6 mb-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-xl">Ассоциации и мнемоники</h2>
+            <h2 className="font-display text-xl">Associations and mnemonics</h2>
             <Button size="sm" className="rounded-full" onClick={generateOne} disabled={loading}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} ИИ
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} AI
             </Button>
           </div>
           {error && <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm mb-3">{error}</div>}
 
           <div className="space-y-2 mb-4">
             {assocs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Пока нет ассоциаций. Сгенерируйте через ИИ или придумайте свою.</p>
+              <p className="text-sm text-muted-foreground">No associations yet. Generate one with AI or add your own.</p>
             ) : assocs.map((a, i) => (
               <div key={i} className={`rounded-2xl border px-4 py-3 ${a.favorite ? "border-accent bg-accent/5" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm whitespace-pre-wrap flex-1">{a.text}</p>
                   <div className="flex gap-1 shrink-0">
-                    <button onClick={() => toggleFavoriteAssoc(current.id, i)} className="h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-accent/10" aria-label="В избранное">
+                    <button onClick={() => toggleFavoriteAssoc(current.id, i)} className="h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-accent/10" aria-label="Add to favorites">
                       <Star className={`h-4 w-4 ${a.favorite ? "fill-accent text-accent" : "text-muted-foreground"}`} />
                     </button>
-                    <button onClick={() => removeAssoc(current.id, i)} className="h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-destructive/10 hover:text-destructive" aria-label="Удалить">
+                    <button onClick={() => removeAssoc(current.id, i)} className="h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-destructive/10 hover:text-destructive" aria-label="Delete">
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{a.source === "ai" ? "ИИ" : "Ваша"} · {new Date(a.at).toLocaleDateString()}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{a.source === "ai" ? "AI" : "Yours"} · {new Date(a.at).toLocaleDateString()}</p>
               </div>
             ))}
           </div>
 
           <div className="flex gap-2">
-            <Input value={my} onChange={(e) => setMy(e.target.value)} placeholder="Своя ассоциация…" />
-            <Button onClick={saveMine} className="rounded-full" disabled={!my.trim()}>Сохранить</Button>
+            <Input value={my} onChange={(e) => setMy(e.target.value)} placeholder="Your own association..." />
+            <Button onClick={saveMine} className="rounded-full" disabled={!my.trim()}>Save</Button>
           </div>
         </section>
 
         <div className="flex justify-between gap-3">
           <Button variant="outline" className="rounded-full" onClick={() => mark(false)}>
-            <X className="h-4 w-4" /> Не помогло
+            <X className="h-4 w-4" /> Did not help
           </Button>
           <Button className="rounded-full bg-success text-white hover:bg-success/90" onClick={() => mark(true)}>
-            <Check className="h-4 w-4" /> Помогло запомнить
+            <Check className="h-4 w-4" /> Helped me remember
           </Button>
         </div>
       </main>

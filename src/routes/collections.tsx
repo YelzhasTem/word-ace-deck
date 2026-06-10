@@ -22,9 +22,9 @@ import { useT } from "@/lib/i18n";
 export const Route = createFileRoute("/collections")({
   component: CollectionsPage,
   errorComponent: ({ error }) => (
-    <div className="p-6 text-sm text-destructive">Ошибка: {error.message}</div>
+    <div className="p-6 text-sm text-destructive">Error: {error.message}</div>
   ),
-  notFoundComponent: () => <div className="p-6">Не найдено</div>,
+  notFoundComponent: () => <div className="p-6">Not found</div>,
 });
 
 function CollectionsPage() {

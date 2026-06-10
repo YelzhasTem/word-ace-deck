@@ -64,8 +64,8 @@ function StudyPage() {
       <div className="min-h-screen">
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -81,8 +81,8 @@ function StudyPage() {
     setFlipped(false);
     markCard(deck.id, current.id, true);
     recordStreakToday();
-    // Карточка автоматически уйдёт из очереди через queueSource,
-    // следующая встанет на текущий индекс — отдельный advance не нужен.
+    // The card automatically leaves the queue through queueSource,
+    // the next card takes the current index, so no separate advance is needed.
   };
 
   const handleAgain = () => {
@@ -133,7 +133,7 @@ function StudyPage() {
               onClick={shuffle}
               disabled={order.length < 2}
             >
-              <Shuffle className="h-4 w-4" /> Перемешать
+              <Shuffle className="h-4 w-4" /> Shuffle
             </Button>
             <Button
               variant="ghost"
@@ -142,7 +142,7 @@ function StudyPage() {
               asChild
             >
               <Link to="/reverse/$deckId" params={{ deckId: deck.id }}>
-                <Repeat className="h-4 w-4" /> Обратные карточки
+                <Repeat className="h-4 w-4" /> Reverse cards
               </Link>
             </Button>
             <Button
@@ -155,7 +155,7 @@ function StudyPage() {
                 setFlipped(false);
               }}
             >
-              <RotateCcw className="h-4 w-4" /> Сбросить
+              <RotateCcw className="h-4 w-4" /> Reset
             </Button>
           </div>
         </div>
@@ -166,7 +166,7 @@ function StudyPage() {
             <span>
               {finished ? total : (total - order.length) + (idx + 1)} / {total}
             </span>
-            <span>выучено {knownCount}</span>
+            <span>learned {knownCount}</span>
           </div>
           <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
             <div
@@ -181,13 +181,13 @@ function StudyPage() {
         {finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">🎉</p>
-            <h2 className="font-display text-3xl font-semibold">Подход завершён</h2>
+            <h2 className="font-display text-3xl font-semibold">Run complete</h2>
             <p className="mt-3 text-muted-foreground">
-              Вы знаете {knownCount} из {total} карточек.
+              You know {knownCount} of {total} cards.
             </p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>К колоде</Link>
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
               </Button>
               <Button
                 className="rounded-full"
@@ -197,15 +197,15 @@ function StudyPage() {
                   setFlipped(false);
                 }}
               >
-                <RotateCcw className="h-4 w-4" /> Учить снова
+                <RotateCcw className="h-4 w-4" /> Study again
               </Button>
             </div>
             {deck.sourceDeckId && (
               <div className="mx-auto mt-8 max-w-md rounded-2xl border border-border bg-background p-4">
-                <p className="text-sm font-medium">Оцените оригинальную community-колоду</p>
-                <p className="mt-1 text-xs text-muted-foreground">Это необязательно, но помогает другим пользователям находить полезные колоды.</p>
+                <p className="text-sm font-medium">Rate the original community deck</p>
+                <p className="mt-1 text-xs text-muted-foreground">This is optional, but helps other users find useful decks.</p>
                 {rated ? (
-                  <p className="mt-3 text-sm text-primary">Спасибо, оценка сохранена.</p>
+                  <p className="mt-3 text-sm text-primary">Thanks, your rating was saved.</p>
                 ) : (
                   <div className="mt-3 flex justify-center gap-1">
                     {[1, 2, 3, 4, 5].map((value) => (
@@ -231,22 +231,22 @@ function StudyPage() {
                 className={`flip-card cursor-pointer ${flipped ? "is-flipped" : ""}`}
                 onClick={() => setFlipped((f) => !f)}
                 role="button"
-                aria-label="Перевернуть карточку"
+                aria-label="Flip card"
               >
                 <div className="flip-face rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
                   <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold mb-6">
-                    Слово
+                    Word
                   </span>
                   <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-foreground">
                     {current.term}
                   </p>
                   <span className="mt-8 text-xs text-muted-foreground">
-                    Нажмите карточку или пробел, чтобы перевернуть
+                    Click the card or press Space to flip
                   </span>
                 </div>
                 <div className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
                   <span className="text-xs uppercase tracking-[0.2em] opacity-70 font-semibold mb-6">
-                    Перевод
+                    Translation
                   </span>
                   <p className="font-display text-3xl md:text-4xl font-bold leading-snug">
                     {current.definition}
@@ -263,21 +263,21 @@ function StudyPage() {
                 className="rounded-full h-14 text-base border-border hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40"
                 onClick={handleAgain}
               >
-                <X className="h-5 w-5" /> Ещё раз
+                <X className="h-5 w-5" /> Try again
               </Button>
               <Button
                 size="lg"
                 className="rounded-full h-14 text-base bg-success text-white hover:bg-success/90"
                 onClick={handleKnown}
               >
-                <Check className="h-5 w-5" /> Знаю
+                <Check className="h-5 w-5" /> Know it
               </Button>
             </div>
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Пробел</kbd> — перевернуть ·{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> ещё раз ·{" "}
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">→</kbd> знаю
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> — flip ·{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> again ·{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">→</kbd> know it
             </p>
           </>
         )}

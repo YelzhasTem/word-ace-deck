@@ -60,7 +60,7 @@ function DeckLoading() {
       <main className="mx-auto max-w-4xl px-6 py-10">
         <div className="mb-8 inline-flex items-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin text-accent" />
-          Загрузка колоды...
+          Loading deck...
         </div>
 
         <div className="mb-10 flex flex-wrap items-start justify-between gap-4">
@@ -158,7 +158,7 @@ function DeckPage() {
       setAiText(text);
       setAiSeed(nextSeed);
     } catch (e) {
-      setAiError(e instanceof Error ? e.message : "Не удалось сгенерировать текст");
+      setAiError(e instanceof Error ? e.message : "Could not generate text");
     }
     setAiLoading(false);
   };
@@ -170,8 +170,8 @@ function DeckPage() {
       <div className="min-h-screen">
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Колода не найдена</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">На главную</Link>
+          <h1 className="font-display text-3xl">Deck not found</h1>
+          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
         </main>
       </div>
     );
@@ -215,7 +215,7 @@ function DeckPage() {
           to="/"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground mb-8"
         >
-          <ArrowLeft className="h-4 w-4" /> Все колоды
+          <ArrowLeft className="h-4 w-4" /> All decks
         </Link>
 
         <div className="flex flex-wrap items-start justify-between gap-4 mb-10">
@@ -225,8 +225,8 @@ function DeckPage() {
               <p className="mt-3 text-muted-foreground max-w-xl">{deck.description}</p>
             )}
             <p className="mt-4 text-sm text-muted-foreground">
-              {total} {plural(total, ["карточка", "карточки", "карточек"])} ·{" "}
-              {known} {plural(known, ["выучена", "выучено", "выучено"])}
+              {total} {plural(total, ["card", "cards", "cards"])} ·{" "}
+              {known} {plural(known, ["learned", "learned", "learned"])}
             </p>
           </div>
           <div className="flex gap-2">
@@ -236,14 +236,14 @@ function DeckPage() {
               onClick={() => resetProgress(deck.id)}
               disabled={!deck.cards.length}
             >
-              <RotateCcw className="h-4 w-4" /> Сбросить
+              <RotateCcw className="h-4 w-4" /> Reset
             </Button>
             <Button
               className="rounded-full"
               onClick={() => navigate({ to: "/study/$deckId", params: { deckId: deck.id } })}
               disabled={!deck.cards.length}
             >
-              <Play className="h-4 w-4" /> Учить
+              <Play className="h-4 w-4" /> Study
             </Button>
           </div>
         </div>
@@ -326,15 +326,15 @@ function DeckPage() {
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-4">
             <div className="flex-1">
               <h2 className="font-display text-xl flex items-center gap-2">
-                <Hourglass className="h-5 w-5 text-accent" /> Отложенное припоминание
+                <Hourglass className="h-5 w-5 text-accent" /> Delayed Recall
               </h2>
               <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                Улучшайте долговременную память — повторяйте слова через возрастающие интервалы
-                (10 мин · 1 д · 3 д · 7 д · 14 д · 30 д), а не сразу несколько раз подряд.
+                Improve long-term memory by reviewing words at growing intervals
+                (10 min · 1 d · 3 d · 7 d · 14 d · 30 d), instead of cramming them all at once.
               </p>
             </div>
             <label className="flex items-center gap-3 shrink-0 cursor-pointer">
-              <span className="text-sm font-medium">{recallEnabled ? "ВКЛ" : "ВЫКЛ"}</span>
+              <span className="text-sm font-medium">{recallEnabled ? "ON" : "OFF"}</span>
               <Switch checked={recallEnabled} onCheckedChange={toggleRecall} />
             </label>
           </div>
@@ -343,26 +343,26 @@ function DeckPage() {
             <div className="animate-in fade-in slide-in-from-top-1 duration-300">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">К повтору</p>
+                  <p className="text-xs text-muted-foreground">To review</p>
                   <p className="font-display text-2xl">{recallSummary.ready}</p>
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">В очереди</p>
+                  <p className="text-xs text-muted-foreground">Upcoming</p>
                   <p className="font-display text-2xl">{recallSummary.upcoming}</p>
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Удержание</p>
+                  <p className="text-xs text-muted-foreground">Retention</p>
                   <p className="font-display text-2xl">{recallSummary.retention !== null ? `${recallSummary.retention}%` : "—"}</p>
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Освоено</p>
+                  <p className="text-xs text-muted-foreground">Mastered</p>
                   <p className="font-display text-2xl">{recallSummary.mastered}</p>
                 </div>
               </div>
               {recallSummary.ready > 0 && (
                 <div className="rounded-2xl bg-accent/10 text-foreground px-4 py-3 text-sm mb-4 flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-accent" />
-                  {recallSummary.ready} {recallSummary.ready === 1 ? "слово готово" : "слов готовы"} к припоминанию — сессия ждёт.
+                  {recallSummary.ready} {recallSummary.ready === 1 ? "word ready" : "words ready"} for recall — a session is waiting.
                 </div>
               )}
               <div className="flex justify-end">
@@ -371,7 +371,7 @@ function DeckPage() {
                   onClick={() => navigate({ to: "/recall/$deckId", params: { deckId: deck.id } })}
                   disabled={recallSummary.ready === 0}
                 >
-                  <Hourglass className="h-4 w-4" /> Начать сессию
+                  <Hourglass className="h-4 w-4" /> Start session
                 </Button>
               </div>
             </div>
@@ -382,17 +382,17 @@ function DeckPage() {
         {deck.cards.length > 0 && (
           <section className="mb-8 rounded-3xl border border-border bg-card p-6">
             <h2 className="font-display text-xl mb-4 flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-accent" /> Режимы обучения
+              <Sparkles className="h-5 w-5 text-accent" /> Study modes
             </h2>
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
-                { to: "/review/$deckId", icon: CalendarClock, title: "Ежедневный повтор", desc: "SRS-очередь: только слова, которые пора повторить." },
-                { to: "/type/$deckId", icon: Keyboard, title: "Ввод перевода", desc: "Активное припоминание, нечёткое сравнение." },
-                { to: "/builder/$deckId", icon: Shuffle, title: "Word builder", desc: "Соберите слово из букв. 3 уровня сложности." },
-                { to: "/blank/$deckId", icon: FileQuestion, title: "Fill-in-the-blank", desc: "Слово в контексте: выбор, банк или ввод." },
-                { to: "/speed/$deckId", icon: Zap, title: "Speed challenge", desc: "30/60/120 сек. Комбо и рекорды." },
-                { to: "/assoc/$deckId", icon: Lightbulb, title: "Ассоциации", desc: "Мнемоники от ИИ и собственные." },
-                { to: "/deep/$deckId", icon: Brain, title: "Deep learning", desc: "4 варианта перевода." },
+                { to: "/review/$deckId", icon: CalendarClock, title: "Daily review", desc: "SRS queue: only words due for review." },
+                { to: "/type/$deckId", icon: Keyboard, title: "Typed translation", desc: "Active recall with fuzzy matching." },
+                { to: "/builder/$deckId", icon: Shuffle, title: "Word builder", desc: "Build the word from letters. 3 difficulty levels." },
+                { to: "/blank/$deckId", icon: FileQuestion, title: "Fill-in-the-blank", desc: "A word in context: choices, word bank, or free input." },
+                { to: "/speed/$deckId", icon: Zap, title: "Speed challenge", desc: "30/60/120 sec. Combos and records." },
+                { to: "/assoc/$deckId", icon: Lightbulb, title: "Associations", desc: "AI mnemonics and your own." },
+                { to: "/deep/$deckId", icon: Brain, title: "Deep learning", desc: "4 translation options." },
               ].map((m) => {
                 const disabled = m.to === "/deep/$deckId" && deck.cards.length < 4;
                 return (
@@ -418,17 +418,17 @@ function DeckPage() {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h2 className="font-display text-xl flex items-center gap-2">
-                  <LineChart className="h-5 w-5 text-accent" /> AI-разбор
+                  <LineChart className="h-5 w-5 text-accent" /> AI feedback
                 </h2>
                 <p className="mt-1 text-sm text-muted-foreground max-w-md">
-                  Анализ сессии, слабые слова, план на завтра — всё на основе вашей статистики.
+                  Session analysis, weak words, and a plan for tomorrow based on your stats.
                 </p>
               </div>
               <Button
                 className="rounded-full shrink-0"
                 onClick={() => navigate({ to: "/feedback/$deckId", params: { deckId: deck.id } })}
               >
-                <Sparkles className="h-4 w-4" /> Открыть разбор
+                <Sparkles className="h-4 w-4" /> Open feedback
               </Button>
             </div>
           </section>
@@ -444,24 +444,24 @@ function DeckPage() {
           const mastered = answered.filter((x) => x.mastery >= 0.75).length;
           return (
             <section className="mb-8 rounded-3xl border border-border bg-card p-6">
-              <h2 className="font-display text-xl mb-4">Статистика</h2>
+              <h2 className="font-display text-xl mb-4">Stats</h2>
               <div className="grid grid-cols-3 gap-3 mb-4">
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Ответов</p>
+                  <p className="text-xs text-muted-foreground">Answers</p>
                   <p className="font-display text-2xl">{totalCorrect + totalWrong}</p>
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Точность</p>
+                  <p className="text-xs text-muted-foreground">Accuracy</p>
                   <p className="font-display text-2xl">{acc !== null ? `${acc}%` : "—"}</p>
                 </div>
                 <div className="rounded-2xl bg-background border border-border px-4 py-3">
-                  <p className="text-xs text-muted-foreground">Освоено</p>
+                  <p className="text-xs text-muted-foreground">Mastered</p>
                   <p className="font-display text-2xl">{mastered}<span className="text-base text-muted-foreground"> / {deck.cards.length}</span></p>
                 </div>
               </div>
               {weak.length > 0 && (
                 <div>
-                  <p className="text-sm font-semibold mb-2">Слабые слова</p>
+                  <p className="text-sm font-semibold mb-2">Weak words</p>
                   <div className="flex flex-wrap gap-2">
                     {weak.map((id) => {
                       const c = deck.cards.find((x) => x.id === id);
@@ -485,20 +485,20 @@ function DeckPage() {
           onSubmit={handleAdd}
           className="rounded-3xl border border-border bg-card p-6 mb-10"
         >
-          <h2 className="font-display text-xl mb-4">Добавить карточку</h2>
+          <h2 className="font-display text-xl mb-4">Add card</h2>
           <div className="grid md:grid-cols-[1fr_1.4fr_auto] gap-3">
             <Input
-              placeholder="Английское слово"
+              placeholder="English word"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
             />
             <Input
-              placeholder="Перевод или определение"
+              placeholder="Translation or definition"
               value={def}
               onChange={(e) => setDef(e.target.value)}
             />
             <Button type="submit" className="rounded-full">
-              <Plus className="h-4 w-4" /> Добавить
+              <Plus className="h-4 w-4" /> Add
             </Button>
           </div>
         </form>
@@ -507,7 +507,7 @@ function DeckPage() {
         <div className="space-y-3">
           {deck.cards.length === 0 ? (
             <div className="rounded-3xl border border-dashed border-border p-12 text-center text-muted-foreground">
-              Добавьте первую карточку выше, чтобы начать учить.
+              Add your first card above to start studying.
             </div>
           ) : (
             deck.cards.map((card) => (
@@ -521,13 +521,13 @@ function DeckPage() {
                 </div>
                 {card.known && (
                   <span className="text-xs px-2 py-1 rounded-full bg-[color:var(--success)]/15 text-[color:var(--success)] font-medium">
-                    Выучено
+                    Learned
                   </span>
                 )}
                 <button
                   onClick={() => deleteCard(deck.id, card.id)}
                   className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
-                  aria-label="Удалить карточку"
+                  aria-label="Delete card"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -541,11 +541,11 @@ function DeckPage() {
           <div className="flex flex-wrap items-start justify-between gap-3 mb-4">
             <div>
               <h2 className="font-display text-2xl flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-accent" /> Текст для активного повторения
+                <Sparkles className="h-5 w-5 text-accent" /> Text for active review
               </h2>
               <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                ИИ составит короткий английский текст со всеми словами колоды — читайте и
-                встречайте слова в живом контексте.
+                AI will write a short English text using all words in the deck — read it and
+                meet the words in living context.
               </p>
             </div>
             <div className="flex gap-2">
@@ -569,14 +569,14 @@ function DeckPage() {
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                {aiText ? "Сгенерировать ещё" : "Сгенерировать"}
+                {aiText ? "Generate again" : "Generate"}
               </Button>
             </div>
           </div>
 
           {deck.cards.length === 0 && (
             <p className="text-sm text-muted-foreground">
-              Добавьте хотя бы одну карточку, чтобы сгенерировать текст.
+              Add at least one card to generate a text.
             </p>
           )}
 
@@ -588,7 +588,7 @@ function DeckPage() {
 
           {aiLoading && !aiText && (
             <div className="rounded-2xl border border-dashed border-border p-8 text-center text-muted-foreground text-sm">
-              Готовим текст…
+              Preparing text...
             </div>
           )}
 

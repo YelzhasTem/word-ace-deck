@@ -157,21 +157,21 @@ export function useDecks() {
   );
 
   const notAuth = () =>
-    toast.error("Войдите в аккаунт, чтобы создавать колоды и карточки");
+    toast.error("Sign in to create decks and cards");
 
   const onError = (msg: string) => (error: unknown) => {
     if (error instanceof Error && error.message.includes("Unauthorized")) return notAuth();
-    toast.error(`${msg}: ${error instanceof Error ? error.message : "неизвестная ошибка"}`);
+    toast.error(`${msg}: ${error instanceof Error ? error.message : "unknown error"}`);
   };
 
   const createDeckMut = useMutation({
     mutationFn: (vars: { name: string; description: string; collectionId?: string | null }) =>
       createDeckFn({ data: vars }),
     onSuccess: () => {
-      toast.success("Колода создана");
+      toast.success("Deck created");
       invalidate();
     },
-    onError: onError("Не удалось создать колоду"),
+    onError: onError("Could not create deck"),
   });
 
   const createDeckWithCardsMut = useMutation({
@@ -183,17 +183,17 @@ export function useDecks() {
     }) => createDeckWithCardsFn({ data: vars }),
     onSuccess: (data) => {
       data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
-      toast.success("Колода создана");
+      toast.success("Deck created");
       invalidate();
       queryClient.invalidateQueries({ queryKey: ["my-collections"] });
     },
-    onError: onError("Не удалось создать колоду"),
+    onError: onError("Could not create deck"),
   });
 
   const deleteDeckMut = useMutation({
     mutationFn: (id: string) => deleteDeckFn({ data: { id } }),
     onSuccess: invalidate,
-    onError: onError("Не удалось удалить"),
+    onError: onError("Could not delete"),
   });
 
   const addCardMut = useMutation({
@@ -203,13 +203,13 @@ export function useDecks() {
       if (data?.id) scheduleNewCard(vars.deckId, data.id);
       invalidate();
     },
-    onError: onError("Не удалось добавить карточку"),
+    onError: onError("Could not add card"),
   });
 
   const deleteCardMut = useMutation({
     mutationFn: (cardId: string) => deleteCardFn({ data: { id: cardId } }),
     onSuccess: invalidate,
-    onError: onError("Не удалось удалить карточку"),
+    onError: onError("Could not delete card"),
   });
 
   const markCardMut = useMutation({
@@ -232,14 +232,14 @@ export function useDecks() {
     },
     onError: (error, _vars, ctx) => {
       if (ctx?.prev) queryClient.setQueryData(DECKS_KEY, ctx.prev);
-      onError("Не удалось сохранить прогресс")(error);
+      onError("Could not save progress")(error);
     },
   });
 
   const resetProgressMut = useMutation({
     mutationFn: (deckId: string) => resetDeckProgressFn({ data: { deckId } }),
     onSuccess: invalidate,
-    onError: onError("Не удалось сбросить"),
+    onError: onError("Could not reset"),
   });
 
   return {

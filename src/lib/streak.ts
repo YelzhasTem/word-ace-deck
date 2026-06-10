@@ -76,7 +76,7 @@ function computeLongest(days: string[]): number {
 
 export type WeekDay = {
   date: string;
-  label: string; // Пн, Вт...
+  label: string; // Mon, Tue...
   dayNum: number;
   active: boolean;
   isToday: boolean;
@@ -86,7 +86,7 @@ export type WeekDay = {
 // Returns 7 entries for the current week (Mon..Sun)
 function buildWeek(days: string[]): WeekDay[] {
   const set = new Set(days);
-  const labels = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const labels = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
   const today = new Date();
   const todayK = todayKey(today);
   // Monday of current week
