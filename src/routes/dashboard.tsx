@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -159,8 +159,8 @@ function Home() {
     }
   };
 
-  const handleLookup = async () => {
-    const w = wordInput.trim();
+  const handleLookup = useCallback(async (word: string) => {
+    const w = word.trim();
     if (!w) return;
     setTrLoading(true);
     setTrError("");
@@ -174,7 +174,18 @@ function Home() {
     } finally {
       setTrLoading(false);
     }
-  };
+  }, [fetchTranslations]);
+
+  useEffect(() => {
+    const word = wordInput.trim();
+    if (trWord || !word) return;
+
+    const timeout = window.setTimeout(() => {
+      void handleLookup(word);
+    }, 450);
+
+    return () => window.clearTimeout(timeout);
+  }, [handleLookup, wordInput, trWord]);
 
   const handlePickTranslation = (translation: string) => {
     setManualCards((prev) => [...prev, { term: trWord, definition: translation }]);
@@ -185,6 +196,7 @@ function Home() {
   };
 
   const handleCancelLookup = () => {
+    setWordInput("");
     setTrWord("");
     setTrOptions([]);
     setTrError("");
@@ -337,31 +349,12 @@ function Home() {
                       <div className="space-y-2 pt-2 border-t border-border/60">
                         <label className="text-sm font-medium">{t("create.addWord")}</label>
                         {!trWord ? (
-                          <div className="flex gap-2">
-                            <Input
-                              placeholder={t("create.wordPh")}
-                              value={wordInput}
-                              onChange={(e) => setWordInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" && !trLoading) {
-                                  e.preventDefault();
-                                  handleLookup();
-                                }
-                              }}
-                              disabled={trLoading}
-                            />
-                            <Button
-                              type="button"
-                              onClick={handleLookup}
-                              disabled={trLoading || !wordInput.trim()}
-                            >
-                              {trLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                t("create.find")
-                              )}
-                            </Button>
-                          </div>
+                          <Input
+                            placeholder={t("create.wordPh")}
+                            value={wordInput}
+                            onChange={(e) => setWordInput(e.target.value)}
+                            disabled={trLoading}
+                          />
                         ) : (
                           <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
                             <div className="flex items-center justify-between">
