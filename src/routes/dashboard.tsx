@@ -20,7 +20,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
-import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid } from "lucide-react";
+import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid, Globe2 } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
 import { useCollections } from "@/lib/collections";
@@ -673,6 +673,13 @@ function Home() {
                           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
                         >
                           <LayoutGrid className="h-3.5 w-3.5" /> {t("home.modes")}
+                        </Link>
+                        <Link
+                          to="/publish"
+                          search={{ type: "deck", id: deck.id }}
+                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
+                        >
+                          <Globe2 className="h-3.5 w-3.5" /> Publish
                         </Link>
                       </div>
                       <button

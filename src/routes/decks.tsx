@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { BookOpen, LayoutGrid, Search } from "lucide-react";
+import { BookOpen, Globe2, LayoutGrid, Search } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -119,6 +119,13 @@ function DecksPage() {
                       className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
                     >
                       <LayoutGrid className="h-3.5 w-3.5" /> {t("home.modes")}
+                    </Link>
+                    <Link
+                      to="/publish"
+                      search={{ type: "deck", id: deck.id }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary transition-colors hover:bg-primary/20"
+                    >
+                      <Globe2 className="h-3.5 w-3.5" /> Publish
                     </Link>
                   </div>
                 </div>
