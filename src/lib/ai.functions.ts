@@ -140,11 +140,18 @@ function uniqueTranslations(values: string[]) {
     .slice(0, 5);
 }
 
-async function fetchTranslatorOptions(word: string) {
+function getTranslationDirection(word: string) {
+  const hasCyrillic = /[\u0400-\u04ff]/.test(word);
+  return hasCyrillic
+    ? { source: "ru", target: "en", label: "Russian to English" }
+    : { source: "en", target: "ru", label: "English to Russian" };
+}
+
+async function fetchTranslatorOptions(word: string, source: string, target: string) {
   const endpoint = new URL("https://translate.googleapis.com/translate_a/single");
   endpoint.searchParams.set("client", "gtx");
-  endpoint.searchParams.set("sl", "en");
-  endpoint.searchParams.set("tl", "ru");
+  endpoint.searchParams.set("sl", source);
+  endpoint.searchParams.set("tl", target);
   endpoint.searchParams.set("dt", "t");
   endpoint.searchParams.set("q", word);
 
@@ -236,13 +243,16 @@ export const getTranslations = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const translatorOptions = await fetchTranslatorOptions(data.word);
+    const direction = getTranslationDirection(data.word);
+    const translatorOptions = await fetchTranslatorOptions(data.word, direction.source, direction.target);
     if (translatorOptions.length > 0) {
-      return { translations: translatorOptions };
+      return { translations: translatorOptions, direction: direction.label };
     }
 
     const system =
-      "Ты англо-русский словарь. Получаешь английское слово или выражение и возвращаешь до 5 наиболее частых переводов на русский язык. Отвечай только валидным JSON без Markdown. Формат: " +
+      `${direction.source === "ru" ? "Ты русско-английский словарь" : "Ты англо-русский словарь"}. ` +
+      `Получаешь ${direction.source === "ru" ? "русское" : "английское"} слово или выражение и возвращаешь до 5 наиболее частых переводов на ${direction.target === "en" ? "английский" : "русский"} язык. ` +
+      "Отвечай только валидным JSON без Markdown. Формат: " +
       '{"translations":["перевод 1","перевод 2","перевод 3"]}. Каждый перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
 
     const user = `Слово: "${data.word}". Дай разные значения и оттенки смысла, если они есть.`;
@@ -261,7 +271,7 @@ export const getTranslations = createServerFn({ method: "POST" })
       throw new Error("Не удалось получить переводы. Попробуйте другое слово.");
     }
 
-    return { translations };
+    return { translations, direction: direction.label };
   });
 
 function stripHtml(html: string): string {

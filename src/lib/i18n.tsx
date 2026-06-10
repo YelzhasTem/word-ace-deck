@@ -64,7 +64,7 @@ const dict = {
     "create.descLabel": "Description (Optional)",
     "create.descPh": "Add a description for your deck...",
     "create.addWord": "Add a word",
-    "create.wordPh": "Type an English word",
+    "create.wordPh": "Type an English or Russian word",
     "create.pickTr": "Pick a translation for",
     "create.cancel": "Cancel",
     "create.cardsIn": "Words in deck",

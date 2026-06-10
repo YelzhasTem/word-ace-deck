@@ -89,6 +89,7 @@ function Home() {
   const [trLoading, setTrLoading] = useState(false);
   const [trError, setTrError] = useState("");
   const [trWord, setTrWord] = useState("");
+  const [trDirection, setTrDirection] = useState("");
   const [trOptions, setTrOptions] = useState<string[]>([]);
   const fetchTranslations = useServerFn(getTranslations);
 
@@ -143,6 +144,7 @@ function Home() {
     setManualCards([]);
     setWordInput("");
     setTrWord("");
+    setTrDirection("");
     setTrOptions([]);
     setTrError("");
   };
@@ -165,10 +167,12 @@ function Home() {
     setTrLoading(true);
     setTrError("");
     setTrOptions([]);
+    setTrDirection("");
     setTrWord(w);
     try {
       const res = await fetchTranslations({ data: { word: w } });
       setTrOptions(res.translations);
+      setTrDirection(res.direction ?? "");
     } catch (err) {
       setTrError(err instanceof Error ? err.message : "Could not fetch translations");
     } finally {
@@ -191,6 +195,7 @@ function Home() {
     setManualCards((prev) => [...prev, { term: trWord, definition: translation }]);
     setWordInput("");
     setTrWord("");
+    setTrDirection("");
     setTrOptions([]);
     setTrError("");
   };
@@ -198,6 +203,7 @@ function Home() {
   const handleCancelLookup = () => {
     setWordInput("");
     setTrWord("");
+    setTrDirection("");
     setTrOptions([]);
     setTrError("");
   };
@@ -362,6 +368,9 @@ function Home() {
                                 Word:{" "}
                                 <span className="font-semibold text-foreground">{trWord}</span>
                               </p>
+                              {trDirection && (
+                                <span className="text-xs text-muted-foreground">{trDirection}</span>
+                              )}
                               <button
                                 type="button"
                                 onClick={handleCancelLookup}
