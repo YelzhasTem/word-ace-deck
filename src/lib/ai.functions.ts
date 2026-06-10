@@ -202,28 +202,34 @@ export const generateStudyText = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const variations = [
-      "короткая история",
-      "диалог двух друзей",
-      "новостная заметка",
-      "письмо другу",
-      "запись в дневнике",
-      "монолог от первого лица",
-      "забавный случай из жизни",
+      "a short story",
+      "a dialogue between two friends",
+      "a short news-style note",
+      "a letter to a friend",
+      "a diary entry",
+      "a first-person monologue",
+      "a realistic everyday situation",
     ];
     const variant = variations[(data.seed ?? 0) % variations.length];
 
     const system =
-      "Ты преподаватель английского для русскоязычных студентов. Пиши короткие связные тексты на английском уровня B1-B2, которые помогают активно повторять заданные слова в естественном контексте.";
+      "You are an English teacher. Write short, natural, connected English texts for B1-B2 learners. The entire response must be in English only. Do not use Russian or Cyrillic characters.";
 
     const user =
-      `Напиши на английском ${variant} примерно на 110-160 слов, используя все перечисленные слова и выражения. ` +
-      `Каждое из этих слов должно встретиться хотя бы один раз и быть выделено жирным с помощью Markdown-звездочек. ` +
-      `Сохраняй формы слов естественными: спряжения, число и т.п. ` +
-      `После текста добавь раздел "**Перевод ключевых слов:**" со списком "- **word** — перевод" для каждого слова.\n\n` +
-      `${data.deckName ? `Тема колоды: ${data.deckName}.\n` : ""}` +
-      `Слова: ${data.words.join(", ")}.`;
+      `Write ${variant} of about 110-160 words using every listed word or phrase at least once. ` +
+      `Bold each listed word or phrase with Markdown asterisks when it appears. ` +
+      `Use natural forms when needed: tense, number, articles, and word order may change naturally. ` +
+      `Do not add translations, explanations, vocabulary lists, headings in Russian, or any Cyrillic text. Return only the English review text.\n\n` +
+      `${data.deckName ? `Deck topic: ${data.deckName}.\n` : ""}` +
+      `Words: ${data.words.join(", ")}.`;
 
-    const text = await callGemini(system, user);
+    let text = await callGemini(system, user);
+    if (hasCyrillic(text)) {
+      text = await callGemini(
+        "Rewrite the provided review text in English only. Do not use Russian or Cyrillic characters. Keep the same learning words bolded with Markdown asterisks.",
+        text,
+      );
+    }
     return { text };
   });
 
