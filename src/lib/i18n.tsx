@@ -28,6 +28,7 @@ const dict = {
     "home.searchNothing": "Nothing found",
     "home.study": "Study",
     "home.deleteDeck": "Delete deck",
+    "home.settings": "Settings",
     "home.toCollections": "Go to collections",
     "home.deleteDeckTitle": "Delete this deck?",
     "home.deleteDeckDescGeneric": "The deck and all its cards will be permanently removed.",

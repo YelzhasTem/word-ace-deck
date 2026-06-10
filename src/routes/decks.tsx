@@ -122,30 +122,44 @@ function DecksPage() {
                   key={deck.id}
                   className="rounded-3xl border border-border/70 bg-card p-6 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-card)]"
                 >
-                  <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="block">
-                    <h2 className="font-display text-xl font-bold leading-tight tracking-tight">
-                      {deck.name}
-                    </h2>
-                    {deck.description && (
-                      <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                        {deck.description}
-                      </p>
-                    )}
-                    <div className="mt-6">
-                      <div className="mb-1.5 flex justify-between text-xs font-medium text-muted-foreground">
-                        <span>
-                          {total} {t("home.cards.suffix")}
-                        </span>
-                        <span className="text-primary tabular-nums">{pct}%</span>
+                  <div className="flex items-start justify-between gap-3">
+                    <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="block min-w-0">
+                      <h2 className="font-display text-xl font-bold leading-tight tracking-tight">
+                        {deck.name}
+                      </h2>
+                      {deck.description && (
+                        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                          {deck.description}
+                        </p>
+                      )}
+                      <div className="mt-6">
+                        <div className="mb-1.5 flex justify-between text-xs font-medium text-muted-foreground">
+                          <span>
+                            {total} {t("home.cards.suffix")}
+                          </span>
+                          <span className="text-primary tabular-nums">{pct}%</span>
+                        </div>
+                        <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                          <div
+                            className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
-                        <div
-                          className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                  </Link>
+                    </Link>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setEditDeckId(deck.id);
+                      }}
+                      className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                      aria-label={t("home.settings")}
+                    >
+                      <Settings2 className="h-4 w-4" />
+                    </button>
+                  </div>
 
                   <div className="mt-5 flex items-center gap-2">
                     <Link
