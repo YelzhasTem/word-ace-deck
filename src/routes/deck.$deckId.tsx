@@ -541,16 +541,6 @@ function DeckPage() {
               </p>
             </div>
             <div className="flex gap-2">
-              {aiText && (
-                <Button
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => runGenerate(aiSeed + 1)}
-                  disabled={aiLoading}
-                >
-                  <RotateCcw className="h-4 w-4" /> Reset
-                </Button>
-              )}
               <Button
                 className="rounded-full"
                 onClick={() => runGenerate(aiText ? aiSeed + 1 : 0)}
