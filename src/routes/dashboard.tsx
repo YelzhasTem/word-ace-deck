@@ -99,6 +99,7 @@ function Home() {
   const [trLoading, setTrLoading] = useState(false);
   const [trError, setTrError] = useState("");
   const [trWord, setTrWord] = useState("");
+  const [trOriginalWord, setTrOriginalWord] = useState("");
   const [trDirection, setTrDirection] = useState("");
   const [trOptions, setTrOptions] = useState<string[]>([]);
   const fetchTranslations = useServerFn(getTranslations);
@@ -157,6 +158,7 @@ function Home() {
     setManualCards([]);
     setWordInput("");
     setTrWord("");
+    setTrOriginalWord("");
     setTrDirection("");
     setTrOptions([]);
     setTrError("");
@@ -181,9 +183,15 @@ function Home() {
     setTrError("");
     setTrOptions([]);
     setTrDirection("");
+    setTrOriginalWord("");
     setTrWord(w);
     try {
       const res = await fetchTranslations({ data: { word: w } });
+      const correctedWord = res.correctedWord?.trim() ?? "";
+      if (correctedWord) {
+        setTrWord(correctedWord);
+        setTrOriginalWord(res.originalWord?.trim() || w);
+      }
       setTrOptions(res.translations);
       setTrDirection(res.direction ?? "");
     } catch (err) {
@@ -199,6 +207,7 @@ function Home() {
     );
     setWordInput("");
     setTrWord("");
+    setTrOriginalWord("");
     setTrDirection("");
     setTrOptions([]);
     setTrError("");
@@ -207,6 +216,7 @@ function Home() {
   const handleCancelLookup = () => {
     setWordInput("");
     setTrWord("");
+    setTrOriginalWord("");
     setTrDirection("");
     setTrOptions([]);
     setTrError("");
@@ -418,6 +428,14 @@ function Home() {
                                 {t("create.cancel")}
                               </button>
                             </div>
+                            {trOriginalWord && (
+                              <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-muted-foreground">
+                                {t("create.corrected")}{" "}
+                                <span className="font-semibold text-foreground">{trOriginalWord}</span>{" "}
+                                {t("create.correctedTo")}{" "}
+                                <span className="font-semibold text-foreground">{trWord}</span>.
+                              </p>
+                            )}
                             {trLoading ? (
                               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                                 <Loader2 className="h-4 w-4 animate-spin text-accent" />

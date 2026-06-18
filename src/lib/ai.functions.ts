@@ -82,7 +82,7 @@ function isRetryableGeminiStatus(status: number) {
   return status === 429 || status === 503;
 }
 
-async function callGemini(system: string, user: string, options?: { json?: boolean }) {
+async function callGemini(system: string, user: string, options?: { json?: boolean; temperature?: number }) {
   const apiKey = getGeminiApiKey();
   let lastRetryableError = "";
 
@@ -107,7 +107,7 @@ async function callGemini(system: string, user: string, options?: { json?: boole
             },
           ],
           generationConfig: {
-            temperature: 0.7,
+            temperature: options?.temperature ?? 0.7,
             ...(options?.json ? { responseMimeType: "application/json" } : {}),
           },
         }),
@@ -168,6 +168,19 @@ function getTranslationDirection(word: string) {
   return hasCyrillic
     ? { source: "ru", target: "en", label: "Russian to English" }
     : { source: "en", target: "ru", label: "English to Russian" };
+}
+
+function normalizeLookupWord(word: string) {
+  return cleanText(word, 80).toLocaleLowerCase("en-US");
+}
+
+function getValidCorrection(inputWord: string, correctedWord: unknown, source: string) {
+  const corrected = cleanText(correctedWord, 80);
+  if (!corrected) return "";
+  if (normalizeLookupWord(corrected) === normalizeLookupWord(inputWord)) return "";
+  if (source === "en" && hasCyrillic(corrected)) return "";
+  if (source === "ru" && hasCyrillic(inputWord) && !hasCyrillic(corrected)) return "";
+  return corrected;
 }
 
 async function fetchTranslatorOptions(word: string, source: string, target: string) {
@@ -273,35 +286,53 @@ export const getTranslations = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data }) => {
-    const direction = getTranslationDirection(data.word);
-    const translatorOptions = await fetchTranslatorOptions(data.word, direction.source, direction.target);
-    if (translatorOptions.length > 0) {
-      return { translations: translatorOptions, direction: direction.label };
-    }
+    const inputWord = cleanText(data.word, 80);
+    const inputDirection = getTranslationDirection(inputWord);
+    let correctedWord = "";
+    let aiTranslations: string[] = [];
 
     const system =
-      `${direction.source === "ru" ? "Ты русско-английский словарь" : "Ты англо-русский словарь"}. ` +
-      `Получаешь ${direction.source === "ru" ? "русское" : "английское"} слово или выражение и возвращаешь до 5 наиболее частых переводов на ${direction.target === "en" ? "английский" : "русский"} язык. ` +
+      `${inputDirection.source === "ru" ? "Ты русско-английский словарь" : "Ты англо-русский словарь"}. ` +
+      `Получаешь ${inputDirection.source === "ru" ? "русское" : "английское"} слово или выражение. ` +
+      "Если в исходном слове есть очевидная опечатка и правильное слово можно уверенно понять, исправь его. Если не уверен, не исправляй. " +
+      "correctedWord должен быть исходным словом на том же языке, а не переводом. " +
+      `Верни до 5 наиболее частых переводов на ${inputDirection.target === "en" ? "английский" : "русский"} язык для исправленного слова или для исходного слова, если исправления нет. ` +
       "Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"translations":["перевод 1","перевод 2","перевод 3"]}. Каждый перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
+      '{"correctedWord":"исправленное слово или пустая строка","translations":["перевод 1","перевод 2","перевод 3"]}. Каждый перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
 
-    const user = `Слово: "${data.word}". Дай разные значения и оттенки смысла, если они есть.`;
+    const user = `Слово: "${inputWord}". Дай разные значения и оттенки смысла, если они есть.`;
 
-    const raw = await callGemini(system, user, { json: true });
-    const parsed = parseJsonResponse<{ translations?: string[] }>(
-      raw,
-      "ИИ вернул невалидный ответ. Попробуйте еще раз.",
-    );
+    try {
+      const raw = await callGemini(system, user, { json: true, temperature: 0.2 });
+      const parsed = parseJsonResponse<{ correctedWord?: string; translations?: string[] }>(
+        raw,
+        "ИИ вернул невалидный ответ. Попробуйте еще раз.",
+      );
 
-    const translations = uniqueTranslations(
-      (parsed.translations ?? []).filter((translation) => typeof translation === "string"),
-    );
+      correctedWord = getValidCorrection(inputWord, parsed.correctedWord, inputDirection.source);
+      aiTranslations = uniqueTranslations(
+        (parsed.translations ?? []).filter((translation) => typeof translation === "string"),
+      );
+    } catch {
+      correctedWord = "";
+      aiTranslations = [];
+    }
+
+    const lookupWord = correctedWord || inputWord;
+    const direction = getTranslationDirection(lookupWord);
+    const translatorOptions = await fetchTranslatorOptions(lookupWord, direction.source, direction.target);
+    const translations = translatorOptions.length > 0 ? translatorOptions : aiTranslations;
 
     if (translations.length === 0) {
       throw new Error("Не удалось получить переводы. Попробуйте другое слово.");
     }
 
-    return { translations, direction: direction.label };
+    return {
+      translations,
+      direction: direction.label,
+      correctedWord: correctedWord || undefined,
+      originalWord: correctedWord ? inputWord : undefined,
+    };
   });
 
 function stripHtml(html: string): string {
