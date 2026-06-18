@@ -96,6 +96,7 @@ function Home() {
   const [desc, setDesc] = useState("");
   const [manualCards, setManualCards] = useState<{ term: string; definition: string }[]>([]);
   const [wordInput, setWordInput] = useState("");
+  const [definitionInput, setDefinitionInput] = useState("");
   const [trLoading, setTrLoading] = useState(false);
   const [trError, setTrError] = useState("");
   const [trWord, setTrWord] = useState("");
@@ -157,6 +158,7 @@ function Home() {
     setDesc("");
     setManualCards([]);
     setWordInput("");
+    setDefinitionInput("");
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
@@ -174,6 +176,21 @@ function Home() {
     } catch {
       // The mutation already shows the concrete save error.
     }
+  };
+
+  const handleAddManualCard = () => {
+    const term = wordInput.trim();
+    const definition = definitionInput.trim();
+    if (!term || !definition || manualCards.length >= MAX_DECK_CARDS) return;
+
+    setManualCards((prev) => [...prev, { term, definition }]);
+    setWordInput("");
+    setDefinitionInput("");
+    setTrWord("");
+    setTrOriginalWord("");
+    setTrDirection("");
+    setTrOptions([]);
+    setTrError("");
   };
 
   const handleLookup = useCallback(async (word: string) => {
@@ -206,6 +223,7 @@ function Home() {
       prev.length >= MAX_DECK_CARDS ? prev : [...prev, { term: trWord, definition: translation }],
     );
     setWordInput("");
+    setDefinitionInput("");
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
@@ -215,6 +233,7 @@ function Home() {
 
   const handleCancelLookup = () => {
     setWordInput("");
+    setDefinitionInput("");
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
@@ -377,7 +396,7 @@ function Home() {
                       <div className="space-y-2 pt-2 border-t border-border/60">
                         <label className="text-sm font-medium">{t("create.addWord")}</label>
                         {!trWord ? (
-                          <div className="flex gap-2">
+                          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
                             <Input
                               placeholder={t("create.wordPh")}
                               value={wordInput}
@@ -395,6 +414,37 @@ function Home() {
                               }}
                               disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
                             />
+                            <Input
+                              placeholder={t("create.translationPh")}
+                              value={definitionInput}
+                              onChange={(e) => setDefinitionInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "Enter" &&
+                                  wordInput.trim() &&
+                                  definitionInput.trim() &&
+                                  manualCards.length < MAX_DECK_CARDS
+                                ) {
+                                  e.preventDefault();
+                                  handleAddManualCard();
+                                }
+                              }}
+                              disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
+                            />
+                            <Button
+                              type="button"
+                              className="shrink-0"
+                              onClick={handleAddManualCard}
+                              disabled={
+                                trLoading ||
+                                !wordInput.trim() ||
+                                !definitionInput.trim() ||
+                                manualCards.length >= MAX_DECK_CARDS
+                              }
+                            >
+                              <Plus className="h-4 w-4" />
+                              {t("create.addManual")}
+                            </Button>
                             <Button
                               type="button"
                               variant="outline"

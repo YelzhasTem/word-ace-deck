@@ -64,6 +64,8 @@ const dict = {
     "create.descPh": "Add a description for your deck...",
     "create.addWord": "Add a word",
     "create.wordPh": "Type an English or Russian word",
+    "create.translationPh": "Type your translation",
+    "create.addManual": "Add",
     "create.findTr": "Find",
     "create.corrected": "Corrected",
     "create.correctedTo": "to",
