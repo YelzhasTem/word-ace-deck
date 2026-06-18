@@ -396,7 +396,7 @@ function Home() {
                       <div className="space-y-2 pt-2 border-t border-border/60">
                         <label className="text-sm font-medium">{t("create.addWord")}</label>
                         {!trWord ? (
-                          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto]">
+                          <div className="space-y-2">
                             <Input
                               placeholder={t("create.wordPh")}
                               value={wordInput}
@@ -431,34 +431,36 @@ function Home() {
                               }}
                               disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
                             />
-                            <Button
-                              type="button"
-                              className="shrink-0"
-                              onClick={handleAddManualCard}
-                              disabled={
-                                trLoading ||
-                                !wordInput.trim() ||
-                                !definitionInput.trim() ||
-                                manualCards.length >= MAX_DECK_CARDS
-                              }
-                            >
-                              <Plus className="h-4 w-4" />
-                              {t("create.addManual")}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="shrink-0"
-                              onClick={() => handleLookup(wordInput)}
-                              disabled={trLoading || !wordInput.trim() || manualCards.length >= MAX_DECK_CARDS}
-                            >
-                              {trLoading ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <Search className="h-4 w-4" />
-                              )}
-                              {t("create.findTr")}
-                            </Button>
+                            <div className="flex flex-col gap-2 sm:flex-row">
+                              <Button
+                                type="button"
+                                className="w-full sm:w-auto"
+                                onClick={handleAddManualCard}
+                                disabled={
+                                  trLoading ||
+                                  !wordInput.trim() ||
+                                  !definitionInput.trim() ||
+                                  manualCards.length >= MAX_DECK_CARDS
+                                }
+                              >
+                                <Plus className="h-4 w-4" />
+                                {t("create.addManual")}
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full sm:w-auto"
+                                onClick={() => handleLookup(wordInput)}
+                                disabled={trLoading || !wordInput.trim() || manualCards.length >= MAX_DECK_CARDS}
+                              >
+                                {trLoading ? (
+                                  <Loader2 className="h-4 w-4 animate-spin" />
+                                ) : (
+                                  <Search className="h-4 w-4" />
+                                )}
+                                {t("create.findTr")}
+                              </Button>
+                            </div>
                           </div>
                         ) : (
                           <div className="rounded-xl border border-border bg-muted/40 p-3 space-y-2">
