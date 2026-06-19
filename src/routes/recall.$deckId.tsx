@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Check, X, Hourglass, RotateCcw } from "lucide-react";
 import {
+  decksWithReadyRecall,
   dueRecallEntries,
   recordRecallAnswer,
   RECALL_STAGES,
-  isDelayedRecallEnabled,
+  isDeckDelayedRecallEnabled,
 } from "@/lib/delayed-recall";
 import { isCloseMatch } from "@/lib/stats";
 import { recordStreakToday } from "@/lib/streak";
@@ -22,7 +23,7 @@ export const Route = createFileRoute("/recall/$deckId")({
 function RecallPage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
-  const enabled = typeof window !== "undefined" ? isDelayedRecallEnabled() : false;
+  const enabled = typeof window !== "undefined" ? isDeckDelayedRecallEnabled(deckId) : false;
 
   const [queueIds, setQueueIds] = useState<string[]>([]);
   useEffect(() => {
@@ -62,7 +63,7 @@ function RecallPage() {
       <div className="min-h-screen"><SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Delayed Recall is turned off</h1>
-          <p className="mt-3 text-muted-foreground">Turn it on from the deck page to start a session.</p>
+          <p className="mt-3 text-muted-foreground">Turn it on for this deck from the deck page to start a session.</p>
           <Button asChild className="mt-8 rounded-full">
             <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
           </Button>
@@ -75,6 +76,7 @@ function RecallPage() {
   const total = cards.length;
   const finished = !current && total > 0;
   const empty = total === 0;
+  const nextReadyDeckId = decksWithReadyRecall().find((item) => item.deckId !== deck.id)?.deckId;
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -106,18 +108,32 @@ function RecallPage() {
             <p className="text-5xl mb-4">⏳</p>
             <h2 className="font-display text-3xl font-semibold">No words to recall</h2>
             <p className="mt-3 text-muted-foreground">No scheduled words are due yet. Check back later — we will remind you.</p>
-            <Button asChild className="mt-8 rounded-full">
-              <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
-            </Button>
+            <div className="mt-8 flex flex-col items-center justify-center gap-2 sm:flex-row">
+              {nextReadyDeckId && (
+                <Button asChild className="rounded-full">
+                  <Link to="/recall/$deckId" params={{ deckId: nextReadyDeckId }}>Start next deck</Link>
+                </Button>
+              )}
+              <Button asChild variant={nextReadyDeckId ? "outline" : "default"} className="rounded-full">
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
+              </Button>
+            </div>
           </div>
         ) : finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">🧠</p>
             <h2 className="font-display text-3xl font-semibold">Session complete</h2>
             <p className="mt-3 text-muted-foreground">Correct: {right} of {total}. Next intervals were calculated automatically.</p>
-            <Button asChild className="mt-8 rounded-full">
-              <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
-            </Button>
+            <div className="mt-8 flex flex-col items-center justify-center gap-2 sm:flex-row">
+              {nextReadyDeckId && (
+                <Button asChild className="rounded-full">
+                  <Link to="/recall/$deckId" params={{ deckId: nextReadyDeckId }}>Start next deck</Link>
+                </Button>
+              )}
+              <Button asChild variant={nextReadyDeckId ? "outline" : "default"} className="rounded-full">
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
+              </Button>
+            </div>
           </div>
         ) : current ? (
           <>

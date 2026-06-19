@@ -4,7 +4,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
 import { StreakCard } from "@/components/StreakCard";
-import { DelayedRecallDashboard } from "@/components/DelayedRecallDashboard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -728,12 +727,6 @@ function Home() {
         <section className="md:hidden mb-10">
           <StreakCard />
         </section>
-
-        {/* Delayed Recall dashboard */}
-        <section className="mb-10">
-          <DelayedRecallDashboard />
-        </section>
-
 
         {/* Decks */}
         <section>

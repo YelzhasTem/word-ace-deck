@@ -1,30 +1,25 @@
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
-import { useAllRecallSummary, useDelayedRecallEnabled, decksWithReadyRecall } from "@/lib/delayed-recall";
+import { useAllRecallSummary, decksWithReadyRecall } from "@/lib/delayed-recall";
 
 /**
- * One-shot toast per session when delayed-recall reviews are due.
- * Only fires when the feature is ON. Re-armed when ready count drops to 0.
+ * One-shot toast per ready deck when delayed-recall reviews are due.
  */
 export function RecallNotifier() {
-  const [enabled] = useDelayedRecallEnabled();
   const summary = useAllRecallSummary();
-  const notifiedRef = useRef(false);
+  const notifiedDeckRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!enabled) {
-      notifiedRef.current = false;
-      return;
-    }
     if (summary.ready === 0) {
-      notifiedRef.current = false;
+      notifiedDeckRef.current = null;
       return;
     }
-    if (notifiedRef.current) return;
-    notifiedRef.current = true;
 
     const decks = decksWithReadyRecall();
     const firstDeck = decks[0]?.deckId;
+    if (!firstDeck || notifiedDeckRef.current === firstDeck) return;
+    notifiedDeckRef.current = firstDeck;
+
     toast.message(
       summary.ready === 1
         ? "1 word is ready for recall"
@@ -41,7 +36,7 @@ export function RecallNotifier() {
           : undefined,
       },
     );
-  }, [enabled, summary.ready]);
+  }, [summary.ready]);
 
   return null;
 }

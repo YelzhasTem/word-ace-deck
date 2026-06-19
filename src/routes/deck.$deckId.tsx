@@ -30,7 +30,7 @@ import {
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 import {
-  useDelayedRecallEnabled,
+  useDeckDelayedRecallEnabled,
   useDeckRecallSummary,
   scheduleNewCard,
 } from "@/lib/delayed-recall";
@@ -146,12 +146,12 @@ function DeckPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string>("");
   const [aiSeed, setAiSeed] = useState(0);
-  const [recallEnabled, setRecallEnabled] = useDelayedRecallEnabled();
+  const [recallEnabled, setRecallEnabled] = useDeckDelayedRecallEnabled(deckId);
   const recallSummary = useDeckRecallSummary(deckId);
 
   const toggleRecall = (on: boolean) => {
     setRecallEnabled(on);
-    // When turning ON, backfill schedule for any existing cards.
+    // When turning ON, backfill schedule for this deck's existing cards.
     if (on && deck) {
       for (const c of deck.cards) scheduleNewCard(deck.id, c.id);
     }
@@ -271,8 +271,8 @@ function DeckPage() {
                 <Hourglass className="h-5 w-5 text-accent" /> Delayed Recall
               </h2>
               <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                Improve long-term memory by reviewing words at growing intervals (10 min · 1 d · 3 d
-                · 7 d · 14 d · 30 d), instead of cramming them all at once.
+                Improve long-term memory for this deck by reviewing its words at growing intervals
+                (10 min · 1 d · 3 d · 7 d · 14 d · 30 d), instead of cramming them all at once.
               </p>
             </div>
             <label className="flex items-center gap-3 shrink-0 cursor-pointer">

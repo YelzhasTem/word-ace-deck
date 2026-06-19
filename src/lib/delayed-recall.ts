@@ -1,23 +1,40 @@
 import { useEffect, useState } from "react";
 
-// ===== Settings =====
-const SETTINGS_KEY = "lingocards.delayedRecall.enabled";
+// ===== Deck-level settings =====
+const ENABLED_DECKS_KEY = "lingocards.delayedRecall.enabledDecks.v1";
 
-export function isDelayedRecallEnabled(): boolean {
-  if (typeof window === "undefined") return false;
-  return localStorage.getItem(SETTINGS_KEY) === "1";
+function loadEnabledDeckIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const parsed = JSON.parse(localStorage.getItem(ENABLED_DECKS_KEY) ?? "[]");
+    return new Set(Array.isArray(parsed) ? parsed.filter((id) => typeof id === "string") : []);
+  } catch {
+    return new Set();
+  }
 }
 
-export function setDelayedRecallEnabled(on: boolean) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(SETTINGS_KEY, on ? "1" : "0");
+function saveEnabledDeckIds(deckIds: Set<string>) {
+  localStorage.setItem(ENABLED_DECKS_KEY, JSON.stringify(Array.from(deckIds)));
   window.dispatchEvent(new Event("delayedRecall:changed"));
 }
 
-export function useDelayedRecallEnabled(): [boolean, (v: boolean) => void] {
+export function isDeckDelayedRecallEnabled(deckId: string): boolean {
+  if (typeof window === "undefined") return false;
+  return loadEnabledDeckIds().has(deckId);
+}
+
+export function setDeckDelayedRecallEnabled(deckId: string, on: boolean) {
+  if (typeof window === "undefined") return;
+  const deckIds = loadEnabledDeckIds();
+  if (on) deckIds.add(deckId);
+  else deckIds.delete(deckId);
+  saveEnabledDeckIds(deckIds);
+}
+
+export function useDeckDelayedRecallEnabled(deckId: string): [boolean, (v: boolean) => void] {
   const [on, setOn] = useState<boolean>(false);
   useEffect(() => {
-    const sync = () => setOn(isDelayedRecallEnabled());
+    const sync = () => setOn(isDeckDelayedRecallEnabled(deckId));
     sync();
     window.addEventListener("delayedRecall:changed", sync);
     window.addEventListener("storage", sync);
@@ -25,8 +42,8 @@ export function useDelayedRecallEnabled(): [boolean, (v: boolean) => void] {
       window.removeEventListener("delayedRecall:changed", sync);
       window.removeEventListener("storage", sync);
     };
-  }, []);
-  return [on, (v: boolean) => setDelayedRecallEnabled(v)];
+  }, [deckId]);
+  return [on, (v: boolean) => setDeckDelayedRecallEnabled(deckId, v)];
 }
 
 // ===== Schedule + memory model =====
@@ -82,7 +99,7 @@ function stageFromScore(score: number): RecallStageIdx {
 }
 
 export function scheduleNewCard(deckId: string, cardId: string) {
-  if (!isDelayedRecallEnabled()) return;
+  if (!isDeckDelayedRecallEnabled(deckId)) return;
   const state = loadState();
   const key = k(deckId, cardId);
   if (state[key]) return;
@@ -99,6 +116,7 @@ export function scheduleNewCard(deckId: string, cardId: string) {
 }
 
 export function recordRecallAnswer(deckId: string, cardId: string, correct: boolean) {
+  if (!isDeckDelayedRecallEnabled(deckId)) return;
   const state = loadState();
   const key = k(deckId, cardId);
   const e: RecallEntry = state[key] ?? {
@@ -122,6 +140,7 @@ export function recordRecallAnswer(deckId: string, cardId: string, correct: bool
 }
 
 export function getDeckRecall(deckId: string): RecallEntry[] {
+  if (!isDeckDelayedRecallEnabled(deckId)) return [];
   const state = loadState();
   return Object.values(state).filter((e) => e.deckId === deckId);
 }
@@ -159,7 +178,8 @@ export function summariseRecall(deckId: string): RecallSummary {
 }
 
 export function summariseAllRecall(): RecallSummary & { nextDue: number | null } {
-  const entries = Object.values(loadState());
+  const enabledDeckIds = loadEnabledDeckIds();
+  const entries = Object.values(loadState()).filter((e) => enabledDeckIds.has(e.deckId));
   const now = Date.now();
   const ready = entries.filter((e) => e.due <= now).length;
   const upcoming = entries.filter((e) => e.due > now).length;
@@ -174,14 +194,22 @@ export function summariseAllRecall(): RecallSummary & { nextDue: number | null }
   return { ready, upcoming, mastered, retention, total: entries.length, nextDue };
 }
 
-export function decksWithReadyRecall(): { deckId: string; count: number }[] {
-  const entries = Object.values(loadState());
+export function decksWithReadyRecall(): { deckId: string; count: number; firstDue: number }[] {
+  const enabledDeckIds = loadEnabledDeckIds();
+  const entries = Object.values(loadState()).filter((e) => enabledDeckIds.has(e.deckId));
   const now = Date.now();
-  const map = new Map<string, number>();
+  const map = new Map<string, { count: number; firstDue: number }>();
   entries.forEach((e) => {
-    if (e.due <= now) map.set(e.deckId, (map.get(e.deckId) ?? 0) + 1);
+    if (e.due > now) return;
+    const current = map.get(e.deckId);
+    map.set(e.deckId, {
+      count: (current?.count ?? 0) + 1,
+      firstDue: Math.min(current?.firstDue ?? e.due, e.due),
+    });
   });
-  return Array.from(map.entries()).map(([deckId, count]) => ({ deckId, count }));
+  return Array.from(map.entries())
+    .map(([deckId, value]) => ({ deckId, count: value.count, firstDue: value.firstDue }))
+    .sort((a, b) => a.firstDue - b.firstDue);
 }
 
 export function useDeckRecallSummary(deckId: string): RecallSummary {
