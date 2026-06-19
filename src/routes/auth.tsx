@@ -12,6 +12,8 @@ export const Route = createFileRoute("/auth")({
   component: AuthPage,
 });
 
+const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
+
 function getAuthErrorMessage(err: unknown) {
   const authError = err as Partial<AuthError> & { status?: number };
   const msg = String(authError?.message ?? "");
@@ -43,6 +45,10 @@ function getAuthErrorMessage(err: unknown) {
     return "This email is already registered. Try signing in.";
   }
 
+  if (lowerMsg.includes("username")) {
+    return "This username is already taken. Try another one.";
+  }
+
   if (authError?.code === "email_not_confirmed" || lowerMsg.includes("not confirmed")) {
     return "Email is not confirmed yet. Check your inbox and open the confirmation link.";
   }
@@ -60,6 +66,7 @@ function AuthPage() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -88,13 +95,38 @@ function AuthPage() {
 
     try {
       if (mode === "signup") {
+        const normalizedUsername = username.trim().toLowerCase();
+        if (!normalizedUsername) {
+          toast.error("Choose a username.");
+          return;
+        }
+
+        if (!USERNAME_RE.test(normalizedUsername)) {
+          toast.error("Use 3-24 lowercase letters, numbers, or underscores for username.");
+          return;
+        }
+
+        try {
+          const { data: usernameAvailable, error: usernameError } = await (supabase as any).rpc(
+            "is_username_available",
+            { _username: normalizedUsername },
+          );
+          if (!usernameError && usernameAvailable === false) {
+            toast.error("This username is already taken. Try another one.");
+            return;
+          }
+        } catch {
+          // The database constraint still protects uniqueness if the availability RPC is unavailable.
+        }
+
         const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,
           options: {
             emailRedirectTo: `${window.location.origin}/dashboard`,
             data: {
-              display_name: displayName.trim() || normalizedEmail.split("@")[0],
+              username: normalizedUsername,
+              display_name: displayName.trim() || normalizedUsername,
             },
           },
         });
@@ -212,15 +244,32 @@ function AuthPage() {
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               {mode === "signup" && (
-                <div className="space-y-2">
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="Your name"
-                  />
-                </div>
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="username">Username</Label>
+                    <Input
+                      id="username"
+                      required
+                      autoComplete="username"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value.toLowerCase())}
+                      placeholder="ielts_master"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      3-24 lowercase letters, numbers, or underscores.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Name</Label>
+                    <Input
+                      id="name"
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="Your name"
+                    />
+                  </div>
+                </>
               )}
 
               <div className="space-y-2">

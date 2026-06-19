@@ -39,6 +39,7 @@ type CommunityDeckRow = {
 
 type ProfileRow = {
   user_id: string;
+  username: string | null;
   display_name: string | null;
   email: string | null;
   avatar_url?: string | null;
@@ -67,7 +68,7 @@ function ratingFor(deck: Pick<CommunityDeckRow, "rating_sum" | "rating_count">) 
 }
 
 function authorName(profile?: ProfileRow) {
-  return profile?.display_name || profile?.email?.split("@")[0] || "Memora creator";
+  return profile?.username || profile?.display_name || profile?.email?.split("@")[0] || "Memora creator";
 }
 
 function ratingForCollection(collection: Pick<CommunityCollectionRow, "rating_sum" | "rating_count">) {
@@ -80,7 +81,7 @@ async function attachCommunityMeta(supabase: any, decks: CommunityDeckRow[], use
   const authorIds = Array.from(new Set(decks.map((deck) => deck.user_id)));
 
   const [profilesRes, cardsRes, likesRes, savesRes] = await Promise.all([
-    supabase.from("profiles").select("user_id, display_name, email, avatar_url").in("user_id", authorIds),
+    supabase.from("profiles").select("user_id, username, display_name, email, avatar_url").in("user_id", authorIds),
     supabase.from("cards").select("deck_id").in("deck_id", deckIds),
     supabase.from("deck_likes").select("deck_id").eq("user_id", userId).in("deck_id", deckIds),
     supabase.from("deck_saves").select("deck_id").eq("user_id", userId).in("deck_id", deckIds),
@@ -129,7 +130,7 @@ async function attachCollectionMeta(supabase: any, collections: CommunityCollect
   const authorIds = Array.from(new Set(collections.map((collection) => collection.user_id)));
 
   const [profilesRes, linksRes, likesRes, savesRes] = await Promise.all([
-    supabase.from("profiles").select("user_id, display_name, email, avatar_url").in("user_id", authorIds),
+    supabase.from("profiles").select("user_id, username, display_name, email, avatar_url").in("user_id", authorIds),
     supabase.from("collection_decks").select("collection_id, deck_id").in("collection_id", collectionIds),
     supabase.from("collection_likes").select("collection_id").eq("user_id", userId).in("collection_id", collectionIds),
     supabase.from("collection_saves").select("collection_id").eq("user_id", userId).in("collection_id", collectionIds),
@@ -245,7 +246,7 @@ export const searchPublicDecks = createServerFn({ method: "GET" })
       const { data: profiles, error } = await (supabase as any)
         .from("profiles")
         .select("user_id")
-        .or(`display_name.ilike.%${data.author.trim()}%,email.ilike.%${data.author.trim()}%`);
+        .or(`username.ilike.%${data.author.trim()}%,display_name.ilike.%${data.author.trim()}%,email.ilike.%${data.author.trim()}%`);
       if (error) throw new Error(error.message);
       const ids = (profiles ?? []).map((p: { user_id: string }) => p.user_id);
       if (ids.length === 0) return { decks: [] };
@@ -678,7 +679,7 @@ export const getCreatorProfile = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     const { data: profile, error: profileError } = await (supabase as any)
       .from("profiles")
-      .select("user_id, display_name, email, avatar_url")
+      .select("user_id, username, display_name, email, avatar_url")
       .eq("user_id", data.userId)
       .single();
     if (profileError) throw new Error(profileError.message);
