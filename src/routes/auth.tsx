@@ -123,19 +123,6 @@ function AuthPage() {
           return;
         }
 
-        try {
-          const { data: usernameAvailable, error: usernameError } = await (supabase as any).rpc(
-            "is_username_available",
-            { _username: normalizedUsername },
-          );
-          if (!usernameError && usernameAvailable === false) {
-            toast.error("This username is already taken. Try another one.");
-            return;
-          }
-        } catch {
-          // The database constraint still protects uniqueness if the availability RPC is unavailable.
-        }
-
         const { data, error } = await supabase.auth.signUp({
           email: normalizedEmail,
           password,

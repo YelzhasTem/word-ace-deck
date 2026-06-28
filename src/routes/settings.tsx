@@ -27,13 +27,6 @@ type ProfileSettings = {
   email: string | null;
 };
 
-type UsernameAvailabilityRpc = {
-  rpc(
-    fn: "is_username_available",
-    args: { _username: string },
-  ): Promise<{ data: boolean | null; error: unknown }>;
-};
-
 function getProfileErrorMessage(error: unknown) {
   const message = error instanceof Error ? error.message : String(error ?? "");
   const lower = message.toLowerCase();
@@ -116,19 +109,6 @@ function SettingsPage() {
 
     setSavingUsername(true);
     try {
-      const usernameRpc = supabase as unknown as UsernameAvailabilityRpc;
-      const { data: available, error: availabilityError } = await usernameRpc.rpc(
-        "is_username_available",
-        {
-          _username: normalizedUsername,
-        },
-      );
-
-      if (!availabilityError && available === false) {
-        toast.error("This username is already taken. Try another one.");
-        return;
-      }
-
       const { data: updatedProfile, error: updateError } = await supabase
         .from("profiles")
         .update({ username: normalizedUsername })
