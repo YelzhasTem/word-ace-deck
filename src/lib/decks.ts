@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
+import { OFFLINE_SAVE_MESSAGE, isBrowserOnline } from "@/lib/online-status";
 import { getUserErrorMessage } from "@/lib/user-errors";
 import {
   addCardRecord,
@@ -18,6 +19,10 @@ import {
 } from "@/lib/decks.functions";
 
 const MAX_DECK_CARDS = 100;
+
+function requireOnline() {
+  if (!isBrowserOnline()) throw new Error(OFFLINE_SAVE_MESSAGE);
+}
 
 export type Card = {
   id: string;
@@ -165,8 +170,10 @@ export function useDecks() {
   };
 
   const createDeckMut = useMutation({
-    mutationFn: (vars: { name: string; description: string; collectionId?: string | null }) =>
-      createDeckFn({ data: vars }),
+    mutationFn: (vars: { name: string; description: string; collectionId?: string | null }) => {
+      requireOnline();
+      return createDeckFn({ data: vars });
+    },
     onSuccess: () => {
       toast.success("Deck created");
       invalidate();
@@ -180,7 +187,10 @@ export function useDecks() {
       description: string;
       cards: { term: string; definition: string }[];
       collectionId?: string | null;
-    }) => createDeckWithCardsFn({ data: vars }),
+    }) => {
+      requireOnline();
+      return createDeckWithCardsFn({ data: vars });
+    },
     onSuccess: (data) => {
       data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
       toast.success("Deck created");
@@ -191,21 +201,28 @@ export function useDecks() {
   });
 
   const deleteDeckMut = useMutation({
-    mutationFn: (id: string) => deleteDeckFn({ data: { id } }),
+    mutationFn: (id: string) => {
+      requireOnline();
+      return deleteDeckFn({ data: { id } });
+    },
     onSuccess: invalidate,
     onError: onError("Could not delete"),
   });
 
   const updateDeckMut = useMutation({
-    mutationFn: (vars: { id: string; name: string; description: string }) =>
-      updateDeckFn({ data: vars }),
+    mutationFn: (vars: { id: string; name: string; description: string }) => {
+      requireOnline();
+      return updateDeckFn({ data: vars });
+    },
     onSuccess: invalidate,
     onError: onError("Could not update deck"),
   });
 
   const addCardMut = useMutation({
-    mutationFn: (vars: { deckId: string; term: string; definition: string; position: number }) =>
-      addCardFn({ data: vars }),
+    mutationFn: (vars: { deckId: string; term: string; definition: string; position: number }) => {
+      requireOnline();
+      return addCardFn({ data: vars });
+    },
     onSuccess: (data, vars) => {
       if (data?.id) scheduleNewCard(vars.deckId, data.id);
       invalidate();
@@ -214,14 +231,19 @@ export function useDecks() {
   });
 
   const deleteCardMut = useMutation({
-    mutationFn: (cardId: string) => deleteCardFn({ data: { id: cardId } }),
+    mutationFn: (cardId: string) => {
+      requireOnline();
+      return deleteCardFn({ data: { id: cardId } });
+    },
     onSuccess: invalidate,
     onError: onError("Could not delete card"),
   });
 
   const markCardMut = useMutation({
-    mutationFn: (vars: { cardId: string; known: boolean }) =>
-      markCardFn({ data: { id: vars.cardId, known: vars.known } }),
+    mutationFn: (vars: { cardId: string; known: boolean }) => {
+      requireOnline();
+      return markCardFn({ data: { id: vars.cardId, known: vars.known } });
+    },
     // Optimistic update so the UI flips immediately without a refetch round-trip.
     onMutate: async ({ cardId, known }) => {
       await queryClient.cancelQueries({ queryKey: DECKS_KEY });
@@ -244,7 +266,10 @@ export function useDecks() {
   });
 
   const resetProgressMut = useMutation({
-    mutationFn: (deckId: string) => resetDeckProgressFn({ data: { deckId } }),
+    mutationFn: (deckId: string) => {
+      requireOnline();
+      return resetDeckProgressFn({ data: { deckId } });
+    },
     onSuccess: invalidate,
     onError: onError("Could not reset"),
   });

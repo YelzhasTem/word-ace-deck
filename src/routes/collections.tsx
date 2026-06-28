@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useT } from "@/lib/i18n";
+import { OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 
 export const Route = createFileRoute("/collections")({
   component: CollectionsPage,
@@ -32,9 +33,11 @@ function CollectionsPage() {
     useCollections();
   const { decks } = useDecks();
   const t = useT();
+  const isOnline = useOnlineStatus();
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [createError, setCreateError] = useState("");
   const [createOpen, setCreateOpen] = useState(false);
 
   const [pickerFor, setPickerFor] = useState<string | null>(null);
@@ -68,12 +71,18 @@ function CollectionsPage() {
 
   const savePicker = () => {
     if (!pickerFor) return;
+    if (!isOnline) return;
     setCollectionDecks(pickerFor, Array.from(pickerSelected));
     setPickerFor(null);
   };
 
   const handleCreate = () => {
     if (!name.trim()) return;
+    if (!isOnline) {
+      setCreateError(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
+    setCreateError("");
     createCollection(name.trim(), description.trim());
     setName("");
     setDescription("");
@@ -100,6 +109,14 @@ function CollectionsPage() {
               <DialogHeader>
                 <DialogTitle>{t("col.create")}</DialogTitle>
               </DialogHeader>
+              {!isOnline && (
+                <div
+                  role="alert"
+                  className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                >
+                  {OFFLINE_SAVE_MESSAGE}
+                </div>
+              )}
               <div className="space-y-3">
                 <Input
                   placeholder={t("col.name")}
@@ -112,8 +129,9 @@ function CollectionsPage() {
                   onChange={(e) => setDescription(e.target.value)}
                 />
               </div>
+              {createError && <p className="text-sm text-destructive">{createError}</p>}
               <DialogFooter>
-                <Button onClick={handleCreate} disabled={!name.trim()}>
+                <Button onClick={handleCreate} disabled={!isOnline || !name.trim()}>
                   {t("col.confirm")}
                 </Button>
               </DialogFooter>
@@ -190,6 +208,7 @@ function CollectionsPage() {
                       variant="secondary"
                       size="sm"
                       onClick={() => openPicker(c.id, c.deckIds)}
+                      disabled={!isOnline}
                     >
                       {t("col.pickDecks")}
                     </Button>
@@ -238,7 +257,9 @@ function CollectionsPage() {
               <Button variant="ghost" onClick={() => setPickerFor(null)}>
                 {t("col.cancel")}
               </Button>
-              <Button onClick={savePicker}>{t("col.save")}</Button>
+              <Button onClick={savePicker} disabled={!isOnline}>
+                {t("col.save")}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -276,10 +297,11 @@ function CollectionsPage() {
               <Button
                 onClick={() => {
                   if (!editColId) return;
+                  if (!isOnline) return;
                   updateCollection(editColId, editColName.trim(), editColDescription.trim());
                   setEditColId(null);
                 }}
-                disabled={!editColName.trim()}
+                disabled={!isOnline || !editColName.trim()}
               >
                 Save
               </Button>
@@ -308,9 +330,11 @@ function CollectionsPage() {
               <Button
                 variant="destructive"
                 onClick={() => {
+                  if (!isOnline) return;
                   if (deleteColId) deleteCollection(deleteColId);
                   setDeleteColId(null);
                 }}
+                disabled={!isOnline}
               >
                 <Trash2 className="h-4 w-4 mr-2" />
                 {t("col.delete")}

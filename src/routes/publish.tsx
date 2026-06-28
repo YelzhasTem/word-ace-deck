@@ -17,6 +17,7 @@ import {
 import { useCollections } from "@/lib/collections";
 import { useDecks } from "@/lib/decks";
 import { DECK_CATEGORIES, updateDeckPublishing } from "@/lib/community.functions";
+import { OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 
 type PublishType = "deck" | "collection";
 type PublishingVisibility = "unlisted" | "public";
@@ -53,17 +54,24 @@ function nextVisibility(current: string): PublishingVisibility {
 
 function PublishPage() {
   const location = useLocation();
+  const isOnline = useOnlineStatus();
   const target = useMemo(() => readPublishTarget(location.search), [location.search]);
   const type = target?.type ?? "deck";
   const targetId = target?.id ?? "";
 
   const { decks, isLoading: decksLoading } = useDecks();
-  const { collections, isLoading: collectionsLoading, updateCollectionPublishing } = useCollections();
+  const {
+    collections,
+    isLoading: collectionsLoading,
+    updateCollectionPublishing,
+  } = useCollections();
   const updateDeck = useServerFn(updateDeckPublishing);
 
   const selectedDeck = type === "deck" ? decks.find((deck) => deck.id === targetId) : undefined;
   const selectedCollection =
-    type === "collection" ? collections.find((collection) => collection.id === targetId) : undefined;
+    type === "collection"
+      ? collections.find((collection) => collection.id === targetId)
+      : undefined;
   const selectedItem = selectedDeck ?? selectedCollection;
   const isLoading = type === "deck" ? decksLoading : collectionsLoading;
 
@@ -79,12 +87,17 @@ function PublishPage() {
 
   const handleSave = async () => {
     if (!selectedItem) return;
+    if (!isOnline) {
+      toast.error(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
     setSaving(true);
     try {
       if (type === "deck") {
-        const category = selectedDeck && DECK_CATEGORIES.includes(selectedDeck.category as never)
-          ? selectedDeck.category
-          : "General English";
+        const category =
+          selectedDeck && DECK_CATEGORIES.includes(selectedDeck.category as never)
+            ? selectedDeck.category
+            : "General English";
         await updateDeck({
           data: {
             deckId: selectedItem.id,
@@ -96,7 +109,9 @@ function PublishPage() {
       } else {
         await updateCollectionPublishing(selectedItem.id, visibility, parseKeywords(keywords));
       }
-      toast.success(visibility === "public" ? "Published to Community." : "Publishing settings saved.");
+      toast.success(
+        visibility === "public" ? "Published to Community." : "Publishing settings saved.",
+      );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save publishing settings");
     } finally {
@@ -159,17 +174,33 @@ function PublishPage() {
           </section>
         ) : (
           <section className="rounded-3xl border border-border bg-card p-6">
+            {!isOnline && (
+              <div
+                role="alert"
+                className="mb-5 rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              >
+                {OFFLINE_SAVE_MESSAGE}
+              </div>
+            )}
             <div className="mb-6 flex items-start gap-3">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-                {type === "deck" ? <BookOpen className="h-5 w-5" /> : <FolderOpen className="h-5 w-5" />}
+                {type === "deck" ? (
+                  <BookOpen className="h-5 w-5" />
+                ) : (
+                  <FolderOpen className="h-5 w-5" />
+                )}
               </div>
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
                   {type === "deck" ? "Deck" : "Collection"}
                 </p>
-                <h2 className="truncate font-display text-2xl font-semibold">{selectedItem.name}</h2>
+                <h2 className="truncate font-display text-2xl font-semibold">
+                  {selectedItem.name}
+                </h2>
                 {selectedItem.description && (
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{selectedItem.description}</p>
+                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
+                    {selectedItem.description}
+                  </p>
                 )}
               </div>
             </div>
@@ -177,7 +208,10 @@ function PublishPage() {
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="space-y-1.5 text-sm">
                 <span className="font-medium">Visibility</span>
-                <Select value={visibility} onValueChange={(value) => setVisibility(value as PublishingVisibility)}>
+                <Select
+                  value={visibility}
+                  onValueChange={(value) => setVisibility(value as PublishingVisibility)}
+                >
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
@@ -223,7 +257,7 @@ function PublishPage() {
                   ? "Public items can appear in Community."
                   : "Unlisted items open only by direct link."}
               </p>
-              <Button className="rounded-full" onClick={handleSave} disabled={saving}>
+              <Button className="rounded-full" onClick={handleSave} disabled={!isOnline || saving}>
                 {saving ? (
                   <>
                     <Globe2 className="h-4 w-4 animate-spin" /> Saving

@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import {
   duplicatePublicDeck,
   duplicatePublicCollection,
@@ -38,7 +39,15 @@ type CommunityCollection = {
   rating: number;
 };
 
-function DeckCard({ deck, onCopy }: { deck: CommunityDeck; onCopy: (id: string) => void }) {
+function DeckCard({
+  deck,
+  onCopy,
+  copyDisabled = false,
+}: {
+  deck: CommunityDeck;
+  onCopy: (id: string) => void;
+  copyDisabled?: boolean;
+}) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
       <div className="min-w-0">
@@ -71,7 +80,12 @@ function DeckCard({ deck, onCopy }: { deck: CommunityDeck; onCopy: (id: string) 
           {deck.rating || "New"}
         </span>
       </div>
-      <Button variant="outline" className="rounded-full" onClick={() => onCopy(deck.id)}>
+      <Button
+        variant="outline"
+        className="rounded-full"
+        onClick={() => onCopy(deck.id)}
+        disabled={copyDisabled}
+      >
         <Copy className="h-4 w-4" /> Add to library
       </Button>
     </div>
@@ -81,9 +95,11 @@ function DeckCard({ deck, onCopy }: { deck: CommunityDeck; onCopy: (id: string) 
 function CollectionCard({
   collection,
   onCopy,
+  copyDisabled = false,
 }: {
   collection: CommunityCollection;
   onCopy: (id: string) => void;
+  copyDisabled?: boolean;
 }) {
   return (
     <div className="rounded-2xl border border-border bg-card p-5 flex flex-col gap-4">
@@ -115,7 +131,12 @@ function CollectionCard({
           {collection.rating || "New"}
         </span>
       </div>
-      <Button variant="outline" className="rounded-full" onClick={() => onCopy(collection.id)}>
+      <Button
+        variant="outline"
+        className="rounded-full"
+        onClick={() => onCopy(collection.id)}
+        disabled={copyDisabled}
+      >
         <Copy className="h-4 w-4" /> Add collection
       </Button>
     </div>
@@ -126,10 +147,12 @@ function Section({
   title,
   decks,
   onCopy,
+  copyDisabled = false,
 }: {
   title: string;
   decks: CommunityDeck[];
   onCopy: (id: string) => void;
+  copyDisabled?: boolean;
 }) {
   if (decks.length === 0) return null;
   return (
@@ -137,7 +160,7 @@ function Section({
       <h2 className="font-display text-2xl font-bold tracking-tight">{title}</h2>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {decks.map((deck) => (
-          <DeckCard key={deck.id} deck={deck} onCopy={onCopy} />
+          <DeckCard key={deck.id} deck={deck} onCopy={onCopy} copyDisabled={copyDisabled} />
         ))}
       </div>
     </section>
@@ -146,6 +169,7 @@ function Section({
 
 function CommunityPage() {
   const navigate = useNavigate();
+  const isOnline = useOnlineStatus();
   const loadHome = useServerFn(getCommunityHome);
   const searchDecks = useServerFn(searchPublicDecks);
   const searchCollections = useServerFn(searchPublicCollections);
@@ -219,6 +243,10 @@ function CommunityPage() {
   }, [activeSearch, mode, query, searchCollections, searchDecks, sort, searchTarget]);
 
   const onCopyDeck = async (deckId: string) => {
+    if (!isOnline) {
+      toast.error(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
     try {
       const res = await copyDeck({ data: { deckId } });
       toast.success("Deck copied into your library.");
@@ -229,11 +257,17 @@ function CommunityPage() {
   };
 
   const onCopyCollection = async (collectionId: string) => {
+    if (!isOnline) {
+      toast.error(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
     try {
       await copyCollection({ data: { collectionId } });
       toast.success("Collection copied into your library.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add collection to your library.");
+      toast.error(
+        error instanceof Error ? error.message : "Could not add collection to your library.",
+      );
     }
   };
 
@@ -334,7 +368,12 @@ function CommunityPage() {
                 {results.length > 0 && (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {results.map((deck) => (
-                      <DeckCard key={deck.id} deck={deck} onCopy={onCopyDeck} />
+                      <DeckCard
+                        key={deck.id}
+                        deck={deck}
+                        onCopy={onCopyDeck}
+                        copyDisabled={!isOnline}
+                      />
                     ))}
                   </div>
                 )}
@@ -347,6 +386,7 @@ function CommunityPage() {
                           key={collection.id}
                           collection={collection}
                           onCopy={onCopyCollection}
+                          copyDisabled={!isOnline}
                         />
                       ))}
                     </div>
@@ -359,11 +399,36 @@ function CommunityPage() {
 
         {searchTarget === "all" && !query && mode !== "following" && mode !== "saved" && home && (
           <div className="space-y-10">
-            <Section title="Trending Decks" decks={home.trending} onCopy={onCopyDeck} />
-            <Section title="Most Popular" decks={home.popular} onCopy={onCopyDeck} />
-            <Section title="New Decks" decks={home.newest} onCopy={onCopyDeck} />
-            <Section title="Top Rated" decks={home.topRated} onCopy={onCopyDeck} />
-            <Section title="Recommended For You" decks={home.recommended} onCopy={onCopyDeck} />
+            <Section
+              title="Trending Decks"
+              decks={home.trending}
+              onCopy={onCopyDeck}
+              copyDisabled={!isOnline}
+            />
+            <Section
+              title="Most Popular"
+              decks={home.popular}
+              onCopy={onCopyDeck}
+              copyDisabled={!isOnline}
+            />
+            <Section
+              title="New Decks"
+              decks={home.newest}
+              onCopy={onCopyDeck}
+              copyDisabled={!isOnline}
+            />
+            <Section
+              title="Top Rated"
+              decks={home.topRated}
+              onCopy={onCopyDeck}
+              copyDisabled={!isOnline}
+            />
+            <Section
+              title="Recommended For You"
+              decks={home.recommended}
+              onCopy={onCopyDeck}
+              copyDisabled={!isOnline}
+            />
           </div>
         )}
 

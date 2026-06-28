@@ -17,19 +17,41 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
-import { Plus, Trash2, BookOpen, Sparkles, Loader2, Check, X, Link2, LayoutGrid, Globe2, Search } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  BookOpen,
+  Sparkles,
+  Loader2,
+  Check,
+  X,
+  Link2,
+  LayoutGrid,
+  Globe2,
+  Search,
+} from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
 import { useCollections } from "@/lib/collections";
 import { getUserErrorMessage } from "@/lib/user-errors";
+import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
       { title: "Memora — learn English words" },
-      { name: "description", content: "Create your own decks and study English words with flashcards." },
+      {
+        name: "description",
+        content: "Create your own decks and study English words with flashcards.",
+      },
     ],
   }),
   component: Home,
@@ -65,7 +87,10 @@ function Home() {
   const COLLECTIONS_PAGE_SIZE = 3;
   const [collectionPage, setCollectionPage] = useState(0);
   const extraCollections = collections.filter((c) => c.name !== "My collection");
-  const totalCollectionPages = Math.max(1, Math.ceil(extraCollections.length / COLLECTIONS_PAGE_SIZE));
+  const totalCollectionPages = Math.max(
+    1,
+    Math.ceil(extraCollections.length / COLLECTIONS_PAGE_SIZE),
+  );
   const safeCollectionPage = Math.min(collectionPage, totalCollectionPages - 1);
   const pagedCollections = extraCollections.slice(
     safeCollectionPage * COLLECTIONS_PAGE_SIZE,
@@ -86,6 +111,7 @@ function Home() {
   const visibleDecks = query ? filteredDecks : filteredDecks.slice(0, 6);
   const hasMore = !query && filteredDecks.length > 6;
   const t = useT();
+  const isOnline = useOnlineStatus();
   const [open, setOpen] = useState(false);
   const [deleteDeckId, setDeleteDeckId] = useState<string | null>(null);
   const deckToDelete = decks.find((d) => d.id === deleteDeckId);
@@ -98,6 +124,7 @@ function Home() {
   const [definitionInput, setDefinitionInput] = useState("");
   const [trLoading, setTrLoading] = useState(false);
   const [trError, setTrError] = useState("");
+  const [manualError, setManualError] = useState("");
   const [trWord, setTrWord] = useState("");
   const [trOriginalWord, setTrOriginalWord] = useState("");
   const [trDirection, setTrDirection] = useState("");
@@ -124,6 +151,10 @@ function Home() {
 
   const handleUrlGenerate = async () => {
     if (!urlInput.trim()) return;
+    if (!isOnline) {
+      setUrlError(OFFLINE_AI_MESSAGE);
+      return;
+    }
     setUrlLoading(true);
     setUrlError("");
     const safeCount = clampCardCount(urlCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 15);
@@ -140,7 +171,12 @@ function Home() {
     }
 
     try {
-      const created = await createDeckWithCards(result.name, urlDesc.trim(), result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(
+        result.name,
+        urlDesc.trim(),
+        result.cards,
+        selectedCollectionId,
+      );
       setUrlInput("");
       setUrlDesc("");
       setOpen(false);
@@ -163,12 +199,23 @@ function Home() {
     setTrDirection("");
     setTrOptions([]);
     setTrError("");
+    setManualError("");
   };
 
   const handleCreate = async () => {
     if (!name.trim() || manualCards.length < MIN_DECK_CARDS) return;
+    if (!isOnline) {
+      setManualError(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
+    setManualError("");
     try {
-      const created = await createDeckWithCards(name.trim(), desc.trim(), manualCards, selectedCollectionId);
+      const created = await createDeckWithCards(
+        name.trim(),
+        desc.trim(),
+        manualCards,
+        selectedCollectionId,
+      );
       resetManual();
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
@@ -190,32 +237,40 @@ function Home() {
     setTrDirection("");
     setTrOptions([]);
     setTrError("");
+    setManualError("");
   };
 
-  const handleLookup = useCallback(async (word: string) => {
-    const w = word.trim();
-    if (!w) return;
-    setTrLoading(true);
-    setTrError("");
-    setTrOptions([]);
-    setTrDirection("");
-    setTrOriginalWord("");
-    setTrWord(w);
-    try {
-      const res = await fetchTranslations({ data: { word: w } });
-      const correctedWord = res.correctedWord?.trim() ?? "";
-      if (correctedWord) {
-        setTrWord(correctedWord);
-        setTrOriginalWord(res.originalWord?.trim() || w);
+  const handleLookup = useCallback(
+    async (word: string) => {
+      const w = word.trim();
+      if (!w) return;
+      if (!isOnline) {
+        setTrError(OFFLINE_AI_MESSAGE);
+        return;
       }
-      setTrOptions(res.translations);
-      setTrDirection(res.direction ?? "");
-    } catch (err) {
-      setTrError(err instanceof Error ? err.message : "Could not fetch translations");
-    } finally {
-      setTrLoading(false);
-    }
-  }, [fetchTranslations]);
+      setTrLoading(true);
+      setTrError("");
+      setTrOptions([]);
+      setTrDirection("");
+      setTrOriginalWord("");
+      setTrWord(w);
+      try {
+        const res = await fetchTranslations({ data: { word: w } });
+        const correctedWord = res.correctedWord?.trim() ?? "";
+        if (correctedWord) {
+          setTrWord(correctedWord);
+          setTrOriginalWord(res.originalWord?.trim() || w);
+        }
+        setTrOptions(res.translations);
+        setTrDirection(res.direction ?? "");
+      } catch (err) {
+        setTrError(err instanceof Error ? err.message : "Could not fetch translations");
+      } finally {
+        setTrLoading(false);
+      }
+    },
+    [fetchTranslations, isOnline],
+  );
 
   const handlePickTranslation = (translation: string) => {
     setManualCards((prev) =>
@@ -242,6 +297,10 @@ function Home() {
 
   const handleAIGenerate = async () => {
     if (!aiName.trim() || !aiTopic.trim()) return;
+    if (!isOnline) {
+      setAiError(OFFLINE_AI_MESSAGE);
+      return;
+    }
     setAiLoading(true);
     setAiError("");
     const safeCount = clampCardCount(aiCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 10);
@@ -263,7 +322,12 @@ function Home() {
     }
 
     try {
-      const created = await createDeckWithCards(aiName.trim(), result.description, result.cards, selectedCollectionId);
+      const created = await createDeckWithCards(
+        aiName.trim(),
+        result.description,
+        result.cards,
+        selectedCollectionId,
+      );
       setAiName("");
       setAiTopic("");
       setAiDesc("");
@@ -306,10 +370,17 @@ function Home() {
                 <DialogContent className="max-w-lg">
                   <DialogHeader>
                     <DialogTitle className="font-display text-2xl">{t("create.title")}</DialogTitle>
-                    <DialogDescription>
-                      {t("create.desc")}
-                    </DialogDescription>
+                    <DialogDescription>{t("create.desc")}</DialogDescription>
                   </DialogHeader>
+                  {!isOnline && (
+                    <div
+                      role="alert"
+                      className="rounded-2xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+                    >
+                      You are offline. Deck creation, AI, and saving are turned off until your
+                      connection is back.
+                    </div>
+                  )}
                   <div className="space-y-2 mt-1">
                     <label className="text-sm font-medium">{t("create.collection")}</label>
                     <Select value={collectionId} onValueChange={setCollectionId}>
@@ -450,7 +521,12 @@ function Home() {
                                 variant="outline"
                                 className="w-full sm:w-auto"
                                 onClick={() => handleLookup(wordInput)}
-                                disabled={trLoading || !wordInput.trim() || manualCards.length >= MAX_DECK_CARDS}
+                                disabled={
+                                  !isOnline ||
+                                  trLoading ||
+                                  !wordInput.trim() ||
+                                  manualCards.length >= MAX_DECK_CARDS
+                                }
                               >
                                 {trLoading ? (
                                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -482,7 +558,9 @@ function Home() {
                             {trOriginalWord && (
                               <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs text-muted-foreground">
                                 {t("create.corrected")}{" "}
-                                <span className="font-semibold text-foreground">{trOriginalWord}</span>{" "}
+                                <span className="font-semibold text-foreground">
+                                  {trOriginalWord}
+                                </span>{" "}
                                 {t("create.correctedTo")}{" "}
                                 <span className="font-semibold text-foreground">{trWord}</span>.
                               </p>
@@ -495,7 +573,8 @@ function Home() {
                             ) : (
                               <>
                                 <p className="text-sm font-medium">
-                                  {t("create.pickTr")} <span className="text-primary">{trWord}</span>
+                                  {t("create.pickTr")}{" "}
+                                  <span className="text-primary">{trWord}</span>
                                 </p>
                                 <div className="flex flex-wrap gap-2">
                                   {trOptions.map((opt) => (
@@ -515,6 +594,7 @@ function Home() {
                           </div>
                         )}
                         {trError && <p className="text-sm text-destructive">{trError}</p>}
+                        {manualError && <p className="text-sm text-destructive">{manualError}</p>}
                       </div>
 
                       {manualCards.length > 0 && (
@@ -549,12 +629,20 @@ function Home() {
                       )}
 
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => { resetManual(); setOpen(false); }}>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            resetManual();
+                            setOpen(false);
+                          }}
+                        >
                           {t("create.cancel")}
                         </Button>
                         <Button
                           onClick={handleCreate}
-                          disabled={!name.trim() || manualCards.length < MIN_DECK_CARDS}
+                          disabled={
+                            !isOnline || !name.trim() || manualCards.length < MIN_DECK_CARDS
+                          }
                         >
                           <Check className="h-4 w-4" /> {t("create.confirm")} ({manualCards.length})
                         </Button>
@@ -599,7 +687,9 @@ function Home() {
                             className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                           >
                             {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => (
-                              <option key={l} value={l}>{l}</option>
+                              <option key={l} value={l}>
+                                {l}
+                              </option>
                             ))}
                           </select>
                         </div>
@@ -612,20 +702,34 @@ function Home() {
                             value={aiCount}
                             onChange={(e) => setAiCount(e.target.value)}
                             onBlur={() =>
-                              setAiCount(String(clampCardCount(aiCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 10)))
+                              setAiCount(
+                                String(clampCardCount(aiCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 10)),
+                              )
                             }
                           />
                         </div>
                       </div>
-                      {aiError && (
-                        <p className="text-sm text-destructive">{aiError}</p>
-                      )}
+                      {aiError && <p className="text-sm text-destructive">{aiError}</p>}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => { setAiName(""); setAiTopic(""); setAiDesc(""); setOpen(false); }}>{t("create.cancel")}</Button>
-                        <Button onClick={handleAIGenerate} disabled={aiLoading || !aiName.trim() || !aiTopic.trim()}>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setAiName("");
+                            setAiTopic("");
+                            setAiDesc("");
+                            setOpen(false);
+                          }}
+                        >
+                          {t("create.cancel")}
+                        </Button>
+                        <Button
+                          onClick={handleAIGenerate}
+                          disabled={!isOnline || aiLoading || !aiName.trim() || !aiTopic.trim()}
+                        >
                           {aiLoading ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" /> {t("create.ai.generating")}
+                              <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                              {t("create.ai.generating")}
                             </>
                           ) : (
                             <>
@@ -647,9 +751,7 @@ function Home() {
                           onChange={(e) => setUrlInput(e.target.value)}
                           onKeyDown={(e) => e.key === "Enter" && !urlLoading && handleUrlGenerate()}
                         />
-                        <p className="text-xs text-muted-foreground">
-                          {t("create.url.hint")}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{t("create.url.hint")}</p>
                       </div>
                       <div className="space-y-2">
                         <label className="text-sm font-medium">{t("create.descLabel")}</label>
@@ -669,17 +771,32 @@ function Home() {
                           value={urlCount}
                           onChange={(e) => setUrlCount(e.target.value)}
                           onBlur={() =>
-                            setUrlCount(String(clampCardCount(urlCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 15)))
+                            setUrlCount(
+                              String(clampCardCount(urlCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 15)),
+                            )
                           }
                         />
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
                       <DialogFooter>
-                        <Button variant="ghost" onClick={() => { setUrlInput(""); setUrlDesc(""); setOpen(false); }}>{t("create.cancel")}</Button>
-                        <Button onClick={handleUrlGenerate} disabled={urlLoading || !urlInput.trim()}>
+                        <Button
+                          variant="ghost"
+                          onClick={() => {
+                            setUrlInput("");
+                            setUrlDesc("");
+                            setOpen(false);
+                          }}
+                        >
+                          {t("create.cancel")}
+                        </Button>
+                        <Button
+                          onClick={handleUrlGenerate}
+                          disabled={!isOnline || urlLoading || !urlInput.trim()}
+                        >
                           {urlLoading ? (
                             <>
-                              <Loader2 className="h-4 w-4 animate-spin" /> {t("create.url.extracting")}
+                              <Loader2 className="h-4 w-4 animate-spin" />{" "}
+                              {t("create.url.extracting")}
                             </>
                           ) : (
                             <>
@@ -693,7 +810,12 @@ function Home() {
                 </DialogContent>
               </Dialog>
               {decks[0] && (
-                <Button asChild size="lg" variant="outline" className="rounded-full px-6 h-12 text-[15px] bg-card">
+                <Button
+                  asChild
+                  size="lg"
+                  variant="outline"
+                  className="rounded-full px-6 h-12 text-[15px] bg-card"
+                >
                   <Link to="/study/$deckId" params={{ deckId: decks[0].id }}>
                     <BookOpen className="h-4 w-4" /> {t("home.continue")}
                   </Link>
@@ -704,11 +826,22 @@ function Home() {
             <div className="mt-10 grid grid-cols-3 gap-3 max-w-md">
               {[
                 { label: t("home.stats.decks"), value: decks.length },
-                { label: t("home.stats.cards"), value: decks.reduce((s, d) => s + d.cards.length, 0) },
-                { label: t("home.stats.known"), value: decks.reduce((s, d) => s + d.cards.filter(c => c.known).length, 0) },
+                {
+                  label: t("home.stats.cards"),
+                  value: decks.reduce((s, d) => s + d.cards.length, 0),
+                },
+                {
+                  label: t("home.stats.known"),
+                  value: decks.reduce((s, d) => s + d.cards.filter((c) => c.known).length, 0),
+                },
               ].map((s) => (
-                <div key={s.label} className="rounded-2xl bg-card border border-border/70 px-4 py-3 shadow-[var(--shadow-soft)]">
-                  <p className="text-2xl font-display font-bold text-primary tabular-nums">{s.value}</p>
+                <div
+                  key={s.label}
+                  className="rounded-2xl bg-card border border-border/70 px-4 py-3 shadow-[var(--shadow-soft)]"
+                >
+                  <p className="text-2xl font-display font-bold text-primary tabular-nums">
+                    {s.value}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-0.5">{s.label}</p>
                 </div>
               ))}
@@ -731,7 +864,9 @@ function Home() {
         {/* Decks */}
         <section>
           <div className="flex items-baseline justify-between mb-6">
-            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">{t("home.yourDecks")}</h2>
+            <h2 className="font-display text-2xl md:text-3xl font-bold tracking-tight">
+              {t("home.yourDecks")}
+            </h2>
             <span className="text-sm text-muted-foreground">
               {query
                 ? `${t("home.searchFound")}: ${filteredDecks.length}`
@@ -749,90 +884,89 @@ function Home() {
             </div>
           ) : (
             <>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {visibleDecks.map((deck) => {
-                const known = deck.cards.filter((c) => c.known).length;
-                const total = deck.cards.length;
-                const pct = total ? Math.round((known / total) * 100) : 0;
-                return (
-                  <div
-                    key={deck.id}
-                    className="group relative rounded-3xl bg-card border border-border/70 p-6 shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:border-accent/40 transition-all duration-300"
-                  >
-                    <Link
-                      to="/deck/$deckId"
-                      params={{ deckId: deck.id }}
-                      className="block"
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                {visibleDecks.map((deck) => {
+                  const known = deck.cards.filter((c) => c.known).length;
+                  const total = deck.cards.length;
+                  const pct = total ? Math.round((known / total) * 100) : 0;
+                  return (
+                    <div
+                      key={deck.id}
+                      className="group relative rounded-3xl bg-card border border-border/70 p-6 shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:border-accent/40 transition-all duration-300"
                     >
-                      <h3 className="font-display text-xl font-bold leading-tight tracking-tight">{deck.name}</h3>
-                      {deck.description && (
-                        <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">{deck.description}</p>
-                      )}
+                      <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="block">
+                        <h3 className="font-display text-xl font-bold leading-tight tracking-tight">
+                          {deck.name}
+                        </h3>
+                        {deck.description && (
+                          <p className="mt-2 text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+                            {deck.description}
+                          </p>
+                        )}
 
-                      <div className="mt-6">
-                        <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1.5">
-                          <span>
-                            {total} {t("home.cards.suffix")}
-                          </span>
-                          <span className="text-primary tabular-nums">{pct}%</span>
+                        <div className="mt-6">
+                          <div className="flex justify-between text-xs font-medium text-muted-foreground mb-1.5">
+                            <span>
+                              {total} {t("home.cards.suffix")}
+                            </span>
+                            <span className="text-primary tabular-nums">{pct}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
+                            <div
+                              className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </div>
                         </div>
-                        <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500"
-                            style={{ width: `${pct}%` }}
-                          />
-                        </div>
-                      </div>
-                    </Link>
+                      </Link>
 
-                    <div className="mt-5 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Link
-                          to="/study/$deckId"
-                          params={{ deckId: deck.id }}
-                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-foreground bg-primary px-3 py-2 rounded-full hover:bg-primary/90 transition-colors"
+                      <div className="mt-5 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Link
+                            to="/study/$deckId"
+                            params={{ deckId: deck.id }}
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary-foreground bg-primary px-3 py-2 rounded-full hover:bg-primary/90 transition-colors"
+                          >
+                            <BookOpen className="h-3.5 w-3.5" /> {t("home.study")}
+                          </Link>
+                          <Link
+                            to="/deck/$deckId"
+                            params={{ deckId: deck.id }}
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
+                          >
+                            <LayoutGrid className="h-3.5 w-3.5" /> {t("home.modes")}
+                          </Link>
+                          <Link
+                            to="/publish"
+                            search={{ type: "deck", id: deck.id }}
+                            className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
+                          >
+                            <Globe2 className="h-3.5 w-3.5" /> Publish
+                          </Link>
+                        </div>
+                        <button
+                          onClick={() => setDeleteDeckId(deck.id)}
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                          aria-label={t("home.deleteDeck")}
                         >
-                          <BookOpen className="h-3.5 w-3.5" /> {t("home.study")}
-                        </Link>
-                        <Link
-                          to="/deck/$deckId"
-                          params={{ deckId: deck.id }}
-                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
-                        >
-                          <LayoutGrid className="h-3.5 w-3.5" /> {t("home.modes")}
-                        </Link>
-                        <Link
-                          to="/publish"
-                          search={{ type: "deck", id: deck.id }}
-                          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary bg-primary/10 border border-primary/20 px-3 py-2 rounded-full hover:bg-primary/20 transition-colors"
-                        >
-                          <Globe2 className="h-3.5 w-3.5" /> Publish
-                        </Link>
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={() => setDeleteDeckId(deck.id)}
-                        className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-                        aria-label={t("home.deleteDeck")}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-            {hasMore && (
-              <div className="mt-8 flex justify-center">
-                <Link
-                  to="/decks"
-                  className="inline-flex items-center gap-2 rounded-full bg-secondary hover:bg-secondary/80 px-6 h-12 text-sm font-semibold transition-colors"
-                >
-                  {t("home.yourDecks")} →
-                </Link>
+                  );
+                })}
               </div>
-            )}
+              {hasMore && (
+                <div className="mt-8 flex justify-center">
+                  <Link
+                    to="/decks"
+                    className="inline-flex items-center gap-2 rounded-full bg-secondary hover:bg-secondary/80 px-6 h-12 text-sm font-semibold transition-colors"
+                  >
+                    {t("home.yourDecks")} →
+                  </Link>
+                </div>
+              )}
             </>
-
           )}
         </section>
       </main>
@@ -843,7 +977,9 @@ function Home() {
             <DialogTitle className="font-display text-xl">{t("home.deleteDeckTitle")}</DialogTitle>
             <DialogDescription>
               {deckToDelete ? (
-                <>«<strong>{deckToDelete.name}</strong>» — {t("home.deleteDeckDescGeneric")}</>
+                <>
+                  «<strong>{deckToDelete.name}</strong>» — {t("home.deleteDeckDescGeneric")}
+                </>
               ) : (
                 t("home.deleteDeckDescGeneric")
               )}

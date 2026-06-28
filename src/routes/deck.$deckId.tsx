@@ -29,6 +29,7 @@ import {
   Globe2,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
+import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import {
   useDeckDelayedRecallEnabled,
   useDeckRecallSummary,
@@ -136,11 +137,14 @@ function DeckPage() {
     markDeckStudied(deckId);
   }, [deckId]);
   const navigate = useNavigate();
-  const { deck, addCard, deleteCard, resetProgress, isLoading, isFetching, refetchDecks } = useDeck(deckId);
+  const { deck, addCard, deleteCard, resetProgress, isLoading, isFetching, refetchDecks } =
+    useDeck(deckId);
+  const isOnline = useOnlineStatus();
   const stats = useDeckStats(deckId);
   const [didRetryLoad, setDidRetryLoad] = useState(false);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
+  const [addError, setAddError] = useState("");
   const generate = useServerFn(generateStudyText);
   const [aiText, setAiText] = useState<string>("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -159,6 +163,10 @@ function DeckPage() {
 
   const runGenerate = async (nextSeed: number) => {
     if (!deck || deck.cards.length === 0) return;
+    if (!isOnline) {
+      setAiError(OFFLINE_AI_MESSAGE);
+      return;
+    }
     setAiLoading(true);
     setAiError("");
     try {
@@ -207,6 +215,11 @@ function DeckPage() {
   const handleAdd = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!term.trim() || !def.trim() || deck.cards.length >= MAX_DECK_CARDS) return;
+    if (!isOnline) {
+      setAddError(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
+    setAddError("");
     addCard(deck.id, term.trim(), def.trim());
     setTerm("");
     setDef("");
@@ -215,6 +228,7 @@ function DeckPage() {
   const total = deck.cards.length;
   const known = deck.cards.filter((c) => c.known).length;
   const canAddCard = deck.cards.length < MAX_DECK_CARDS;
+  const canSaveCard = isOnline && canAddCard;
 
   return (
     <div className="min-h-screen">
@@ -368,7 +382,9 @@ function DeckPage() {
                   desc: "4 translation options.",
                 },
               ].map((m) => {
-                const disabled = m.to === "/deep/$deckId" && deck.cards.length < 4;
+                const disabled =
+                  (m.to === "/deep/$deckId" && deck.cards.length < 4) ||
+                  (m.to === "/blank/$deckId" && !isOnline);
                 return (
                   <button
                     key={m.to}
@@ -401,6 +417,7 @@ function DeckPage() {
               <Button
                 className="rounded-full shrink-0"
                 onClick={() => navigate({ to: "/feedback/$deckId", params: { deckId: deck.id } })}
+                disabled={!isOnline}
               >
                 <Sparkles className="h-4 w-4" /> Open feedback
               </Button>
@@ -476,18 +493,20 @@ function DeckPage() {
               placeholder="English word"
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              disabled={!canAddCard}
+              disabled={!canSaveCard}
             />
             <Input
               placeholder="Translation or definition"
               value={def}
               onChange={(e) => setDef(e.target.value)}
-              disabled={!canAddCard}
+              disabled={!canSaveCard}
             />
-            <Button type="submit" className="rounded-full" disabled={!canAddCard}>
+            <Button type="submit" className="rounded-full" disabled={!canSaveCard}>
               <Plus className="h-4 w-4" /> Add
             </Button>
           </div>
+          {!isOnline && <p className="mt-3 text-sm text-destructive">{OFFLINE_SAVE_MESSAGE}</p>}
+          {addError && <p className="mt-3 text-sm text-destructive">{addError}</p>}
           {!canAddCard && (
             <p className="mt-3 text-sm text-muted-foreground">
               This deck already has the maximum of {MAX_DECK_CARDS} cards.
@@ -544,7 +563,7 @@ function DeckPage() {
               <Button
                 className="rounded-full"
                 onClick={() => runGenerate(aiText ? aiSeed + 1 : 0)}
-                disabled={aiLoading || deck.cards.length === 0}
+                disabled={!isOnline || aiLoading || deck.cards.length === 0}
               >
                 {aiLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -560,6 +579,12 @@ function DeckPage() {
             <p className="text-sm text-muted-foreground">
               Add at least one card to generate a text.
             </p>
+          )}
+
+          {!isOnline && (
+            <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm">
+              {OFFLINE_AI_MESSAGE}
+            </div>
           )}
 
           {aiError && (

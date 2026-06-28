@@ -17,6 +17,7 @@ import { RecallNotifier } from "@/components/RecallNotifier";
 import { LanguageProvider } from "@/lib/i18n";
 import { AuthGate } from "@/components/AuthGate";
 import { playButtonSound } from "@/lib/sounds";
+import { OfflineBanner } from "@/components/OfflineBanner";
 
 const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password"]);
 
@@ -93,14 +94,28 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { title: "Memora" },
       { name: "description", content: "A calm flashcard app for learning English vocabulary." },
       { property: "og:title", content: "Memora" },
-      { property: "og:description", content: "A calm flashcard app for learning English vocabulary." },
+      {
+        property: "og:description",
+        content: "A calm flashcard app for learning English vocabulary.",
+      },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "en_US" },
 
       { name: "twitter:title", content: "Memora" },
-      { name: "twitter:description", content: "A calm flashcard app for learning English vocabulary." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png" },
+      {
+        name: "twitter:description",
+        content: "A calm flashcard app for learning English vocabulary.",
+      },
+      {
+        property: "og:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png",
+      },
+      {
+        name: "twitter:image",
+        content:
+          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png",
+      },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
@@ -118,7 +133,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
@@ -167,6 +181,7 @@ function RootComponent() {
             <Outlet />
           </div>
         </AuthGate>
+        <OfflineBanner />
         <RecallNotifier />
         <Toaster />
       </LanguageProvider>

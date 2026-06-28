@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { OFFLINE_SAVE_MESSAGE, isBrowserOnline } from "@/lib/online-status";
 import {
   createCollectionRecord,
   deleteCollectionRecord,
@@ -31,6 +32,10 @@ const KEY = ["my-collections"] as const;
 const DEFAULT_COLLECTION_NAME = "My collection";
 const LEGACY_DEFAULT_COLLECTION_NAME =
   "\u041c\u043e\u044f \u043a\u043e\u043b\u043b\u0435\u043a\u0446\u0438\u044f";
+
+function requireOnline() {
+  if (!isBrowserOnline()) throw new Error(OFFLINE_SAVE_MESSAGE);
+}
 
 function displayCollectionName(name: string) {
   return name === LEGACY_DEFAULT_COLLECTION_NAME ? DEFAULT_COLLECTION_NAME : name;
@@ -88,7 +93,10 @@ export function useCollections() {
     toast.error(`${msg}: ${e instanceof Error ? e.message : "error"}`);
 
   const createMut = useMutation({
-    mutationFn: (vars: { name: string; description: string }) => createFn({ data: vars }),
+    mutationFn: (vars: { name: string; description: string }) => {
+      requireOnline();
+      return createFn({ data: vars });
+    },
     onSuccess: () => {
       toast.success("Collection created");
       invalidate();
@@ -97,13 +105,19 @@ export function useCollections() {
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: string) => deleteFn({ data: { id } }),
+    mutationFn: (id: string) => {
+      requireOnline();
+      return deleteFn({ data: { id } });
+    },
     onSuccess: invalidate,
     onError: onErr("Could not delete"),
   });
 
   const setDecksMut = useMutation({
-    mutationFn: (vars: { collectionId: string; deckIds: string[] }) => setDecksFn({ data: vars }),
+    mutationFn: (vars: { collectionId: string; deckIds: string[] }) => {
+      requireOnline();
+      return setDecksFn({ data: vars });
+    },
     onSuccess: () => {
       toast.success("Decks saved");
       invalidate();
@@ -112,8 +126,10 @@ export function useCollections() {
   });
 
   const updateCollectionMut = useMutation({
-    mutationFn: (vars: { id: string; name: string; description: string }) =>
-      updateCollectionFn({ data: vars }),
+    mutationFn: (vars: { id: string; name: string; description: string }) => {
+      requireOnline();
+      return updateCollectionFn({ data: vars });
+    },
     onSuccess: () => {
       toast.success("Collection updated");
       invalidate();
@@ -126,7 +142,10 @@ export function useCollections() {
       collectionId: string;
       visibility: "private" | "unlisted" | "public";
       keywords: string[];
-    }) => updatePublishingFn({ data: vars }),
+    }) => {
+      requireOnline();
+      return updatePublishingFn({ data: vars });
+    },
     onSuccess: () => {
       toast.success("Collection visibility updated");
       invalidate();

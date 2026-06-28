@@ -6,6 +6,7 @@ import { generateClozeSentence } from "@/lib/ai.functions";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, isCloseMatch, prioritise } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { OFFLINE_AI_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ function BlankPage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
   const gen = useServerFn(generateClozeSentence);
+  const isOnline = useOnlineStatus();
 
   const queue = useMemo<Card[]>(() => (deck ? prioritise(deckId, deck.cards) : []), [deck, deckId]);
   const [mode, setMode] = useState<Mode>("choice");
@@ -56,13 +58,30 @@ function BlankPage() {
   const options = useMemo(() => {
     if (!current || !deck) return [];
     const others = deck.cards.filter((c) => c.id !== current.id);
-    const distractors = shuffle(others).slice(0, 3).map((c) => c.term);
+    const distractors = shuffle(others)
+      .slice(0, 3)
+      .map((c) => c.term);
     while (distractors.length < 3) distractors.push("—");
     return shuffle([current.term, ...distractors]);
-  }, [current?.id, deck?.cards.length]);
+  }, [current, deck]);
+
+  const total = queue.length;
+  const finished = !current;
+  const [askedAt, setAskedAt] = useState<number>(() => Date.now());
 
   const load = async (card: Card) => {
-    setLoading(true); setError(""); setSentence(""); setExplanation(""); setPick(null); setInput(""); setVerdict(null);
+    setError("");
+    setSentence("");
+    setExplanation("");
+    setPick(null);
+    setInput("");
+    setVerdict(null);
+    if (!isOnline) {
+      setLoading(false);
+      setError(OFFLINE_AI_MESSAGE);
+      return;
+    }
+    setLoading(true);
     try {
       const r = await gen({ data: { term: card.term, definition: card.definition } });
       setSentence(r.sentence);
@@ -73,25 +92,31 @@ function BlankPage() {
     setLoading(false);
   };
 
-  useEffect(() => { if (current) load(current); /* eslint-disable-next-line */ }, [current?.id]);
-  useEffect(() => { setIdx(0); setRight(0); setWrong(0); }, [deckId]);
+  useEffect(() => {
+    if (current) load(current); /* eslint-disable-next-line */
+  }, [current?.id, isOnline]);
+  useEffect(() => {
+    setIdx(0);
+    setRight(0);
+    setWrong(0);
+  }, [deckId]);
+  useEffect(() => {
+    setAskedAt(Date.now());
+  }, [current?.id, loading]);
 
   if (!deck) {
     return (
-      <div className="min-h-screen"><SiteHeader />
+      <div className="min-h-screen">
+        <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
+          <Link to="/" className="mt-6 inline-block text-accent underline">
+            Home
+          </Link>
         </main>
       </div>
     );
   }
-
-  const total = queue.length;
-  const finished = !current;
-
-  const [askedAt, setAskedAt] = useState<number>(() => Date.now());
-  useEffect(() => { setAskedAt(Date.now()); }, [current?.id, loading]);
 
   const submit = () => {
     if (!current || verdict) return;
@@ -103,25 +128,51 @@ function BlankPage() {
     else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
     recordAnswer(deck.id, current.id, ok, elapsed);
-    if (ok) { setRight((r) => r + 1); recordStreakToday(); } else { setWrong((w) => w + 1); }
+    if (ok) {
+      setRight((r) => r + 1);
+      recordStreakToday();
+    } else {
+      setWrong((w) => w + 1);
+    }
   };
   const next = () => setIdx((i) => i + 1);
-  const restart = () => { setIdx(0); setRight(0); setWrong(0); };
+  const restart = () => {
+    setIdx(0);
+    setRight(0);
+    setWrong(0);
+  };
 
   return (
-    <div className="min-h-screen"><SiteHeader />
+    <div className="min-h-screen">
+      <SiteHeader />
       <main className="mx-auto max-w-3xl px-6 py-10">
         <div className="flex items-center justify-between mb-6">
-          <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/deck/$deckId"
+            params={{ deckId: deck.id }}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"><FileQuestion className="h-4 w-4" /> Fill-in-the-blank</span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+            <FileQuestion className="h-4 w-4" /> Fill-in-the-blank
+          </span>
         </div>
 
         <div className="flex gap-2 mb-6">
-          {([["choice","Choices"],["bank","Word bank"],["free","Free input"]] as [Mode,string][]).map(([m,label]) => (
-            <button key={m} onClick={() => setMode(m)} disabled={!!verdict}
-              className={`px-4 py-1.5 rounded-full text-sm border transition-colors ${mode===m ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}>
+          {(
+            [
+              ["choice", "Choices"],
+              ["bank", "Word bank"],
+              ["free", "Free input"],
+            ] as [Mode, string][]
+          ).map(([m, label]) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              disabled={!!verdict}
+              className={`px-4 py-1.5 rounded-full text-sm border transition-colors ${mode === m ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border text-muted-foreground hover:text-foreground"}`}
+            >
               {label}
             </button>
           ))}
@@ -131,28 +182,53 @@ function BlankPage() {
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">📝</p>
             <h2 className="font-display text-3xl font-semibold">Round complete</h2>
-            <p className="mt-3 text-muted-foreground">Correct: {right} of {total}</p>
+            <p className="mt-3 text-muted-foreground">
+              Correct: {right} of {total}
+            </p>
             <div className="mt-8 flex justify-center gap-3">
-              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link></Button>
-              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Try again</Button>
+              <Button asChild variant="outline" className="rounded-full">
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>
+                  Back to deck
+                </Link>
+              </Button>
+              <Button className="rounded-full" onClick={restart}>
+                <RotateCcw className="h-4 w-4" /> Try again
+              </Button>
             </div>
           </div>
         ) : (
           <>
             <div className="mb-6 flex justify-between text-xs text-muted-foreground">
-              <span>{idx + 1} / {total}</span>
-              <span><span className="text-[color:var(--success)]">✓ {right}</span> · <span className="text-destructive">✗ {wrong}</span></span>
+              <span>
+                {idx + 1} / {total}
+              </span>
+              <span>
+                <span className="text-[color:var(--success)]">✓ {right}</span> ·{" "}
+                <span className="text-destructive">✗ {wrong}</span>
+              </span>
             </div>
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-8 mb-6">
               {loading ? (
-                <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Preparing sentence...</div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Preparing sentence...
+                </div>
               ) : error ? (
-                <div className="text-destructive text-sm">{error} <button className="underline ml-2" onClick={() => current && load(current)}>retry</button></div>
+                <div className="text-destructive text-sm">
+                  {error}{" "}
+                  <button
+                    className="underline ml-2 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={() => current && load(current)}
+                    disabled={!isOnline}
+                  >
+                    retry
+                  </button>
+                </div>
               ) : (
-                <p className="font-display text-2xl leading-relaxed">{maskSentence(sentence, current!.term)}</p>
+                <p className="font-display text-2xl leading-relaxed">
+                  {maskSentence(sentence, current!.term)}
+                </p>
               )}
-              
             </div>
 
             {mode === "choice" && (
@@ -165,12 +241,19 @@ function BlankPage() {
                     ? isPicked
                       ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-sm"
                       : "border-border bg-card hover:border-accent hover:bg-accent/5"
-                    : correct ? "border-[color:var(--success)] bg-[color:var(--success)]/10"
-                    : isPicked ? "border-destructive bg-destructive/10" : "border-border bg-card opacity-60";
+                    : correct
+                      ? "border-[color:var(--success)] bg-[color:var(--success)]/10"
+                      : isPicked
+                        ? "border-destructive bg-destructive/10"
+                        : "border-border bg-card opacity-60";
                   return (
-                    <button key={i} disabled={!!verdict} onClick={() => setPick(opt)}
+                    <button
+                      key={i}
+                      disabled={!!verdict}
+                      onClick={() => setPick(opt)}
                       aria-pressed={isPicked}
-                      className={`text-left rounded-2xl border-2 px-5 py-4 transition-all ${cls}`}>
+                      className={`text-left rounded-2xl border-2 px-5 py-4 transition-all ${cls}`}
+                    >
                       {opt}
                     </button>
                   );
@@ -180,20 +263,31 @@ function BlankPage() {
             {mode === "bank" && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {options.map((opt, i) => (
-                  <button key={i} disabled={!!verdict} onClick={() => setPick(opt)}
+                  <button
+                    key={i}
+                    disabled={!!verdict}
+                    onClick={() => setPick(opt)}
                     aria-pressed={pick === opt}
                     className={`px-4 py-2 rounded-full border transition-all ${
                       pick === opt
                         ? "border-primary bg-primary/10 text-primary ring-2 ring-primary/20 shadow-sm"
                         : "bg-card border-border hover:border-accent"
-                    }`}>
+                    }`}
+                  >
                     {opt}
                   </button>
                 ))}
               </div>
             )}
             {mode === "free" && (
-              <Input autoFocus value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type the word..." disabled={!!verdict} className="h-12 rounded-2xl mb-4" />
+              <Input
+                autoFocus
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Type the word..."
+                disabled={!!verdict}
+                className="h-12 rounded-2xl mb-4"
+              />
             )}
 
             {verdict === "ok" && (
@@ -217,9 +311,17 @@ function BlankPage() {
 
             <div className="flex justify-end">
               {!verdict ? (
-                <Button className="rounded-full" onClick={submit} disabled={loading || (mode==="free" ? !input.trim() : !pick)}>Check</Button>
+                <Button
+                  className="rounded-full"
+                  onClick={submit}
+                  disabled={loading || !!error || (mode === "free" ? !input.trim() : !pick)}
+                >
+                  Check
+                </Button>
               ) : (
-                <Button className="rounded-full" onClick={next}>{idx + 1 < total ? "Next" : "Finish"}</Button>
+                <Button className="rounded-full" onClick={next}>
+                  {idx + 1 < total ? "Next" : "Finish"}
+                </Button>
               )}
             </div>
           </>

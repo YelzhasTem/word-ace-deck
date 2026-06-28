@@ -3,15 +3,10 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { generateSessionFeedback } from "@/lib/ai.functions";
-import {
-  accuracyFor,
-  getDeckStats,
-  getSessionLog,
-  STAGE_NAMES,
-  weakCardIds,
-} from "@/lib/stats";
+import { accuracyFor, getDeckStats, getSessionLog, STAGE_NAMES, weakCardIds } from "@/lib/stats";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
+import { OFFLINE_AI_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import { ArrowLeft, Sparkles, Loader2, TrendingUp, Target, Brain, ListChecks } from "lucide-react";
 
 export const Route = createFileRoute("/feedback/$deckId")({
@@ -31,6 +26,7 @@ function FeedbackPage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
   const gen = useServerFn(generateSessionFeedback);
+  const isOnline = useOnlineStatus();
   const [fb, setFb] = useState<FB | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +52,7 @@ function FeedbackPage() {
     : [];
 
   const weakTerms = deck
-    ? weakCardIds(deck.id)
+    ? (weakCardIds(deck.id)
         .slice(0, 10)
         .map((id) => {
           const c = deck.cards.find((x) => x.id === id);
@@ -69,7 +65,12 @@ function FeedbackPage() {
             avgMs: s?.avgMs,
           };
         })
-        .filter(Boolean) as { term: string; definition: string; accuracy: number; avgMs?: number }[]
+        .filter(Boolean) as {
+        term: string;
+        definition: string;
+        accuracy: number;
+        avgMs?: number;
+      }[])
     : [];
 
   // Heuristic confusion pairs: similar-looking weak terms inside this deck
@@ -98,6 +99,10 @@ function FeedbackPage() {
 
   const run = async () => {
     if (!deck) return;
+    if (!isOnline) {
+      setError(OFFLINE_AI_MESSAGE);
+      return;
+    }
     if (totals.answered === 0) {
       setError("No data for today yet. Study in any mode and come back.");
       return;
@@ -123,24 +128,25 @@ function FeedbackPage() {
 
   useEffect(() => {
     // auto-run once when data exists
-    if (deck && totals.answered > 0 && !fb && !loading && !error) run();
+    if (isOnline && deck && totals.answered > 0 && !fb && !loading && !error) run();
     // eslint-disable-next-line
-  }, [deck?.id]);
+  }, [deck?.id, isOnline]);
 
   if (!deck) {
     return (
-      <div className="min-h-screen"><SiteHeader />
+      <div className="min-h-screen">
+        <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
+          <Link to="/" className="mt-6 inline-block text-accent underline">
+            Home
+          </Link>
         </main>
       </div>
     );
   }
 
-  const acc = totals.answered
-    ? Math.round((totals.correct / totals.answered) * 100)
-    : null;
+  const acc = totals.answered ? Math.round((totals.correct / totals.answered) * 100) : null;
 
   const stageCounts = STAGE_NAMES.map((name, stage) => ({
     name,
@@ -148,13 +154,20 @@ function FeedbackPage() {
   }));
 
   return (
-    <div className="min-h-screen"><SiteHeader />
+    <div className="min-h-screen">
+      <SiteHeader />
       <main className="mx-auto max-w-3xl px-6 py-10">
         <div className="flex items-center justify-between mb-6">
-          <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/deck/$deckId"
+            params={{ deckId: deck.id }}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"><Sparkles className="h-4 w-4" /> AI feedback</span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+            <Sparkles className="h-4 w-4" /> AI feedback
+          </span>
         </div>
 
         {/* Real performance summary */}
@@ -171,7 +184,9 @@ function FeedbackPage() {
             </div>
             <div className="rounded-2xl bg-background border border-border px-4 py-3">
               <p className="text-xs text-muted-foreground">Average time</p>
-              <p className="font-display text-2xl">{totals.avgMs ? `${(totals.avgMs/1000).toFixed(1)}s` : "—"}</p>
+              <p className="font-display text-2xl">
+                {totals.avgMs ? `${(totals.avgMs / 1000).toFixed(1)}s` : "—"}
+              </p>
             </div>
           </div>
 
@@ -187,14 +202,34 @@ function FeedbackPage() {
         {/* AI feedback */}
         <section className="rounded-3xl border border-border bg-card p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-xl flex items-center gap-2"><Brain className="h-5 w-5 text-accent" /> Personal feedback</h2>
-            <Button size="sm" className="rounded-full" onClick={run} disabled={loading || totals.answered === 0}>
-              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />} Refresh
+            <h2 className="font-display text-xl flex items-center gap-2">
+              <Brain className="h-5 w-5 text-accent" /> Personal feedback
+            </h2>
+            <Button
+              size="sm"
+              className="rounded-full"
+              onClick={run}
+              disabled={!isOnline || loading || totals.answered === 0}
+            >
+              {loading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}{" "}
+              Refresh
             </Button>
           </div>
 
           {error && (
-            <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm mb-3">{error}</div>
+            <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm mb-3">
+              {error}
+            </div>
+          )}
+
+          {!isOnline && !error && (
+            <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm mb-3">
+              {OFFLINE_AI_MESSAGE}
+            </div>
           )}
 
           {loading && !fb && (
@@ -207,7 +242,9 @@ function FeedbackPage() {
             <div className="space-y-5">
               {fb.summary && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Summary</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">
+                    Summary
+                  </p>
                   <p className="text-base leading-relaxed">{fb.summary}</p>
                 </div>
               )}
@@ -218,12 +255,17 @@ function FeedbackPage() {
               )}
               {fb.weakAnalysis && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">Weak words</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1">
+                    Weak words
+                  </p>
                   <p className="text-base leading-relaxed">{fb.weakAnalysis}</p>
                   {weakTerms.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {weakTerms.map((w) => (
-                        <span key={w.term} className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs">
+                        <span
+                          key={w.term}
+                          className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs"
+                        >
                           {w.term} · {w.accuracy}%
                         </span>
                       ))}
@@ -233,7 +275,9 @@ function FeedbackPage() {
               )}
               {fb.confusions.length > 0 && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">Similar words</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2">
+                    Similar words
+                  </p>
                   <ul className="space-y-2">
                     {fb.confusions.map((c, i) => (
                       <li key={i} className="rounded-2xl border border-border px-4 py-3">
@@ -246,11 +290,14 @@ function FeedbackPage() {
               )}
               {fb.focus.length > 0 && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5"><Target className="h-4 w-4" /> What to focus on tomorrow</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                    <Target className="h-4 w-4" /> What to focus on tomorrow
+                  </p>
                   <ul className="space-y-1.5">
                     {fb.focus.map((f, i) => (
                       <li key={i} className="flex items-start gap-2 text-sm">
-                        <span className="text-accent mt-1">•</span><span>{f}</span>
+                        <span className="text-accent mt-1">•</span>
+                        <span>{f}</span>
                       </li>
                     ))}
                   </ul>
@@ -258,7 +305,9 @@ function FeedbackPage() {
               )}
               {fb.plan && (
                 <div>
-                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5"><ListChecks className="h-4 w-4" /> Plan for tomorrow</p>
+                  <p className="text-sm text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                    <ListChecks className="h-4 w-4" /> Plan for tomorrow
+                  </p>
                   <p className="text-base leading-relaxed">{fb.plan}</p>
                 </div>
               )}
