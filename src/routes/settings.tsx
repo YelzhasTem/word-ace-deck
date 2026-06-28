@@ -145,6 +145,9 @@ function SettingsPage() {
         email: savedProfile.email,
       });
       setUsername(savedProfile.username);
+      window.dispatchEvent(
+        new CustomEvent("memora:username-updated", { detail: savedProfile.username }),
+      );
       toast.success("Username updated.");
     } catch (error) {
       toast.error(getProfileErrorMessage(error));
