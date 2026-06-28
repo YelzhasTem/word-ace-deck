@@ -9,7 +9,6 @@ import {
   Search,
   Settings2,
   Trash2,
-  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -78,9 +77,9 @@ function DecksPage() {
   }, [decks, query]);
 
   const selectedCount = selectedDeckIds.size;
-  const filteredDeckIds = useMemo(() => filteredDecks.map((deck) => deck.id), [filteredDecks]);
-  const allFilteredSelected =
-    filteredDeckIds.length > 0 && filteredDeckIds.every((id) => selectedDeckIds.has(id));
+  const allDeckIds = useMemo(() => decks.map((deck) => deck.id), [decks]);
+  const allDecksSelected =
+    allDeckIds.length > 0 && allDeckIds.every((id) => selectedDeckIds.has(id));
   const deleteRequestDecks = useMemo(() => {
     if (!deleteRequest) return [];
     return deleteRequest.ids
@@ -105,21 +104,9 @@ function DecksPage() {
     });
   };
 
-  const selectFilteredDecks = () => {
+  const selectAllDecks = () => {
     setSelectionMode(true);
-    setSelectedDeckIds((current) => {
-      const next = new Set(current);
-      filteredDeckIds.forEach((id) => next.add(id));
-      return next;
-    });
-  };
-
-  const clearFilteredDecks = () => {
-    setSelectedDeckIds((current) => {
-      const next = new Set(current);
-      filteredDeckIds.forEach((id) => next.delete(id));
-      return next;
-    });
+    setSelectedDeckIds(new Set(allDeckIds));
   };
 
   const clearSelection = () => {
@@ -166,8 +153,25 @@ function DecksPage() {
               Browse every deck in your account, search by title or word, and jump into study modes.
             </p>
           </div>
-          <div className="text-sm text-muted-foreground">
-            {decks.length} {t("home.decks.suffix")}
+          <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground md:justify-end">
+            <span>
+              {decks.length} {t("home.decks.suffix")}
+            </span>
+            {!isLoading && decks.length > 0 && (
+              <Button
+                type="button"
+                size="sm"
+                variant={selectionMode ? "secondary" : "outline"}
+                className="h-8 rounded-full px-3"
+                onClick={() => {
+                  if (selectionMode) clearSelection();
+                  setSelectionMode((current) => !current);
+                }}
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                {selectionMode ? "Done" : "Select"}
+              </Button>
+            )}
           </div>
         </section>
 
@@ -184,75 +188,32 @@ function DecksPage() {
           </div>
         </section>
 
-        {!isLoading && decks.length > 0 && (
-          <section className="mb-6 flex flex-col gap-3 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                {selectionMode
-                  ? `${selectedCount} ${selectedCount === 1 ? "deck" : "decks"} selected`
-                  : "Manage deck deletion"}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Select several decks to delete them together, or remove every deck at once.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant={selectionMode ? "secondary" : "outline"}
-                onClick={() => {
-                  if (selectionMode) clearSelection();
-                  setSelectionMode((current) => !current);
-                }}
-              >
-                <CheckSquare className="h-4 w-4" />
-                {selectionMode ? "Selection on" : "Select decks"}
-              </Button>
-              {selectionMode && (
-                <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={allFilteredSelected ? clearFilteredDecks : selectFilteredDecks}
-                    disabled={filteredDeckIds.length === 0}
-                  >
-                    {allFilteredSelected ? "Clear shown" : "Select all shown"}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={clearSelection}
-                    disabled={selectedCount === 0}
-                  >
-                    <X className="h-4 w-4" />
-                    Clear
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    onClick={() => openDeleteRequest([...selectedDeckIds], "selected")}
-                    disabled={selectedCount === 0}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    Delete selected
-                  </Button>
-                </>
-              )}
-              <Button
-                type="button"
-                variant="destructive"
-                onClick={() =>
-                  openDeleteRequest(
-                    decks.map((deck) => deck.id),
-                    "all",
-                  )
-                }
-              >
-                <Trash2 className="h-4 w-4" />
-                Delete all
-              </Button>
-            </div>
-          </section>
+        {selectionMode && !isLoading && decks.length > 0 && (
+          <div className="mb-6 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {selectedCount} {selectedCount === 1 ? "deck" : "decks"} selected
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="rounded-full"
+              onClick={allDecksSelected ? clearSelection : selectAllDecks}
+            >
+              {allDecksSelected ? "Clear all" : "Select all"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="destructive"
+              className="rounded-full"
+              onClick={() => openDeleteRequest([...selectedDeckIds], "selected")}
+              disabled={selectedCount === 0}
+            >
+              <Trash2 className="h-4 w-4" />
+              Delete selected
+            </Button>
+          </div>
         )}
 
         {isLoading ? (
