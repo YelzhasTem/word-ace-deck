@@ -289,6 +289,11 @@ export function useDecks() {
       return createDeckWithCardsMut.mutateAsync({ name, description, cards, collectionId });
     },
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
+    deleteDecks: async (ids: string[]) => {
+      for (const id of ids) {
+        await deleteDeckMut.mutateAsync(id);
+      }
+    },
     updateDeck: (id: string, name: string, description: string) =>
       updateDeckMut.mutate({ id, name, description }),
     addCard: (deckId: string, term: string, definition: string) => {
