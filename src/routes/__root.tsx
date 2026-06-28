@@ -163,7 +163,9 @@ function RootComponent() {
       <LanguageProvider>
         <AuthGate requireAuth={requireAuth}>
           {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-          <Outlet />
+          <div key={location.pathname} className="route-transition">
+            <Outlet />
+          </div>
         </AuthGate>
         <RecallNotifier />
         <Toaster />
