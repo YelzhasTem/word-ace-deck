@@ -38,7 +38,7 @@ export function SiteHeader() {
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    navigate({ to: "/auth" });
+    navigate({ to: "/auth", search: { mode: "login" } });
   };
 
   return (
@@ -127,7 +127,7 @@ export function SiteHeader() {
                     </Link>
                   </DropdownMenuItem>
                   <DropdownMenuItem asChild>
-                    <Link to="/auth">
+                    <Link to="/auth" search={{ mode: "login" }}>
                       <User className="h-4 w-4" />
                       {t("nav.login")}
                     </Link>

@@ -28,7 +28,7 @@ export function AuthGate({ children, requireAuth }: AuthGateProps) {
       setSession(data.session);
       setAuthReady(true);
       if (!data.session) {
-        navigate({ to: "/auth", replace: true });
+        navigate({ to: "/auth", search: { mode: "login" }, replace: true });
       }
     });
 
@@ -39,7 +39,7 @@ export function AuthGate({ children, requireAuth }: AuthGateProps) {
       setSession(nextSession);
       setAuthReady(true);
       if (!nextSession) {
-        navigate({ to: "/auth", replace: true });
+        navigate({ to: "/auth", search: { mode: "login" }, replace: true });
       }
     });
 

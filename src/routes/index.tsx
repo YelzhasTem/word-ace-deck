@@ -74,7 +74,7 @@ function Landing() {
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="rounded-full px-7 h-13 text-base">
-              <Link to="/auth">
+              <Link to="/auth" search={{ mode: "signup" }}>
                 Start learning <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -237,7 +237,7 @@ function Landing() {
               variant="secondary"
               className="rounded-full px-8 h-13 text-base"
             >
-              <Link to="/auth">
+              <Link to="/auth" search={{ mode: "signup" }}>
                 Create account <ArrowRight className="h-4 w-4" />
               </Link>
             </Button>
@@ -254,8 +254,8 @@ function Landing() {
             <span>© {new Date().getFullYear()} Memora. Learn words for good.</span>
           </div>
           <div className="flex items-center gap-5">
-            <Link to="/auth" className="hover:text-foreground transition-colors">Sign in</Link>
-            <Link to="/auth" className="hover:text-foreground transition-colors">Sign up</Link>
+            <Link to="/auth" search={{ mode: "login" }} className="hover:text-foreground transition-colors">Sign in</Link>
+            <Link to="/auth" search={{ mode: "signup" }} className="hover:text-foreground transition-colors">Sign up</Link>
           </div>
         </div>
       </footer>

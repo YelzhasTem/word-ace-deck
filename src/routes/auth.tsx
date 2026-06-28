@@ -9,6 +9,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    mode: search.mode === "signup" ? "signup" : "login",
+  }),
   component: AuthPage,
 });
 
@@ -61,8 +64,9 @@ function getAuthErrorMessage(err: unknown) {
 }
 
 function AuthPage() {
+  const search = Route.useSearch();
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [mode, setMode] = useState<"login" | "signup">(search.mode);
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -81,6 +85,19 @@ function AuthPage() {
 
     return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    setMode(search.mode);
+  }, [search.mode]);
+
+  const switchMode = (nextMode: "login" | "signup") => {
+    setMode(nextMode);
+    void navigate({
+      to: "/auth",
+      search: { mode: nextMode },
+      replace: true,
+    });
+  };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -138,7 +155,7 @@ function AuthPage() {
           await navigate({ to: "/dashboard" });
         } else {
           toast.success("Account created. Check your email to confirm it.");
-          setMode("login");
+          switchMode("login");
         }
       } else {
         const { error } = await supabase.auth.signInWithPassword({
@@ -346,7 +363,7 @@ function AuthPage() {
             <div className="mt-4 flex justify-between text-sm">
               <button
                 type="button"
-                onClick={() => setMode(mode === "login" ? "signup" : "login")}
+                onClick={() => switchMode(mode === "login" ? "signup" : "login")}
                 className="text-primary hover:underline"
               >
                 {mode === "login" ? "Create account" : "Already have an account?"}
