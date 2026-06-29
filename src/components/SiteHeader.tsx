@@ -107,13 +107,52 @@ export function SiteHeader() {
 
         <nav className="ml-auto flex items-center gap-1 text-sm font-medium">
           {isSignedOut ? (
-            <Link
-              to="/auth"
-              search={{ mode: "login" }}
-              className="inline-flex h-9 items-center justify-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              {t("nav.login")}
-            </Link>
+            <>
+              <Link
+                to="/decks"
+                className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
+                activeProps={{
+                  className:
+                    "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex",
+                }}
+              >
+                {t("nav.decks")}
+              </Link>
+              <Link
+                to="/collections"
+                className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
+                activeProps={{
+                  className:
+                    "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex",
+                }}
+              >
+                {t("nav.collections")}
+              </Link>
+              <Link
+                to="/community"
+                className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
+                activeProps={{
+                  className:
+                    "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex",
+                }}
+              >
+                Community
+              </Link>
+              <button
+                onClick={toggleDark}
+                aria-label={t("nav.theme")}
+                className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+              >
+                <Moon className="h-4 w-4" />
+              </button>
+              <Link
+                to="/auth"
+                search={{ mode: "login" }}
+                className="inline-flex h-9 items-center justify-center rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              >
+                {t("nav.login")}
+              </Link>
+            </>
           ) : null}
           {isSignedIn ? (
             <>
