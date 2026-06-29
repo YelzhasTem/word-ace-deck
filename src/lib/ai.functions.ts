@@ -11,11 +11,22 @@ const MAX_CARD_TERM = 160;
 const MAX_CARD_DEFINITION = 300;
 const MIN_DECK_CARDS = 4;
 const MAX_DECK_CARDS = 100;
-const MAX_TRANSLATION_OPTIONS = 3;
+const MAX_TRANSLATION_OPTIONS = 1;
 
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
   return value.replace(/\s+/g, " ").trim().slice(0, maxLength);
+}
+
+function firstTranslation(value: unknown, maxLength = MAX_CARD_DEFINITION) {
+  const text = cleanText(value, maxLength);
+  if (!text) return "";
+  return (
+    text
+      .split(/\s*(?:[,;/|]|\bor\b|\bили\b)\s*/i)
+      .map((part) => part.trim())
+      .filter(Boolean)[0] ?? ""
+  );
 }
 
 function hasCyrillic(value: string) {
@@ -43,7 +54,7 @@ function cleanDeckPayload(parsed: DeckPayload, fallbackName: string, description
   const cards = sourceCards
     .map((card) => ({
       term: cleanText(card?.term, MAX_CARD_TERM),
-      definition: cleanText(card?.definition, MAX_CARD_DEFINITION),
+      definition: firstTranslation(card?.definition),
     }))
     .filter((card) => card.term && card.definition)
     .slice(0, MAX_DECK_CARDS);
@@ -62,13 +73,22 @@ function getGeminiApiKey() {
 }
 
 function stripJsonFence(raw: string) {
-  return raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "").trim();
+  return raw
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
 }
 
 function getGeminiText(json: {
   candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
 }) {
-  return json.candidates?.[0]?.content?.parts?.map((part) => part.text ?? "").join("").trim() ?? "";
+  return (
+    json.candidates?.[0]?.content?.parts
+      ?.map((part) => part.text ?? "")
+      .join("")
+      .trim() ?? ""
+  );
 }
 
 function getGeminiModels() {
@@ -83,7 +103,11 @@ function isRetryableGeminiStatus(status: number) {
   return status === 429 || status === 503;
 }
 
-async function callGemini(system: string, user: string, options?: { json?: boolean; temperature?: number }) {
+async function callGemini(
+  system: string,
+  user: string,
+  options?: { json?: boolean; temperature?: number },
+) {
   const apiKey = getGeminiApiKey();
   let lastRetryableError = "";
 
@@ -154,6 +178,7 @@ function parseJsonResponse<T>(raw: string, errorMessage: string): T {
 function uniqueTranslations(values: string[]) {
   const seen = new Set<string>();
   return values
+    .flatMap((value) => cleanText(value, 80).split(/\s*(?:[,;/|]|\bor\b|\bили\b)\s*/i))
     .map((value) => cleanText(value, 80).toLowerCase())
     .filter(Boolean)
     .filter((value) => {
@@ -259,11 +284,11 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const system =
       "Ты лексикограф для русскоязычных студентов английского. Сгенерируй колоду карточек для запоминания английских слов. Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"name":"English name","cards":[{"term":"english word","definition":"перевод на русский"}]}. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
+      '{"name":"English name","cards":[{"term":"english word","definition":"один перевод на русский"}]}. Для каждой карточки definition должен содержать ровно один самый частый перевод, без запятых, слэшей и дополнительных вариантов. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
 
     const user =
       `Создай колоду из ${data.count} английских слов или выражений на тему "${data.topic}" уровня ${data.level}. ` +
-      `Для каждого слова дай перевод на русский. Название колоды должно быть только названием темы на английском, без добавленных слов вроде Deck, Vocabulary, Words, Flashcards, Cards или List. Не используй русский язык в названии колоды. ` +
+      `Для каждого слова дай только один самый частый перевод на русский. Не добавляй второй перевод, синонимы, варианты через запятую, слэш или скобки. Название колоды должно быть только названием темы на английском, без добавленных слов вроде Deck, Vocabulary, Words, Flashcards, Cards или List. Не используй русский язык в названии колоды. ` +
       `Не создавай описание колоды. Отвечай строго JSON без комментариев.`;
 
     const raw = await callGemini(system, user, { json: true });
@@ -297,12 +322,12 @@ export const getTranslations = createServerFn({ method: "POST" })
       `Получаешь ${inputDirection.source === "ru" ? "русское" : "английское"} слово или выражение. ` +
       "Если в исходном слове есть очевидная опечатка и правильное слово можно уверенно понять, исправь его. Если не уверен, не исправляй. " +
       "correctedWord должен быть исходным словом на том же языке, а не переводом. " +
-      `Верни от 1 до ${MAX_TRANSLATION_OPTIONS} наиболее частых переводов на ${inputDirection.target === "en" ? "английский" : "русский"} язык для исправленного слова или для исходного слова, если исправления нет. ` +
-      "Если у слова или фразы есть только один обычный перевод, верни ровно один перевод. Несколько вариантов возвращай только когда это разные частые значения, а не дубликаты или мелкие переформулировки. " +
+      `Верни ровно один самый частый перевод на ${inputDirection.target === "en" ? "английский" : "русский"} язык для исправленного слова или для исходного слова, если исправления нет. ` +
+      "Не возвращай второй перевод, синонимы или варианты через запятую, слэш или скобки. " +
       "Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"correctedWord":"исправленное слово или пустая строка","translations":["перевод 1","перевод 2","перевод 3"]}. Каждый перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
+      '{"correctedWord":"исправленное слово или пустая строка","translations":["один перевод"]}. Перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
 
-    const user = `Слово: "${inputWord}". Дай разные частые значения, если они есть. Если обычный перевод один, верни только один вариант.`;
+    const user = `Слово: "${inputWord}". Верни только один самый частый перевод.`;
 
     try {
       const raw = await callGemini(system, user, { json: true, temperature: 0.2 });
@@ -322,7 +347,11 @@ export const getTranslations = createServerFn({ method: "POST" })
 
     const lookupWord = correctedWord || inputWord;
     const direction = getTranslationDirection(lookupWord);
-    const translatorOptions = await fetchTranslatorOptions(lookupWord, direction.source, direction.target);
+    const translatorOptions = await fetchTranslatorOptions(
+      lookupWord,
+      direction.source,
+      direction.target,
+    );
     const translations = translatorOptions.length > 0 ? translatorOptions : aiTranslations;
 
     if (translations.length === 0) {
@@ -389,11 +418,11 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
     const excerpt = text.slice(0, 12000);
     const system =
       "Ты лексикограф для русскоязычных студентов английского. На основе фрагмента текста выбери самые полезные для изучения английские слова и выражения, которые действительно встречаются в тексте. Избегай имен собственных, чисел, дат, географических названий и слишком простых базовых слов. Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"name":"English name","cards":[{"term":"english word/expression","definition":"перевод на русский"}]}. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
+      '{"name":"English name","cards":[{"term":"english word/expression","definition":"один перевод на русский"}]}. Для каждой карточки definition должен содержать ровно один самый частый перевод, без запятых, слэшей и дополнительных вариантов. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
 
     const user =
       `Источник: ${data.url}\n` +
-      `Выбери ровно ${data.count} разных слов или выражений из текста ниже и дай каждому короткий перевод на русский. ` +
+      `Выбери ровно ${data.count} разных слов или выражений из текста ниже и дай каждому только один короткий перевод на русский. Не добавляй второй перевод, синонимы, варианты через запятую, слэш или скобки. ` +
       `Название колоды — на английском, только краткая тема текста, без добавленных слов вроде Deck, Vocabulary, Words, Flashcards, Cards или List. Не используй русский язык в названии колоды. Не создавай описание колоды.\n\n` +
       `Текст:\n"""${excerpt}"""`;
 
