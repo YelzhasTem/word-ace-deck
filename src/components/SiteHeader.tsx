@@ -138,16 +138,6 @@ export function SiteHeader() {
               >
                 Community
               </Link>
-              <Link
-                to="/friends"
-                className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
-                activeProps={{
-                  className:
-                    "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex",
-                }}
-              >
-                {t("nav.friends")}
-              </Link>
               <button
                 onClick={toggleDark}
                 aria-label={t("nav.theme")}
@@ -195,6 +185,16 @@ export function SiteHeader() {
                 }}
               >
                 Community
+              </Link>
+              <Link
+                to="/friends"
+                className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
+                activeProps={{
+                  className:
+                    "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex",
+                }}
+              >
+                {t("nav.friends")}
               </Link>
               <button
                 onClick={toggleDark}
