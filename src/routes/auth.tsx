@@ -17,6 +17,13 @@ export const Route = createFileRoute("/auth")({
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
+type UsernameAvailabilityClient = {
+  rpc(
+    fn: "is_username_available",
+    args: { _username: string },
+  ): Promise<{ data: boolean | null; error: { message: string } | null }>;
+};
+
 function getAuthErrorMessage(err: unknown) {
   const authError = err as Partial<AuthError> & { status?: number };
   const msg = String(authError?.message ?? "");
@@ -120,6 +127,18 @@ function AuthPage() {
 
         if (!USERNAME_RE.test(normalizedUsername)) {
           toast.error("Use 3-24 lowercase letters, numbers, or underscores for username.");
+          return;
+        }
+
+        const { data: usernameAvailable, error: usernameCheckError } = await (
+          supabase as unknown as UsernameAvailabilityClient
+        ).rpc("is_username_available", {
+          _username: normalizedUsername,
+        });
+
+        if (usernameCheckError) throw usernameCheckError;
+        if (!usernameAvailable) {
+          toast.error("This username is already taken. Try another one.");
           return;
         }
 
