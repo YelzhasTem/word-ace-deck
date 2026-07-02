@@ -6,6 +6,7 @@ const dict = {
   en: {
     "nav.decks": "Decks",
     "nav.collections": "Collections",
+    "nav.friends": "Friends",
     "nav.settings": "Settings",
     "nav.login": "Sign in",
     "nav.logout": "Sign out",
@@ -16,7 +17,8 @@ const dict = {
     "home.title.1": "Learn English",
     "home.title.2": "focused",
     "home.title.3": "and without noise.",
-    "home.subtitle": "Build decks, track progress, and train your memory — an interface designed for long, comfortable sessions.",
+    "home.subtitle":
+      "Build decks, track progress, and train your memory — an interface designed for long, comfortable sessions.",
     "home.newDeck": "New deck",
     "home.continue": "Continue",
     "home.stats.decks": "Decks",
@@ -81,7 +83,8 @@ const dict = {
     "create.ai.generating": "Generating…",
     "create.ai.generate": "Generate",
     "create.url.label": "Source link",
-    "create.url.hint": "Paste an article URL (e.g. Wikipedia) — AI will extract useful words from it.",
+    "create.url.hint":
+      "Paste an article URL (e.g. Wikipedia) — AI will extract useful words from it.",
     "create.url.extracting": "Extracting words…",
     "create.url.create": "Create deck",
     "create.errLookup": "Failed to fetch translations",
@@ -95,11 +98,14 @@ const dict = {
     "settings.title": "Settings",
     "settings.desc": "Manage learning modes and app behavior.",
     "settings.recall.title": "Delayed Recall",
-    "settings.recall.desc": "Improve long-term memory — review words at growing intervals instead of cramming.",
+    "settings.recall.desc":
+      "Improve long-term memory — review words at growing intervals instead of cramming.",
     "settings.on": "ON",
     "settings.off": "OFF",
-    "settings.recall.onNote": "New cards are automatically scheduled for review. Progress is saved even if you disable the mode.",
-    "settings.recall.offNote": "When the mode is off, the app works as usual — no reminders or delayed sessions. Saved progress is kept.",
+    "settings.recall.onNote":
+      "New cards are automatically scheduled for review. Progress is saved even if you disable the mode.",
+    "settings.recall.offNote":
+      "When the mode is off, the app works as usual — no reminders or delayed sessions. Saved progress is kept.",
 
     "col.title": "Collections",
     "col.subtitle": "Group your decks into themed collections",
@@ -123,7 +129,8 @@ const dict = {
     "col.settingsTitle": "Collection settings",
 
     "dr.title": "Delayed Recall",
-    "dr.offDesc": "Turn on the mode to move words from short-term to long-term memory through growing intervals.",
+    "dr.offDesc":
+      "Turn on the mode to move words from short-term to long-term memory through growing intervals.",
     "dr.openSettings": "Open settings",
     "dr.settings": "Settings",
     "dr.ready": "To review",
