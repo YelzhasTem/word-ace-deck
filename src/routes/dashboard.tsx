@@ -645,7 +645,7 @@ function Home() {
                         </div>
                       )}
 
-                      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/70 bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                      <DialogFooter>
                         <Button
                           variant="ghost"
                           onClick={() => {
@@ -728,7 +728,7 @@ function Home() {
                         </div>
                       </div>
                       {aiError && <p className="text-sm text-destructive">{aiError}</p>}
-                      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/70 bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                      <DialogFooter>
                         <Button
                           variant="ghost"
                           onClick={() => {
@@ -797,7 +797,7 @@ function Home() {
                         />
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
-                      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/70 bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+                      <DialogFooter>
                         <Button
                           variant="ghost"
                           onClick={() => {
