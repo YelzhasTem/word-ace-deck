@@ -25,8 +25,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DeckColorPicker } from "@/components/DeckColorPicker";
 import { useDecks } from "@/lib/decks";
+import { getDeckColorOption, type DeckCoverColor } from "@/lib/deck-colors";
 import { useT } from "@/lib/i18n";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/decks")({
   component: DecksPage,
@@ -38,6 +41,7 @@ function DecksPage() {
   const [editDeckId, setEditDeckId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
+  const [editCoverColor, setEditCoverColor] = useState<DeckCoverColor | null>(null);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedDeckIds, setSelectedDeckIds] = useState<Set<string>>(new Set());
   const [deleteRequest, setDeleteRequest] = useState<{
@@ -53,12 +57,14 @@ function DecksPage() {
     if (!deckToEdit) return;
     setEditName(deckToEdit.name);
     setEditDescription(deckToEdit.description);
+    setEditCoverColor(deckToEdit.coverColor);
   }, [deckToEdit]);
 
   const closeEdit = () => {
     setEditDeckId(null);
     setEditName("");
     setEditDescription("");
+    setEditCoverColor(null);
   };
 
   const filteredDecks = useMemo(() => {
@@ -244,12 +250,15 @@ function DecksPage() {
               const total = deck.cards.length;
               const pct = total ? Math.round((known / total) * 100) : 0;
               const isSelected = selectedDeckIds.has(deck.id);
+              const deckColorOption = getDeckColorOption(deck.coverColor);
               return (
                 <div
                   key={deck.id}
-                  className={`rounded-3xl border bg-card p-6 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-card)] ${
-                    isSelected ? "border-primary ring-2 ring-primary/15" : "border-border/70"
-                  }`}
+                  className={cn(
+                    "rounded-3xl border p-6 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-card)]",
+                    deckColorOption.cardClass,
+                    isSelected ? "border-primary ring-2 ring-primary/15" : "",
+                  )}
                 >
                   <div className="flex items-start justify-between gap-3">
                     {selectionMode && (
@@ -285,7 +294,10 @@ function DecksPage() {
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
                           <div
-                            className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500"
+                            className={cn(
+                              "h-full bg-gradient-to-r transition-all duration-500",
+                              deckColorOption.progressClass,
+                            )}
                             style={{ width: `${pct}%` }}
                           />
                         </div>
@@ -351,7 +363,9 @@ function DecksPage() {
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Edit deck</DialogTitle>
-            <DialogDescription>Change the deck name and description.</DialogDescription>
+            <DialogDescription>
+              Change the deck name, description, and library color.
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <Input
@@ -365,6 +379,7 @@ function DecksPage() {
               placeholder="Deck description"
               rows={4}
             />
+            <DeckColorPicker value={editCoverColor} onChange={setEditCoverColor} />
           </div>
           <DialogFooter>
             <Button variant="ghost" onClick={closeEdit}>
@@ -373,7 +388,7 @@ function DecksPage() {
             <Button
               onClick={() => {
                 if (!editDeckId) return;
-                updateDeck(editDeckId, editName.trim(), editDescription.trim());
+                updateDeck(editDeckId, editName.trim(), editDescription.trim(), editCoverColor);
                 closeEdit();
               }}
               disabled={!editName.trim()}

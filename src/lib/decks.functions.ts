@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { DECK_COVER_COLOR_VALUES, type DeckCoverColor } from "@/lib/deck-colors";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const DEFAULT_COLLECTION_NAME = "My collection";
@@ -64,6 +65,27 @@ const CardInput = z.object({
   term: z.string().min(1).max(160),
   definition: z.string().min(1).max(300),
 });
+const DeckCoverColorInput = z.enum(DECK_COVER_COLOR_VALUES).optional().nullable();
+
+async function createDeckRow(
+  supabase: SupabaseClient,
+  userId: string,
+  data: { name: string; description: string; coverColor?: DeckCoverColor | null },
+) {
+  const baseInsert = { user_id: userId, name: data.name, description: data.description };
+  const coverColor = data.coverColor ?? null;
+  let result = await supabase
+    .from("decks")
+    .insert({ ...baseInsert, cover_color: coverColor })
+    .select("id")
+    .single();
+
+  if (result.error?.code === "42703") {
+    result = await supabase.from("decks").insert(baseInsert).select("id").single();
+  }
+
+  return result;
+}
 
 export const getMyDecks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -73,7 +95,7 @@ export const getMyDecks = createServerFn({ method: "GET" })
     let decksRes = await supabase
       .from("decks")
       .select(
-        "id, name, description, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id",
+        "id, name, description, cover_color, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
@@ -105,17 +127,14 @@ export const createDeckRecord = createServerFn({ method: "POST" })
       .object({
         name: z.string().min(1).max(120),
         description: z.string().max(300).default(""),
+        coverColor: DeckCoverColorInput,
         collectionId: z.string().uuid().optional().nullable(),
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: deck, error } = await supabase
-      .from("decks")
-      .insert({ user_id: userId, name: data.name, description: data.description })
-      .select("id")
-      .single();
+    const { data: deck, error } = await createDeckRow(supabase, userId, data);
     if (error || !deck) throw new Error(error?.message ?? "Could not create deck");
     await addDeckToCollection(supabase, userId, deck.id, data.collectionId);
     return { id: deck.id };
@@ -128,6 +147,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
       .object({
         name: z.string().min(1).max(120),
         description: z.string().max(300).default(""),
+        coverColor: DeckCoverColorInput,
         cards: z.array(CardInput).min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
         collectionId: z.string().uuid().optional().nullable(),
       })
@@ -135,11 +155,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: deck, error } = await supabase
-      .from("decks")
-      .insert({ user_id: userId, name: data.name, description: data.description })
-      .select("id")
-      .single();
+    const { data: deck, error } = await createDeckRow(supabase, userId, data);
     if (error || !deck) throw new Error(error?.message ?? "Could not create deck");
     await addDeckToCollection(supabase, userId, deck.id, data.collectionId);
 
@@ -212,15 +228,31 @@ export const updateDeckRecord = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         name: z.string().min(1).max(120),
         description: z.string().max(300).default(""),
+        coverColor: DeckCoverColorInput,
       })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
+    const update = {
+      name: data.name,
+      description: data.description,
+      cover_color: data.coverColor ?? null,
+    };
+    let result = await context.supabase
       .from("decks")
-      .update({ name: data.name, description: data.description })
+      .update(update)
       .eq("id", data.id)
       .eq("user_id", context.userId);
+
+    if (result.error?.code === "42703") {
+      result = await context.supabase
+        .from("decks")
+        .update({ name: data.name, description: data.description })
+        .eq("id", data.id)
+        .eq("user_id", context.userId);
+    }
+
+    const { error } = result;
     if (error) throw new Error(error.message);
     return { ok: true };
   });

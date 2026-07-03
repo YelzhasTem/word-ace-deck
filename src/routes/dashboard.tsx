@@ -41,8 +41,11 @@ import {
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
 import { useCollections } from "@/lib/collections";
+import { DeckColorPicker } from "@/components/DeckColorPicker";
+import { getDeckColorOption, type DeckCoverColor } from "@/lib/deck-colors";
 import { getUserErrorMessage } from "@/lib/user-errors";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
+import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -114,6 +117,7 @@ function Home() {
   const isOnline = useOnlineStatus();
   const [open, setOpen] = useState(false);
   const [deleteDeckId, setDeleteDeckId] = useState<string | null>(null);
+  const [deckColor, setDeckColor] = useState<DeckCoverColor | null>(null);
   const deckToDelete = decks.find((d) => d.id === deleteDeckId);
 
   // Manual creation state
@@ -176,9 +180,11 @@ function Home() {
         urlDesc.trim(),
         result.cards,
         selectedCollectionId,
+        deckColor,
       );
       setUrlInput("");
       setUrlDesc("");
+      setDeckColor(null);
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
@@ -215,8 +221,10 @@ function Home() {
         desc.trim(),
         manualCards,
         selectedCollectionId,
+        deckColor,
       );
       resetManual();
+      setDeckColor(null);
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch {
@@ -327,10 +335,12 @@ function Home() {
         result.description,
         result.cards,
         selectedCollectionId,
+        deckColor,
       );
       setAiName("");
       setAiTopic("");
       setAiDesc("");
+      setDeckColor(null);
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
@@ -361,7 +371,13 @@ function Home() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
-              <Dialog open={open} onOpenChange={setOpen}>
+              <Dialog
+                open={open}
+                onOpenChange={(nextOpen) => {
+                  setOpen(nextOpen);
+                  if (!nextOpen) setDeckColor(null);
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button size="lg" className="rounded-full px-6 h-12 text-[15px] shadow-sm">
                     <Plus className="h-4 w-4" /> {t("home.newDeck")}
@@ -432,6 +448,7 @@ function Home() {
                       </SelectContent>
                     </Select>
                   </div>
+                  <DeckColorPicker value={deckColor} onChange={setDeckColor} />
                   <Tabs defaultValue="manual" className="mt-2">
                     <TabsList className="w-full grid grid-cols-3">
                       <TabsTrigger value="manual">{t("create.tab.manual")}</TabsTrigger>
@@ -633,6 +650,7 @@ function Home() {
                           variant="ghost"
                           onClick={() => {
                             resetManual();
+                            setDeckColor(null);
                             setOpen(false);
                           }}
                         >
@@ -717,6 +735,7 @@ function Home() {
                             setAiName("");
                             setAiTopic("");
                             setAiDesc("");
+                            setDeckColor(null);
                             setOpen(false);
                           }}
                         >
@@ -784,6 +803,7 @@ function Home() {
                           onClick={() => {
                             setUrlInput("");
                             setUrlDesc("");
+                            setDeckColor(null);
                             setOpen(false);
                           }}
                         >
@@ -889,10 +909,14 @@ function Home() {
                   const known = deck.cards.filter((c) => c.known).length;
                   const total = deck.cards.length;
                   const pct = total ? Math.round((known / total) * 100) : 0;
+                  const deckColorOption = getDeckColorOption(deck.coverColor);
                   return (
                     <div
                       key={deck.id}
-                      className="group relative rounded-3xl bg-card border border-border/70 p-6 shadow-[var(--shadow-soft)] hover:shadow-[var(--shadow-card)] hover:-translate-y-0.5 hover:border-accent/40 transition-all duration-300"
+                      className={cn(
+                        "group relative rounded-3xl border p-6 shadow-[var(--shadow-soft)] transition-all duration-300 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-card)]",
+                        deckColorOption.cardClass,
+                      )}
                     >
                       <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="block">
                         <h3 className="font-display text-xl font-bold leading-tight tracking-tight">
@@ -913,7 +937,10 @@ function Home() {
                           </div>
                           <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
                             <div
-                              className="h-full bg-gradient-to-r from-accent to-primary transition-all duration-500"
+                              className={cn(
+                                "h-full bg-gradient-to-r transition-all duration-500",
+                                deckColorOption.progressClass,
+                              )}
                               style={{ width: `${pct}%` }}
                             />
                           </div>

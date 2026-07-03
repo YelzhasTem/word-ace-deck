@@ -129,6 +129,7 @@ export type Database = {
       }
       decks: {
         Row: {
+          cover_color: string | null
           created_at: string
           description: string
           id: string
@@ -137,6 +138,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cover_color?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -145,6 +147,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cover_color?: string | null
           created_at?: string
           description?: string
           id?: string

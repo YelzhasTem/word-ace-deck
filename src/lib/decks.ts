@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
+import { normalizeDeckCoverColor, type DeckCoverColor } from "@/lib/deck-colors";
 import { OFFLINE_SAVE_MESSAGE, isBrowserOnline } from "@/lib/online-status";
 import { getUserErrorMessage } from "@/lib/user-errors";
 import {
@@ -46,6 +47,7 @@ export type Deck = {
   rating: number;
   publishedAt: string | null;
   sourceDeckId: string | null;
+  coverColor: DeckCoverColor | null;
 };
 
 type DbDeck = {
@@ -63,6 +65,7 @@ type DbDeck = {
   rating_count?: number;
   published_at?: string | null;
   source_deck_id?: string | null;
+  cover_color?: string | null;
 };
 
 type DbCard = {
@@ -98,6 +101,7 @@ function mapDecks(decks: DbDeck[], cards: DbCard[]): Deck[] {
     rating: d.rating_count ? Number(((d.rating_sum ?? 0) / d.rating_count).toFixed(1)) : 0,
     publishedAt: d.published_at ?? null,
     sourceDeckId: d.source_deck_id ?? null,
+    coverColor: normalizeDeckCoverColor(d.cover_color),
   }));
 }
 
@@ -170,7 +174,12 @@ export function useDecks() {
   };
 
   const createDeckMut = useMutation({
-    mutationFn: (vars: { name: string; description: string; collectionId?: string | null }) => {
+    mutationFn: (vars: {
+      name: string;
+      description: string;
+      collectionId?: string | null;
+      coverColor?: DeckCoverColor | null;
+    }) => {
       requireOnline();
       return createDeckFn({ data: vars });
     },
@@ -187,6 +196,7 @@ export function useDecks() {
       description: string;
       cards: { term: string; definition: string }[];
       collectionId?: string | null;
+      coverColor?: DeckCoverColor | null;
     }) => {
       requireOnline();
       return createDeckWithCardsFn({ data: vars });
@@ -210,7 +220,12 @@ export function useDecks() {
   });
 
   const updateDeckMut = useMutation({
-    mutationFn: (vars: { id: string; name: string; description: string }) => {
+    mutationFn: (vars: {
+      id: string;
+      name: string;
+      description: string;
+      coverColor?: DeckCoverColor | null;
+    }) => {
       requireOnline();
       return updateDeckFn({ data: vars });
     },
@@ -277,16 +292,28 @@ export function useDecks() {
   return {
     decks,
     isLoading: !authReady || (hasSession && query.isLoading),
-    createDeck: (name: string, description: string, collectionId?: string | null) => {
-      return createDeckMut.mutateAsync({ name, description, collectionId });
+    createDeck: (
+      name: string,
+      description: string,
+      collectionId?: string | null,
+      coverColor?: DeckCoverColor | null,
+    ) => {
+      return createDeckMut.mutateAsync({ name, description, collectionId, coverColor });
     },
     createDeckWithCards: (
       name: string,
       description: string,
       cards: { term: string; definition: string }[],
       collectionId?: string | null,
+      coverColor?: DeckCoverColor | null,
     ) => {
-      return createDeckWithCardsMut.mutateAsync({ name, description, cards, collectionId });
+      return createDeckWithCardsMut.mutateAsync({
+        name,
+        description,
+        cards,
+        collectionId,
+        coverColor,
+      });
     },
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
     deleteDecks: async (ids: string[]) => {
@@ -294,8 +321,12 @@ export function useDecks() {
         await deleteDeckMut.mutateAsync(id);
       }
     },
-    updateDeck: (id: string, name: string, description: string) =>
-      updateDeckMut.mutate({ id, name, description }),
+    updateDeck: (
+      id: string,
+      name: string,
+      description: string,
+      coverColor?: DeckCoverColor | null,
+    ) => updateDeckMut.mutate({ id, name, description, coverColor }),
     addCard: (deckId: string, term: string, definition: string) => {
       const deck = decks.find((d) => d.id === deckId);
       const position = deck ? deck.cards.length : 0;
