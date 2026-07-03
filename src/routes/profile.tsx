@@ -1,10 +1,23 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import type { Session } from "@supabase/supabase-js";
-import { ArrowLeft, Camera, Loader2, Save, Upload, UserRound } from "lucide-react";
+import { ArrowLeft, Camera, Loader2, Save, Trash2, Upload, UserRound } from "lucide-react";
 import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { AuthGate } from "@/components/AuthGate";
 import { SiteHeader } from "@/components/SiteHeader";
+import { deleteMyAccount } from "@/lib/account.functions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +72,7 @@ function fileExtension(file: File) {
 
 function ProfilePage() {
   const navigate = useNavigate();
+  const deleteAccountFn = useServerFn(deleteMyAccount);
   const [session, setSession] = useState<Session | null>(null);
   const [initialProfile, setInitialProfile] = useState<ProfileRow | null>(null);
   const [username, setUsername] = useState("");
@@ -67,6 +81,8 @@ function ProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const previewUrl = useMemo(() => {
     if (!avatarFile) return null;
@@ -270,6 +286,28 @@ function ProfilePage() {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+
+    try {
+      await deleteAccountFn();
+      setDeleteDialogOpen(false);
+      window.dispatchEvent(new CustomEvent("memora:username-updated", { detail: "" }));
+      window.dispatchEvent(
+        new CustomEvent("memora:profile-updated", {
+          detail: { username: "", displayName: null, avatarUrl: null },
+        }),
+      );
+      await supabase.auth.signOut();
+      toast.success("Account deleted.");
+      await navigate({ to: "/auth", search: { mode: "login" }, replace: true });
+    } catch (error) {
+      toast.error(getUserErrorMessage(error, "Could not delete your account."));
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
@@ -378,6 +416,48 @@ function ProfilePage() {
               </div>
             </form>
           )}
+        </section>
+
+        <section className="mt-6 rounded-2xl border border-destructive/30 bg-card p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-destructive">Delete account</h2>
+              <p className="mt-1 max-w-xl text-sm text-muted-foreground">
+                Permanently remove your account, decks, collections, progress, friends, and avatar.
+              </p>
+            </div>
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogTrigger asChild>
+                <Button type="button" variant="destructive" disabled={loading || deleting}>
+                  <Trash2 className="h-4 w-4" />
+                  Delete account
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete your account?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently deletes your Memora account and learning data. This action
+                    cannot be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    disabled={deleting}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      void handleDeleteAccount();
+                    }}
+                  >
+                    {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                    Delete account
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
         </section>
       </main>
     </div>
