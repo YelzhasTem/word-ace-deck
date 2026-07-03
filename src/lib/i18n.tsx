@@ -7,6 +7,7 @@ const dict = {
     "nav.decks": "Decks",
     "nav.collections": "Collections",
     "nav.friends": "Friends",
+    "nav.profile": "Profile",
     "nav.settings": "Settings",
     "nav.login": "Sign in",
     "nav.logout": "Sign out",

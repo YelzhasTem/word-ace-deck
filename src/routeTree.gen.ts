@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PublishRouteImport } from './routes/publish'
+import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as FriendsRouteImport } from './routes/friends'
 import { Route as DecksRouteImport } from './routes/decks'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -48,6 +49,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const PublishRoute = PublishRouteImport.update({
   id: '/publish',
   path: '/publish',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FriendsRoute = FriendsRouteImport.update({
@@ -170,6 +176,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
   '/friends': typeof FriendsRoute
+  '/profile': typeof ProfileRoute
   '/publish': typeof PublishRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -197,6 +204,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
   '/friends': typeof FriendsRoute
+  '/profile': typeof ProfileRoute
   '/publish': typeof PublishRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -225,6 +233,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
   '/friends': typeof FriendsRoute
+  '/profile': typeof ProfileRoute
   '/publish': typeof PublishRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
@@ -254,6 +263,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/decks'
     | '/friends'
+    | '/profile'
     | '/publish'
     | '/reset-password'
     | '/settings'
@@ -281,6 +291,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/decks'
     | '/friends'
+    | '/profile'
     | '/publish'
     | '/reset-password'
     | '/settings'
@@ -308,6 +319,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/decks'
     | '/friends'
+    | '/profile'
     | '/publish'
     | '/reset-password'
     | '/settings'
@@ -336,6 +348,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DecksRoute: typeof DecksRoute
   FriendsRoute: typeof FriendsRoute
+  ProfileRoute: typeof ProfileRoute
   PublishRoute: typeof PublishRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
@@ -375,6 +388,13 @@ declare module '@tanstack/react-router' {
       path: '/publish'
       fullPath: '/publish'
       preLoaderRoute: typeof PublishRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/friends': {
@@ -555,6 +575,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DecksRoute: DecksRoute,
   FriendsRoute: FriendsRoute,
+  ProfileRoute: ProfileRoute,
   PublishRoute: PublishRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
 import { useT } from "@/lib/i18n";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,6 +19,8 @@ export function SiteHeader() {
   const [session, setSession] = useState<Session | null>(null);
   const [authReady, setAuthReady] = useState(false);
   const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const navigate = useNavigate();
   const t = useT();
 
@@ -45,6 +48,8 @@ export function SiteHeader() {
     const loadUsername = async () => {
       if (!session) {
         setUsername("");
+        setDisplayName("");
+        setAvatarUrl(null);
         return;
       }
 
@@ -53,15 +58,27 @@ export function SiteHeader() {
           ? session.user.user_metadata.username.trim()
           : "";
       setUsername(metadataUsername);
+      setDisplayName(
+        typeof session.user.user_metadata?.display_name === "string"
+          ? session.user.user_metadata.display_name.trim()
+          : "",
+      );
+      setAvatarUrl(
+        typeof session.user.user_metadata?.avatar_url === "string"
+          ? session.user.user_metadata.avatar_url
+          : null,
+      );
 
       const { data } = await supabase
         .from("profiles")
-        .select("username")
+        .select("username, display_name, avatar_url")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
       if (!mounted) return;
       setUsername(data?.username ?? metadataUsername);
+      setDisplayName(data?.display_name ?? "");
+      setAvatarUrl(data?.avatar_url ?? null);
     };
 
     void loadUsername();
@@ -70,12 +87,27 @@ export function SiteHeader() {
       const nextUsername = (event as CustomEvent<string>).detail;
       if (typeof nextUsername === "string") setUsername(nextUsername);
     };
+    const handleProfileUpdate = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          username?: string;
+          displayName?: string | null;
+          avatarUrl?: string | null;
+        }>
+      ).detail;
+
+      if (typeof detail?.username === "string") setUsername(detail.username);
+      if (detail?.displayName !== undefined) setDisplayName(detail.displayName ?? "");
+      if (detail?.avatarUrl !== undefined) setAvatarUrl(detail.avatarUrl);
+    };
 
     window.addEventListener("memora:username-updated", handleUsernameUpdate);
+    window.addEventListener("memora:profile-updated", handleProfileUpdate);
 
     return () => {
       mounted = false;
       window.removeEventListener("memora:username-updated", handleUsernameUpdate);
+      window.removeEventListener("memora:profile-updated", handleProfileUpdate);
     };
   }, [session]);
 
@@ -91,7 +123,8 @@ export function SiteHeader() {
     navigate({ to: "/auth", search: { mode: "login" } });
   };
 
-  const accountLabel = username ? `@${username}` : "Signed in";
+  const accountLabel = username ? `@${username}` : displayName || "Signed in";
+  const avatarFallback = (username || displayName || "ME").slice(0, 2).toUpperCase();
   const isSignedIn = Boolean(session);
   const isSignedOut = authReady && !session;
 
@@ -225,10 +258,19 @@ export function SiteHeader() {
                   </DropdownMenuItem>
                   <DropdownMenuSeparator className="md:hidden" />
                   <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
-                    <User className="h-3.5 w-3.5" />
+                    <Avatar className="h-7 w-7">
+                      <AvatarImage src={avatarUrl ?? undefined} alt="" />
+                      <AvatarFallback className="text-[10px]">{avatarFallback}</AvatarFallback>
+                    </Avatar>
                     <span className="truncate">{accountLabel}</span>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild>
+                    <Link to="/profile">
+                      <User className="h-4 w-4" />
+                      {t("nav.profile")}
+                    </Link>
+                  </DropdownMenuItem>
                   <DropdownMenuItem asChild>
                     <Link to="/settings">
                       <SettingsIcon className="h-4 w-4" />
