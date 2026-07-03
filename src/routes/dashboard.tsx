@@ -383,7 +383,7 @@ function Home() {
                     <Plus className="h-4 w-4" /> {t("home.newDeck")}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-lg">
+                <DialogContent className="max-h-[calc(100dvh-2rem)] max-w-lg overflow-y-auto overscroll-contain sm:max-h-[calc(100dvh-4rem)]">
                   <DialogHeader>
                     <DialogTitle className="font-display text-2xl">{t("create.title")}</DialogTitle>
                     <DialogDescription>{t("create.desc")}</DialogDescription>
@@ -645,7 +645,7 @@ function Home() {
                         </div>
                       )}
 
-                      <DialogFooter>
+                      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/70 bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                         <Button
                           variant="ghost"
                           onClick={() => {
@@ -728,7 +728,7 @@ function Home() {
                         </div>
                       </div>
                       {aiError && <p className="text-sm text-destructive">{aiError}</p>}
-                      <DialogFooter>
+                      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/70 bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                         <Button
                           variant="ghost"
                           onClick={() => {
@@ -797,7 +797,7 @@ function Home() {
                         />
                       </div>
                       {urlError && <p className="text-sm text-destructive">{urlError}</p>}
-                      <DialogFooter>
+                      <DialogFooter className="sticky bottom-0 -mx-6 -mb-6 border-t border-border/70 bg-background/95 px-6 py-4 backdrop-blur supports-[backdrop-filter]:bg-background/80">
                         <Button
                           variant="ghost"
                           onClick={() => {
