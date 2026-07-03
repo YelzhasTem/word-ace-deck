@@ -9,12 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { DeckColorPicker } from "@/components/DeckColorPicker";
 import {
   ArrowLeft,
   Plus,
   Trash2,
   Play,
   RotateCcw,
+  Palette,
   Sparkles,
   Loader2,
   Brain,
@@ -35,6 +38,7 @@ import {
   useDeckRecallSummary,
   scheduleNewCard,
 } from "@/lib/delayed-recall";
+import type { DeckCoverColor } from "@/lib/deck-colors";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
@@ -89,7 +93,7 @@ function DeckLoading() {
             <Skeleton className="h-5 w-96 max-w-full" />
             <Skeleton className="h-4 w-48" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
             <Skeleton className="h-10 w-28 rounded-full" />
             <Skeleton className="h-10 w-24 rounded-full" />
           </div>
@@ -137,14 +141,25 @@ function DeckPage() {
     markDeckStudied(deckId);
   }, [deckId]);
   const navigate = useNavigate();
-  const { deck, addCard, deleteCard, resetProgress, isLoading, isFetching, refetchDecks } =
-    useDeck(deckId);
+  const {
+    deck,
+    addCard,
+    deleteCard,
+    resetProgress,
+    updateDeckAsync,
+    isLoading,
+    isFetching,
+    refetchDecks,
+  } = useDeck(deckId);
   const isOnline = useOnlineStatus();
   const stats = useDeckStats(deckId);
   const [didRetryLoad, setDidRetryLoad] = useState(false);
   const [term, setTerm] = useState("");
   const [def, setDef] = useState("");
   const [addError, setAddError] = useState("");
+  const [coverColor, setCoverColor] = useState<DeckCoverColor | null>(null);
+  const [colorSaving, setColorSaving] = useState(false);
+  const [colorError, setColorError] = useState("");
   const generate = useServerFn(generateStudyText);
   const [aiText, setAiText] = useState<string>("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -190,11 +205,37 @@ function DeckPage() {
   }, [deckId]);
 
   useEffect(() => {
+    setCoverColor(deck?.coverColor ?? null);
+  }, [deck?.coverColor]);
+
+  useEffect(() => {
     if (!isLoading && !isFetching && !deck && !didRetryLoad) {
       setDidRetryLoad(true);
       void refetchDecks();
     }
   }, [deck, didRetryLoad, isFetching, isLoading, refetchDecks]);
+
+  const handleCoverColorChange = async (nextCoverColor: DeckCoverColor | null) => {
+    if (!deck || nextCoverColor === coverColor || colorSaving) return;
+    if (!isOnline) {
+      setColorError(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
+
+    const previousCoverColor = coverColor;
+    setCoverColor(nextCoverColor);
+    setColorError("");
+    setColorSaving(true);
+
+    try {
+      await updateDeckAsync(deck.id, deck.name, deck.description, nextCoverColor);
+    } catch {
+      setCoverColor(previousCoverColor);
+      setColorError("Could not save deck color. Please try again.");
+    } finally {
+      setColorSaving(false);
+    }
+  };
 
   if (isLoading || isFetching || (!deck && !didRetryLoad)) return <DeckLoading />;
 
@@ -253,7 +294,27 @@ function DeckPage() {
               {plural(known, ["learned", "learned", "learned"])}
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="rounded-full">
+                  <Palette className="h-4 w-4" /> Color
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-72">
+                <DeckColorPicker value={coverColor} onChange={handleCoverColorChange} />
+                {colorSaving && (
+                  <p className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Saving color...
+                  </p>
+                )}
+                {!isOnline && (
+                  <p className="mt-3 text-xs text-destructive">{OFFLINE_SAVE_MESSAGE}</p>
+                )}
+                {colorError && <p className="mt-3 text-xs text-destructive">{colorError}</p>}
+              </PopoverContent>
+            </Popover>
             <Button
               variant="outline"
               className="rounded-full"

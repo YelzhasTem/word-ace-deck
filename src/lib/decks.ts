@@ -327,6 +327,12 @@ export function useDecks() {
       description: string,
       coverColor?: DeckCoverColor | null,
     ) => updateDeckMut.mutate({ id, name, description, coverColor }),
+    updateDeckAsync: (
+      id: string,
+      name: string,
+      description: string,
+      coverColor?: DeckCoverColor | null,
+    ) => updateDeckMut.mutateAsync({ id, name, description, coverColor }),
     addCard: (deckId: string, term: string, definition: string) => {
       const deck = decks.find((d) => d.id === deckId);
       const position = deck ? deck.cards.length : 0;
