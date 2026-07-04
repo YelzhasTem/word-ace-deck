@@ -18,7 +18,7 @@ function TypePage() {
   const { deck } = useDeck(deckId);
   const stats = useDeckStats(deckId);
 
-  const queue = useMemo<Card[]>(() => (deck ? prioritise(deckId, deck.cards) : []), [deck, deckId, stats]);
+  const queue = useMemo<Card[]>(() => (deck ? prioritise(deckId, deck.cards) : []), [deck, deckId]);
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState("");
   const [verdict, setVerdict] = useState<null | "ok" | "miss">(null);
@@ -27,15 +27,28 @@ function TypePage() {
   const [wrongIds, setWrongIds] = useState<string[]>([]);
   const [startedAt, setStartedAt] = useState<number>(() => Date.now());
 
-  useEffect(() => { setIdx(0); setInput(""); setVerdict(null); setRight(0); setWrong(0); setWrongIds([]); setStartedAt(Date.now()); }, [deckId]);
-  useEffect(() => { setStartedAt(Date.now()); }, [idx]);
+  useEffect(() => {
+    setIdx(0);
+    setInput("");
+    setVerdict(null);
+    setRight(0);
+    setWrong(0);
+    setWrongIds([]);
+    setStartedAt(Date.now());
+  }, [deckId]);
+  useEffect(() => {
+    setStartedAt(Date.now());
+  }, [idx]);
 
   if (!deck) {
     return (
-      <div className="min-h-screen"><SiteHeader />
+      <div className="min-h-screen">
+        <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
+          <Link to="/" className="mt-6 inline-block text-accent underline">
+            Home
+          </Link>
         </main>
       </div>
     );
@@ -47,69 +60,124 @@ function TypePage() {
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!current || verdict) return;
+    if (!current || verdict || !input.trim()) return;
     const elapsed = Date.now() - startedAt;
     const ok = isCloseMatch(input, current.definition);
     if (ok) playCorrectSound();
     else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
     recordAnswer(deck.id, current.id, ok, elapsed);
-    if (ok) { setRight((r) => r + 1); recordStreakToday(); }
-    else { setWrong((w) => w + 1); setWrongIds((ids) => [...ids, current.id]); }
+    if (ok) {
+      setRight((r) => r + 1);
+      recordStreakToday();
+    } else {
+      setWrong((w) => w + 1);
+      setWrongIds((ids) => [...ids, current.id]);
+    }
   };
 
-  const next = () => { setVerdict(null); setInput(""); setIdx((i) => i + 1); };
-  const restart = () => { setIdx(0); setInput(""); setVerdict(null); setRight(0); setWrong(0); setWrongIds([]); };
+  const next = () => {
+    setVerdict(null);
+    setInput("");
+    setIdx((i) => i + 1);
+  };
+  const restart = () => {
+    setIdx(0);
+    setInput("");
+    setVerdict(null);
+    setRight(0);
+    setWrong(0);
+    setWrongIds([]);
+    setStartedAt(Date.now());
+  };
 
   return (
-    <div className="min-h-screen"><SiteHeader />
+    <div className="min-h-screen">
+      <SiteHeader />
       <main className="mx-auto max-w-3xl px-6 py-10">
         <div className="flex items-center justify-between mb-6">
-          <Link to="/deck/$deckId" params={{ deckId: deck.id }} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
+          <Link
+            to="/deck/$deckId"
+            params={{ deckId: deck.id }}
+            className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+          >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium"><Keyboard className="h-4 w-4" /> Typed translation</span>
+          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+            <Keyboard className="h-4 w-4" /> Typed translation
+          </span>
         </div>
 
         {finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">⌨️</p>
             <h2 className="font-display text-3xl font-semibold">Round complete</h2>
-            <p className="mt-3 text-muted-foreground">Correct: {right} of {total} · accuracy {total ? Math.round((right/total)*100) : 0}%</p>
+            <p className="mt-3 text-muted-foreground">
+              Correct: {right} of {total} · accuracy {total ? Math.round((right / total) * 100) : 0}
+              %
+            </p>
             {wrongIds.length > 0 && (
               <div className="mt-6 text-left max-w-md mx-auto">
                 <p className="text-sm font-semibold mb-2">To review:</p>
                 <ul className="text-sm text-muted-foreground space-y-1">
                   {wrongIds.map((id) => {
                     const c = deck.cards.find((x) => x.id === id);
-                    return c ? <li key={id}>· <span className="text-foreground font-medium">{c.term}</span> — {c.definition}</li> : null;
+                    return c ? (
+                      <li key={id}>
+                        · <span className="text-foreground font-medium">{c.term}</span> —{" "}
+                        {c.definition}
+                      </li>
+                    ) : null;
                   })}
                 </ul>
               </div>
             )}
             <div className="mt-8 flex justify-center gap-3">
-              <Button asChild variant="outline" className="rounded-full"><Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link></Button>
-              <Button className="rounded-full" onClick={restart}><RotateCcw className="h-4 w-4" /> Try again</Button>
+              <Button asChild variant="outline" className="rounded-full">
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>
+                  Back to deck
+                </Link>
+              </Button>
+              <Button className="rounded-full" onClick={restart}>
+                <RotateCcw className="h-4 w-4" /> Try again
+              </Button>
             </div>
           </div>
         ) : (
           <>
             <div className="mb-8">
               <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                <span>{idx + 1} / {total}</span>
-                <span><span className="text-[color:var(--success)]">✓ {right}</span> · <span className="text-destructive">✗ {wrong}</span></span>
+                <span>
+                  {idx + 1} / {total}
+                </span>
+                <span>
+                  <span className="text-[color:var(--success)]">✓ {right}</span> ·{" "}
+                  <span className="text-destructive">✗ {wrong}</span>
+                </span>
               </div>
               <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
-                <div className="h-full bg-accent transition-all" style={{ width: `${(idx/total)*100}%` }} />
+                <div
+                  className="h-full bg-accent transition-all"
+                  style={{ width: `${(idx / total) * 100}%` }}
+                />
               </div>
             </div>
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
-              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Type the translation</span>
-              <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">{current.term}</p>
-              {(() => { const a = accuracyFor(stats[current.id]); return a !== null ? (
-                <p className="mt-4 text-xs text-muted-foreground">Your accuracy for this word: {a}%</p>
-              ) : null; })()}
+              <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
+                Type the translation
+              </span>
+              <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
+                {current.term}
+              </p>
+              {(() => {
+                const a = accuracyFor(stats[current.id]);
+                return a !== null ? (
+                  <p className="mt-4 text-xs text-muted-foreground">
+                    Your accuracy for this word: {a}%
+                  </p>
+                ) : null;
+              })()}
             </div>
 
             <form onSubmit={submit} className="space-y-3">
@@ -128,12 +196,15 @@ function TypePage() {
               )}
               {verdict === "miss" && (
                 <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-center gap-2">
-                  <X className="h-4 w-4" /> Correct answer: <span className="font-semibold">{current.definition}</span>
+                  <X className="h-4 w-4" /> Correct answer:{" "}
+                  <span className="font-semibold">{current.definition}</span>
                 </div>
               )}
               <div className="flex justify-end gap-2">
                 {!verdict ? (
-                  <Button type="submit" className="rounded-full">Check</Button>
+                  <Button type="submit" className="rounded-full" disabled={!input.trim()}>
+                    Check
+                  </Button>
                 ) : (
                   <Button type="button" className="rounded-full" onClick={next}>
                     {idx + 1 < total ? "Next" : "Finish"}
