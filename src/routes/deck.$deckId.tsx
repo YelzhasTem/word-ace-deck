@@ -25,7 +25,7 @@ import {
   Shuffle,
   FileQuestion,
   Zap,
-  Lightbulb,
+  Highlighter,
   CalendarClock,
   LineChart,
   Hourglass,
@@ -44,25 +44,49 @@ export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
 });
 
-function renderMarkdown(text: string) {
-  // very small markdown: **bold** and line breaks
-  const parts: Array<string | { bold: string }> = [];
-  const regex = /\*\*([^*]+)\*\*/g;
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripBoldMarkdown(text: string) {
+  return text.replace(/\*\*([^*]+)\*\*/g, "$1");
+}
+
+function renderReviewText(text: string, words: string[], highlightWords: boolean) {
+  const cleanText = stripBoldMarkdown(text);
+  if (!highlightWords) return cleanText;
+
+  const uniqueWords = Array.from(
+    new Set(words.map((word) => stripBoldMarkdown(word).trim()).filter((word) => word.length > 0)),
+  ).sort((a, b) => b.length - a.length);
+
+  if (uniqueWords.length === 0) return cleanText;
+
+  const parts: Array<string | { highlight: string }> = [];
+  const regex = new RegExp(
+    `(^|[^\\p{L}\\p{N}_])(${uniqueWords.map(escapeRegExp).join("|")})(?=$|[^\\p{L}\\p{N}_])`,
+    "giu",
+  );
   let last = 0;
   let m: RegExpExecArray | null;
-  while ((m = regex.exec(text))) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    parts.push({ bold: m[1] });
+  while ((m = regex.exec(cleanText))) {
+    const prefix = m[1] ?? "";
+    const word = m[2] ?? "";
+    if (!word) continue;
+    if (m.index > last) parts.push(cleanText.slice(last, m.index));
+    if (prefix) parts.push(prefix);
+    parts.push({ highlight: word });
     last = m.index + m[0].length;
   }
-  if (last < text.length) parts.push(text.slice(last));
+  if (last < cleanText.length) parts.push(cleanText.slice(last));
+
   return parts.map((p, i) =>
     typeof p === "string" ? (
       <span key={i}>{p}</span>
     ) : (
-      <strong key={i} className="font-semibold text-foreground bg-accent/15 px-1 rounded">
-        {p.bold}
-      </strong>
+      <mark key={i} className="rounded bg-accent/20 px-1 font-semibold text-foreground">
+        {p.highlight}
+      </mark>
     ),
   );
 }
@@ -165,6 +189,7 @@ function DeckPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string>("");
   const [aiSeed, setAiSeed] = useState(0);
+  const [highlightReviewWords, setHighlightReviewWords] = useState(false);
   const [recallEnabled, setRecallEnabled] = useDeckDelayedRecallEnabled(deckId);
   const recallSummary = useDeckRecallSummary(deckId);
 
@@ -194,6 +219,7 @@ function DeckPage() {
       });
       setAiText(text);
       setAiSeed(nextSeed);
+      setHighlightReviewWords(false);
     } catch (e) {
       setAiError(e instanceof Error ? e.message : "Could not generate text");
     }
@@ -661,9 +687,24 @@ function DeckPage() {
           )}
 
           {aiText && (
-            <article className="prose-like whitespace-pre-wrap font-body text-[15px] leading-relaxed text-foreground/90">
-              {renderMarkdown(aiText)}
-            </article>
+            <div className="space-y-4">
+              <article className="prose-like whitespace-pre-wrap font-body text-[15px] leading-relaxed text-foreground/90">
+                {renderReviewText(
+                  aiText,
+                  deck.cards.map((card) => card.term),
+                  highlightReviewWords,
+                )}
+              </article>
+              <Button
+                type="button"
+                variant={highlightReviewWords ? "default" : "outline"}
+                className="rounded-full"
+                onClick={() => setHighlightReviewWords((enabled) => !enabled)}
+              >
+                <Highlighter className="h-4 w-4" />
+                {highlightReviewWords ? "Hide deck words" : "Highlight deck words"}
+              </Button>
+            </div>
           )}
         </section>
       </main>

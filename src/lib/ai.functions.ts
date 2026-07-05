@@ -256,7 +256,7 @@ export const generateStudyText = createServerFn({ method: "POST" })
 
     const user =
       `Write ${variant} of about 110-160 words using every listed word or phrase at least once. ` +
-      `Bold each listed word or phrase with Markdown asterisks when it appears. ` +
+      `Do not bold, highlight, wrap, or mark the listed words with Markdown asterisks. ` +
       `Use natural forms when needed: tense, number, articles, and word order may change naturally. ` +
       `Do not add translations, explanations, vocabulary lists, headings in Russian, or any Cyrillic text. Return only the English review text.\n\n` +
       `${data.deckName ? `Deck topic: ${data.deckName}.\n` : ""}` +
@@ -265,7 +265,7 @@ export const generateStudyText = createServerFn({ method: "POST" })
     let text = await callGemini(system, user);
     if (hasCyrillic(text)) {
       text = await callGemini(
-        "Rewrite the provided review text in English only. Do not use Russian or Cyrillic characters. Keep the same learning words bolded with Markdown asterisks.",
+        "Rewrite the provided review text in English only. Do not use Russian or Cyrillic characters. Do not bold, highlight, wrap, or mark learning words with Markdown asterisks.",
         text,
       );
     }
