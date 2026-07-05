@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -24,7 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { generateDeckWithAI, getTranslations, generateDeckFromUrl } from "@/lib/ai.functions";
+import {
+  generateDeckWithAI,
+  getTranslations,
+  generateDeckFromUrl,
+  importManualCardsFromImage,
+  importManualCardsFromText,
+} from "@/lib/ai.functions";
 import {
   Plus,
   Trash2,
@@ -37,6 +43,8 @@ import {
   LayoutGrid,
   Globe2,
   Search,
+  FileText,
+  Upload,
 } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { useLastStudied } from "@/lib/last-studied";
@@ -74,11 +82,29 @@ function errorMessage(error: unknown, fallback: string) {
 
 const MIN_DECK_CARDS = 4;
 const MAX_DECK_CARDS = 100;
+const MAX_IMPORT_IMAGE_BYTES = 7 * 1024 * 1024;
+const SUPPORTED_IMPORT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+
+type ManualCardDraft = { term: string; definition: string };
+type ImportImageMimeType = (typeof SUPPORTED_IMPORT_IMAGE_TYPES)[number];
 
 function clampCardCount(value: string, min: number, max: number, fallback: number) {
   const parsed = Number(value);
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.round(parsed)));
+}
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Could not read this image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function isSupportedImportImageType(type: string): type is ImportImageMimeType {
+  return SUPPORTED_IMPORT_IMAGE_TYPES.includes(type as ImportImageMimeType);
 }
 
 function Home() {
@@ -119,13 +145,18 @@ function Home() {
   const [deleteDeckId, setDeleteDeckId] = useState<string | null>(null);
   const [deckColor, setDeckColor] = useState<DeckCoverColor | null>(null);
   const deckToDelete = decks.find((d) => d.id === deleteDeckId);
+  const imageImportInputRef = useRef<HTMLInputElement | null>(null);
 
   // Manual creation state
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
-  const [manualCards, setManualCards] = useState<{ term: string; definition: string }[]>([]);
+  const [manualCards, setManualCards] = useState<ManualCardDraft[]>([]);
   const [wordInput, setWordInput] = useState("");
   const [definitionInput, setDefinitionInput] = useState("");
+  const [importText, setImportText] = useState("");
+  const [importMode, setImportMode] = useState<"text" | "image" | null>(null);
+  const [importError, setImportError] = useState("");
+  const [importImageName, setImportImageName] = useState("");
   const [trLoading, setTrLoading] = useState(false);
   const [trError, setTrError] = useState("");
   const [manualError, setManualError] = useState("");
@@ -134,6 +165,8 @@ function Home() {
   const [trDirection, setTrDirection] = useState("");
   const [trOptions, setTrOptions] = useState<string[]>([]);
   const fetchTranslations = useServerFn(getTranslations);
+  const importCardsFromText = useServerFn(importManualCardsFromText);
+  const importCardsFromImage = useServerFn(importManualCardsFromImage);
 
   // AI generation state
   const [aiName, setAiName] = useState("");
@@ -200,6 +233,10 @@ function Home() {
     setManualCards([]);
     setWordInput("");
     setDefinitionInput("");
+    setImportText("");
+    setImportMode(null);
+    setImportError("");
+    setImportImageName("");
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
@@ -229,6 +266,99 @@ function Home() {
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch {
       // The mutation already shows the concrete save error.
+    }
+  };
+
+  const appendImportedCards = useCallback(
+    (cards: ManualCardDraft[]) => {
+      const seen = new Set(
+        manualCards.map(
+          (card) =>
+            `${card.term.toLocaleLowerCase("en-US")}::${card.definition.toLocaleLowerCase("en-US")}`,
+        ),
+      );
+      const nextCards = [...manualCards];
+
+      for (const card of cards) {
+        if (nextCards.length >= MAX_DECK_CARDS) break;
+        const term = card.term.trim();
+        const definition = card.definition.trim();
+        const key = `${term.toLocaleLowerCase("en-US")}::${definition.toLocaleLowerCase("en-US")}`;
+        if (!term || !definition || seen.has(key)) continue;
+        seen.add(key);
+        nextCards.push({ term, definition });
+      }
+
+      setManualCards(nextCards);
+      return nextCards.length - manualCards.length;
+    },
+    [manualCards],
+  );
+
+  const handleImportText = async () => {
+    const text = importText.trim();
+    if (!text || importMode) return;
+    if (!isOnline) {
+      setImportError(OFFLINE_AI_MESSAGE);
+      return;
+    }
+    if (manualCards.length >= MAX_DECK_CARDS) {
+      setImportError("This deck already has the maximum of 100 words.");
+      return;
+    }
+
+    setImportMode("text");
+    setImportError("");
+    try {
+      const result = await importCardsFromText({ data: { text } });
+      const added = appendImportedCards(result.cards);
+      if (added > 0) {
+        setImportText("");
+      } else {
+        setImportError("No new words were added.");
+      }
+    } catch (err) {
+      setImportError(errorMessage(err, "Could not import words from this list"));
+    } finally {
+      setImportMode(null);
+    }
+  };
+
+  const handleImportImage = async (file?: File) => {
+    if (!file || importMode) return;
+    if (!isOnline) {
+      setImportError(OFFLINE_AI_MESSAGE);
+      return;
+    }
+    if (manualCards.length >= MAX_DECK_CARDS) {
+      setImportError("This deck already has the maximum of 100 words.");
+      return;
+    }
+    if (!isSupportedImportImageType(file.type)) {
+      setImportError("Upload a PNG, JPG, or WEBP image.");
+      return;
+    }
+    if (file.size > MAX_IMPORT_IMAGE_BYTES) {
+      setImportError("Image must be 7 MB or smaller.");
+      return;
+    }
+
+    setImportMode("image");
+    setImportError("");
+    setImportImageName(file.name);
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const imageBase64 = dataUrl.split(",")[1] ?? dataUrl;
+      const result = await importCardsFromImage({
+        data: { imageBase64, mimeType: file.type },
+      });
+      const added = appendImportedCards(result.cards);
+      if (added === 0) setImportError("No new words were added.");
+    } catch (err) {
+      setImportError(errorMessage(err, "Could not import words from this image"));
+    } finally {
+      setImportMode(null);
+      if (imageImportInputRef.current) imageImportInputRef.current.value = "";
     }
   };
 
@@ -478,6 +608,83 @@ function Home() {
                           onChange={(e) => setDesc(e.target.value)}
                           rows={2}
                         />
+                      </div>
+
+                      <div className="space-y-3 rounded-2xl border border-border/70 bg-muted/30 p-3">
+                        <div>
+                          <label className="text-sm font-medium">{t("create.import.title")}</label>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {t("create.import.hint")}
+                          </p>
+                        </div>
+                        <Textarea
+                          placeholder={t("create.import.placeholder")}
+                          value={importText}
+                          onChange={(e) => setImportText(e.target.value)}
+                          rows={4}
+                          disabled={
+                            !isOnline || Boolean(importMode) || manualCards.length >= MAX_DECK_CARDS
+                          }
+                        />
+                        <div className="flex flex-col gap-2 sm:flex-row">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={handleImportText}
+                            disabled={
+                              !isOnline ||
+                              Boolean(importMode) ||
+                              !importText.trim() ||
+                              manualCards.length >= MAX_DECK_CARDS
+                            }
+                          >
+                            {importMode === "text" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileText className="h-4 w-4" />
+                            )}
+                            {importMode === "text"
+                              ? t("create.import.importing")
+                              : t("create.import.list")}
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={() => imageImportInputRef.current?.click()}
+                            disabled={
+                              !isOnline ||
+                              Boolean(importMode) ||
+                              manualCards.length >= MAX_DECK_CARDS
+                            }
+                          >
+                            {importMode === "image" ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Upload className="h-4 w-4" />
+                            )}
+                            {importMode === "image"
+                              ? t("create.import.readingImage")
+                              : t("create.import.image")}
+                          </Button>
+                          <input
+                            ref={imageImportInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg,image/webp"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.currentTarget.files?.[0];
+                              void handleImportImage(file);
+                            }}
+                          />
+                        </div>
+                        {importImageName && (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {t("create.import.lastImage")} {importImageName}
+                          </p>
+                        )}
+                        {importError && <p className="text-sm text-destructive">{importError}</p>}
                       </div>
 
                       <div className="space-y-2 pt-2 border-t border-border/60">

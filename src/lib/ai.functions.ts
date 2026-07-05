@@ -3,6 +3,7 @@ import { z } from "zod";
 
 type DeckCard = { term: string; definition: string };
 type DeckPayload = { name?: string; description?: string; cards?: DeckCard[] };
+type GeminiPart = { text: string } | { inlineData: { mimeType: string; data: string } };
 
 const GEMINI_MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
 const GEMINI_FALLBACK_MODEL = process.env.GEMINI_FALLBACK_MODEL || "gemini-2.5-flash-lite";
@@ -12,6 +13,9 @@ const MAX_CARD_DEFINITION = 300;
 const MIN_DECK_CARDS = 4;
 const MAX_DECK_CARDS = 100;
 const MAX_TRANSLATION_OPTIONS = 1;
+const MAX_MANUAL_IMPORT_TEXT = 6000;
+const MAX_IMAGE_BASE64_LENGTH = 9_500_000;
+const SUPPORTED_IMPORT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
@@ -66,6 +70,25 @@ function cleanDeckPayload(parsed: DeckPayload, fallbackName: string, description
   };
 }
 
+function cleanImportedCards(cards: unknown) {
+  const sourceCards = Array.isArray(cards) ? cards : [];
+  const seen = new Set<string>();
+
+  return sourceCards
+    .map((card) => ({
+      term: cleanText(card?.term, MAX_CARD_TERM),
+      definition: firstTranslation(card?.definition),
+    }))
+    .filter((card) => card.term && card.definition)
+    .filter((card) => {
+      const key = `${card.term.toLocaleLowerCase("en-US")}::${card.definition.toLocaleLowerCase("en-US")}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, MAX_DECK_CARDS);
+}
+
 function getGeminiApiKey() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY не настроен");
@@ -103,9 +126,9 @@ function isRetryableGeminiStatus(status: number) {
   return status === 429 || status === 503;
 }
 
-async function callGemini(
+async function callGeminiParts(
   system: string,
-  user: string,
+  parts: GeminiPart[],
   options?: { json?: boolean; temperature?: number },
 ) {
   const apiKey = getGeminiApiKey();
@@ -128,7 +151,7 @@ async function callGemini(
           contents: [
             {
               role: "user",
-              parts: [{ text: user }],
+              parts,
             },
           ],
           generationConfig: {
@@ -165,6 +188,14 @@ async function callGemini(
     lastRetryableError ||
       "Gemini временно недоступен. Попробуйте еще раз через несколько минут или смените GEMINI_MODEL.",
   );
+}
+
+async function callGemini(
+  system: string,
+  user: string,
+  options?: { json?: boolean; temperature?: number },
+) {
+  return callGeminiParts(system, [{ text: user }], options);
 }
 
 function parseJsonResponse<T>(raw: string, errorMessage: string): T {
@@ -364,6 +395,87 @@ export const getTranslations = createServerFn({ method: "POST" })
       correctedWord: correctedWord || undefined,
       originalWord: correctedWord ? inputWord : undefined,
     };
+  });
+
+export const importManualCardsFromText = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      text: z.string().min(1).max(MAX_MANUAL_IMPORT_TEXT),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const sourceText = cleanText(data.text, MAX_MANUAL_IMPORT_TEXT);
+
+    const system =
+      "You prepare vocabulary flashcards for a Russian-speaking English learner. Return only valid JSON without Markdown. Format: " +
+      '{"cards":[{"term":"word or phrase","definition":"one translation"}]}. ' +
+      "Read the user's pasted list. Each line may contain only a word/phrase, or a word/phrase with its translation after a dash, colon, comma, semicolon, tab, or arrow. " +
+      "If a translation is already present, keep that meaning as a single short definition. If a translation is missing, translate it: English terms get one Russian translation, Russian terms get one English translation. " +
+      "Do not add explanations, numbering, synonyms, second meanings, parentheses, or multiple variants.";
+
+    const user =
+      `Convert this pasted list into up to ${MAX_DECK_CARDS} flashcards. ` +
+      "Ignore empty lines, comments, page numbers, and duplicate entries. Return only JSON.\n\n" +
+      sourceText;
+
+    const raw = await callGemini(system, user, { json: true, temperature: 0.2 });
+    const parsed = parseJsonResponse<{ cards?: DeckCard[] }>(
+      raw,
+      "Could not read this word list. Try simplifying it.",
+    );
+    const cards = cleanImportedCards(parsed.cards);
+
+    if (cards.length === 0) {
+      throw new Error("No usable words were found in this list.");
+    }
+
+    return { cards };
+  });
+
+export const importManualCardsFromImage = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      imageBase64: z.string().min(1).max(MAX_IMAGE_BASE64_LENGTH),
+      mimeType: z.enum(SUPPORTED_IMPORT_IMAGE_TYPES),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const imageBase64 = data.imageBase64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, "").trim();
+
+    const system =
+      "You are an OCR and vocabulary extraction assistant for a Russian-speaking English learner. Return only valid JSON without Markdown. Format: " +
+      '{"cards":[{"term":"word or phrase","definition":"one translation"}]}. ' +
+      "Extract visible vocabulary words or short phrases from the image. If the image already shows translations, use them as one short definition. If translations are missing, translate them: English terms get one Russian translation, Russian terms get one English translation. " +
+      "Ignore decorative text, page numbers, headers, watermarks, and duplicates. Do not add explanations, synonyms, second meanings, parentheses, or multiple variants.";
+
+    const raw = await callGeminiParts(
+      system,
+      [
+        {
+          text:
+            `Extract up to ${MAX_DECK_CARDS} vocabulary flashcards from this image. ` +
+            "Return only JSON.",
+        },
+        {
+          inlineData: {
+            mimeType: data.mimeType,
+            data: imageBase64,
+          },
+        },
+      ],
+      { json: true, temperature: 0.2 },
+    );
+    const parsed = parseJsonResponse<{ cards?: DeckCard[] }>(
+      raw,
+      "Could not read words from this image. Try a clearer photo.",
+    );
+    const cards = cleanImportedCards(parsed.cards);
+
+    if (cards.length === 0) {
+      throw new Error("No usable words were found in this image.");
+    }
+
+    return { cards };
   });
 
 function stripHtml(html: string): string {
