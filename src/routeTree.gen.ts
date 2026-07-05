@@ -32,6 +32,7 @@ import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
 import { Route as CommunityDeckIdRouteImport } from './routes/community.$deckId'
+import { Route as CollectionsCollectionIdRouteImport } from './routes/collections_.$collectionId'
 import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
 import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
@@ -151,6 +152,11 @@ const CommunityDeckIdRoute = CommunityDeckIdRouteImport.update({
   path: '/$deckId',
   getParentRoute: () => CommunityRoute,
 } as any)
+const CollectionsCollectionIdRoute = CollectionsCollectionIdRouteImport.update({
+  id: '/collections_/$collectionId',
+  path: '/collections/$collectionId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BuilderDeckIdRoute = BuilderDeckIdRouteImport.update({
   id: '/builder/$deckId',
   path: '/builder/$deckId',
@@ -183,6 +189,7 @@ export interface FileRoutesByFullPath {
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/collections/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
@@ -211,6 +218,7 @@ export interface FileRoutesByTo {
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/collections/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
@@ -240,6 +248,7 @@ export interface FileRoutesById {
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
   '/builder/$deckId': typeof BuilderDeckIdRoute
+  '/collections_/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
+    | '/collections/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
     | '/deck/$deckId'
@@ -298,6 +308,7 @@ export interface FileRouteTypes {
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
+    | '/collections/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
     | '/deck/$deckId'
@@ -326,6 +337,7 @@ export interface FileRouteTypes {
     | '/assoc/$deckId'
     | '/blank/$deckId'
     | '/builder/$deckId'
+    | '/collections_/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
     | '/deck/$deckId'
@@ -355,6 +367,7 @@ export interface RootRouteChildren {
   AssocDeckIdRoute: typeof AssocDeckIdRoute
   BlankDeckIdRoute: typeof BlankDeckIdRoute
   BuilderDeckIdRoute: typeof BuilderDeckIdRoute
+  CollectionsCollectionIdRoute: typeof CollectionsCollectionIdRoute
   CreatorUserIdRoute: typeof CreatorUserIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
@@ -530,6 +543,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityDeckIdRouteImport
       parentRoute: typeof CommunityRoute
     }
+    '/collections_/$collectionId': {
+      id: '/collections_/$collectionId'
+      path: '/collections/$collectionId'
+      fullPath: '/collections/$collectionId'
+      preLoaderRoute: typeof CollectionsCollectionIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/builder/$deckId': {
       id: '/builder/$deckId'
       path: '/builder/$deckId'
@@ -582,6 +602,7 @@ const rootRouteChildren: RootRouteChildren = {
   AssocDeckIdRoute: AssocDeckIdRoute,
   BlankDeckIdRoute: BlankDeckIdRoute,
   BuilderDeckIdRoute: BuilderDeckIdRoute,
+  CollectionsCollectionIdRoute: CollectionsCollectionIdRoute,
   CreatorUserIdRoute: CreatorUserIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,

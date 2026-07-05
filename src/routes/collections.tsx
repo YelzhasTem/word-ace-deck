@@ -204,6 +204,11 @@ function CollectionsPage() {
                   )}
 
                   <div className="mt-auto grid grid-cols-2 gap-2">
+                    <Button asChild size="sm">
+                      <Link to="/collections/$collectionId" params={{ collectionId: c.id }}>
+                        Open
+                      </Link>
+                    </Button>
                     <Button
                       variant="secondary"
                       size="sm"
@@ -212,7 +217,7 @@ function CollectionsPage() {
                     >
                       {t("col.pickDecks")}
                     </Button>
-                    <Button asChild variant="outline" size="sm">
+                    <Button asChild variant="outline" size="sm" className="col-span-2">
                       <Link to="/publish" search={{ type: "collection", id: c.id }}>
                         <Globe2 className="h-4 w-4" /> Publish
                       </Link>
