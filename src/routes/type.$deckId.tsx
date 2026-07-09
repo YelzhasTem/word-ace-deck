@@ -7,7 +7,7 @@ import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Check, X, Keyboard, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, X, Keyboard, RotateCcw, Repeat } from "lucide-react";
 
 export const Route = createFileRoute("/type/$deckId")({
   component: TypePage,
@@ -26,6 +26,7 @@ function TypePage() {
   const [wrong, setWrong] = useState(0);
   const [wrongIds, setWrongIds] = useState<string[]>([]);
   const [startedAt, setStartedAt] = useState<number>(() => Date.now());
+  const [reverseSides, setReverseSides] = useState(false);
 
   useEffect(() => {
     setIdx(0);
@@ -57,12 +58,18 @@ function TypePage() {
   const current = queue[idx];
   const finished = !current;
   const total = queue.length;
+  const promptLabel = reverseSides ? "Type the word" : "Type the translation";
+  const promptText = current ? (reverseSides ? current.definition : current.term) : "";
+  const expectedAnswer = current ? (reverseSides ? current.term : current.definition) : "";
+  const answerPlaceholder = reverseSides ? "English word..." : "Russian translation...";
+  const reviewPrimary = (card: Card) => (reverseSides ? card.definition : card.term);
+  const reviewSecondary = (card: Card) => (reverseSides ? card.term : card.definition);
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!current || verdict || !input.trim()) return;
     const elapsed = Date.now() - startedAt;
-    const ok = isCloseMatch(input, current.definition);
+    const ok = isCloseMatch(input, expectedAnswer);
     if (ok) playCorrectSound();
     else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
@@ -103,9 +110,25 @@ function TypePage() {
           >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
-            <Keyboard className="h-4 w-4" /> Typed translation
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+              <Keyboard className="h-4 w-4" /> Typed translation
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={() => {
+                setReverseSides((value) => !value);
+                setInput("");
+                setStartedAt(Date.now());
+              }}
+              disabled={!!verdict}
+            >
+              <Repeat className="h-4 w-4" /> Reverse sides
+            </Button>
+          </div>
         </div>
 
         {finished ? (
@@ -124,8 +147,8 @@ function TypePage() {
                     const c = deck.cards.find((x) => x.id === id);
                     return c ? (
                       <li key={id}>
-                        · <span className="text-foreground font-medium">{c.term}</span> —{" "}
-                        {c.definition}
+                        · <span className="text-foreground font-medium">{reviewPrimary(c)}</span> —{" "}
+                        {reviewSecondary(c)}
                       </li>
                     ) : null;
                   })}
@@ -165,10 +188,10 @@ function TypePage() {
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
               <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
-                Type the translation
+                {promptLabel}
               </span>
               <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
-                {current.term}
+                {promptText}
               </p>
               {(() => {
                 const a = accuracyFor(stats[current.id]);
@@ -185,19 +208,19 @@ function TypePage() {
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Russian translation..."
+                placeholder={answerPlaceholder}
                 disabled={!!verdict}
                 className="h-14 text-lg rounded-2xl"
               />
               {verdict === "ok" && (
                 <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm flex items-center gap-2">
-                  <Check className="h-4 w-4" /> Correct! {current.definition}
+                  <Check className="h-4 w-4" /> Correct! {expectedAnswer}
                 </div>
               )}
               {verdict === "miss" && (
                 <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-center gap-2">
                   <X className="h-4 w-4" /> Correct answer:{" "}
-                  <span className="font-semibold">{current.definition}</span>
+                  <span className="font-semibold">{expectedAnswer}</span>
                 </div>
               )}
               <div className="flex justify-end gap-2">
