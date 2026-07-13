@@ -450,8 +450,8 @@ function DeckPage() {
                 {
                   to: "/deep/$deckId",
                   icon: Brain,
-                  title: "Deep learning",
-                  desc: "4 translation options.",
+                  title: "Multiple Choice",
+                  desc: "Choose the correct translation.",
                 },
               ].map((m) => {
                 const disabled = m.to === "/deep/$deckId" && deck.cards.length < 4;

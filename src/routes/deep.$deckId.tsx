@@ -68,7 +68,9 @@ function DeepPage() {
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
+          <Link to="/" className="mt-6 inline-block text-accent underline">
+            Home
+          </Link>
         </main>
       </div>
     );
@@ -117,7 +119,7 @@ function DeepPage() {
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
           <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
-            <Brain className="h-4 w-4" /> Deep learning
+            <Brain className="h-4 w-4" /> Multiple Choice
           </span>
         </div>
 
@@ -134,7 +136,9 @@ function DeepPage() {
             </p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>
+                  Back to deck
+                </Link>
               </Button>
               <Button className="rounded-full" onClick={restart}>
                 <RotateCcw className="h-4 w-4" /> Try again
@@ -145,10 +149,12 @@ function DeepPage() {
           <>
             <div className="mb-8">
               <div className="flex justify-between text-xs text-muted-foreground mb-2">
-                <span>{idx + 1} / {total}</span>
                 <span>
-                  <span className="text-[color:var(--success)]">✓ {correctCount}</span>{" "}
-                  · <span className="text-destructive">✗ {wrongCount}</span>
+                  {idx + 1} / {total}
+                </span>
+                <span>
+                  <span className="text-[color:var(--success)]">✓ {correctCount}</span> ·{" "}
+                  <span className="text-destructive">✗ {wrongCount}</span>
                 </span>
               </div>
               <div className="h-1.5 rounded-full bg-secondary overflow-hidden">
