@@ -32,7 +32,6 @@ import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
 import { Route as CommunityDeckIdRouteImport } from './routes/community.$deckId'
 import { Route as CollectionsCollectionIdRouteImport } from './routes/collections_.$collectionId'
-import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
 
 const SettingsRoute = SettingsRouteImport.update({
@@ -150,11 +149,6 @@ const CollectionsCollectionIdRoute = CollectionsCollectionIdRouteImport.update({
   path: '/collections/$collectionId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BlankDeckIdRoute = BlankDeckIdRouteImport.update({
-  id: '/blank/$deckId',
-  path: '/blank/$deckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
   id: '/assoc/$deckId',
   path: '/assoc/$deckId',
@@ -175,7 +169,6 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
-  '/blank/$deckId': typeof BlankDeckIdRoute
   '/collections/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
@@ -202,7 +195,6 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
-  '/blank/$deckId': typeof BlankDeckIdRoute
   '/collections/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
@@ -230,7 +222,6 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
-  '/blank/$deckId': typeof BlankDeckIdRoute
   '/collections_/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
@@ -259,7 +250,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
-    | '/blank/$deckId'
     | '/collections/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
@@ -286,7 +276,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
-    | '/blank/$deckId'
     | '/collections/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
@@ -313,7 +302,6 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/settings'
     | '/assoc/$deckId'
-    | '/blank/$deckId'
     | '/collections_/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
@@ -341,7 +329,6 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SettingsRoute: typeof SettingsRoute
   AssocDeckIdRoute: typeof AssocDeckIdRoute
-  BlankDeckIdRoute: typeof BlankDeckIdRoute
   CollectionsCollectionIdRoute: typeof CollectionsCollectionIdRoute
   CreatorUserIdRoute: typeof CreatorUserIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
@@ -517,13 +504,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CollectionsCollectionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/blank/$deckId': {
-      id: '/blank/$deckId'
-      path: '/blank/$deckId'
-      fullPath: '/blank/$deckId'
-      preLoaderRoute: typeof BlankDeckIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/assoc/$deckId': {
       id: '/assoc/$deckId'
       path: '/assoc/$deckId'
@@ -560,7 +540,6 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SettingsRoute: SettingsRoute,
   AssocDeckIdRoute: AssocDeckIdRoute,
-  BlankDeckIdRoute: BlankDeckIdRoute,
   CollectionsCollectionIdRoute: CollectionsCollectionIdRoute,
   CreatorUserIdRoute: CreatorUserIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,

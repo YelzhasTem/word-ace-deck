@@ -22,7 +22,6 @@ import {
   Loader2,
   Brain,
   Keyboard,
-  FileQuestion,
   Zap,
   Highlighter,
   LineChart,
@@ -443,12 +442,6 @@ function DeckPage() {
                   desc: "Active recall with fuzzy matching.",
                 },
                 {
-                  to: "/blank/$deckId",
-                  icon: FileQuestion,
-                  title: "Fill-in-the-blank",
-                  desc: "A word in context: choices, word bank, or free input.",
-                },
-                {
                   to: "/speed/$deckId",
                   icon: Zap,
                   title: "Speed challenge",
@@ -461,9 +454,7 @@ function DeckPage() {
                   desc: "4 translation options.",
                 },
               ].map((m) => {
-                const disabled =
-                  (m.to === "/deep/$deckId" && deck.cards.length < 4) ||
-                  (m.to === "/blank/$deckId" && !isOnline);
+                const disabled = m.to === "/deep/$deckId" && deck.cards.length < 4;
                 return (
                   <button
                     key={m.to}
