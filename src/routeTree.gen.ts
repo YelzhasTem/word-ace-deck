@@ -26,7 +26,6 @@ import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
 import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
 import { Route as ReverseDeckIdRouteImport } from './routes/reverse.$deckId'
 import { Route as RecallDeckIdRouteImport } from './routes/recall.$deckId'
-import { Route as FeedbackDeckIdRouteImport } from './routes/feedback.$deckId'
 import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
@@ -119,11 +118,6 @@ const RecallDeckIdRoute = RecallDeckIdRouteImport.update({
   path: '/recall/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const FeedbackDeckIdRoute = FeedbackDeckIdRouteImport.update({
-  id: '/feedback/$deckId',
-  path: '/feedback/$deckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const DeepDeckIdRoute = DeepDeckIdRouteImport.update({
   id: '/deep/$deckId',
   path: '/deep/$deckId',
@@ -174,7 +168,6 @@ export interface FileRoutesByFullPath {
   '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
-  '/feedback/$deckId': typeof FeedbackDeckIdRoute
   '/recall/$deckId': typeof RecallDeckIdRoute
   '/reverse/$deckId': typeof ReverseDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
@@ -200,7 +193,6 @@ export interface FileRoutesByTo {
   '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
-  '/feedback/$deckId': typeof FeedbackDeckIdRoute
   '/recall/$deckId': typeof RecallDeckIdRoute
   '/reverse/$deckId': typeof ReverseDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
@@ -227,7 +219,6 @@ export interface FileRoutesById {
   '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
-  '/feedback/$deckId': typeof FeedbackDeckIdRoute
   '/recall/$deckId': typeof RecallDeckIdRoute
   '/reverse/$deckId': typeof ReverseDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
@@ -255,7 +246,6 @@ export interface FileRouteTypes {
     | '/creator/$userId'
     | '/deck/$deckId'
     | '/deep/$deckId'
-    | '/feedback/$deckId'
     | '/recall/$deckId'
     | '/reverse/$deckId'
     | '/speed/$deckId'
@@ -281,7 +271,6 @@ export interface FileRouteTypes {
     | '/creator/$userId'
     | '/deck/$deckId'
     | '/deep/$deckId'
-    | '/feedback/$deckId'
     | '/recall/$deckId'
     | '/reverse/$deckId'
     | '/speed/$deckId'
@@ -307,7 +296,6 @@ export interface FileRouteTypes {
     | '/creator/$userId'
     | '/deck/$deckId'
     | '/deep/$deckId'
-    | '/feedback/$deckId'
     | '/recall/$deckId'
     | '/reverse/$deckId'
     | '/speed/$deckId'
@@ -333,7 +321,6 @@ export interface RootRouteChildren {
   CreatorUserIdRoute: typeof CreatorUserIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
-  FeedbackDeckIdRoute: typeof FeedbackDeckIdRoute
   RecallDeckIdRoute: typeof RecallDeckIdRoute
   ReverseDeckIdRoute: typeof ReverseDeckIdRoute
   SpeedDeckIdRoute: typeof SpeedDeckIdRoute
@@ -462,13 +449,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RecallDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/feedback/$deckId': {
-      id: '/feedback/$deckId'
-      path: '/feedback/$deckId'
-      fullPath: '/feedback/$deckId'
-      preLoaderRoute: typeof FeedbackDeckIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/deep/$deckId': {
       id: '/deep/$deckId'
       path: '/deep/$deckId'
@@ -544,7 +524,6 @@ const rootRouteChildren: RootRouteChildren = {
   CreatorUserIdRoute: CreatorUserIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,
-  FeedbackDeckIdRoute: FeedbackDeckIdRoute,
   RecallDeckIdRoute: RecallDeckIdRoute,
   ReverseDeckIdRoute: ReverseDeckIdRoute,
   SpeedDeckIdRoute: SpeedDeckIdRoute,

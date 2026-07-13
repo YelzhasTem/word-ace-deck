@@ -24,7 +24,6 @@ import {
   Keyboard,
   Zap,
   Highlighter,
-  LineChart,
   Hourglass,
   Globe2,
 } from "lucide-react";
@@ -468,29 +467,6 @@ function DeckPage() {
                   </button>
                 );
               })}
-            </div>
-          </section>
-        )}
-
-        {/* AI Analysis */}
-        {deck.cards.length > 0 && (
-          <section className="mb-8 rounded-3xl border border-border bg-card p-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h2 className="font-display text-xl flex items-center gap-2">
-                  <LineChart className="h-5 w-5 text-accent" /> AI feedback
-                </h2>
-                <p className="mt-1 text-sm text-muted-foreground max-w-md">
-                  Session analysis, weak words, and a plan for tomorrow based on your stats.
-                </p>
-              </div>
-              <Button
-                className="rounded-full shrink-0"
-                onClick={() => navigate({ to: "/feedback/$deckId", params: { deckId: deck.id } })}
-                disabled={!isOnline}
-              >
-                <Sparkles className="h-4 w-4" /> Open feedback
-              </Button>
             </div>
           </section>
         )}
