@@ -24,7 +24,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
 import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
 import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
-import { Route as ReviewDeckIdRouteImport } from './routes/review.$deckId'
 import { Route as ReverseDeckIdRouteImport } from './routes/reverse.$deckId'
 import { Route as RecallDeckIdRouteImport } from './routes/recall.$deckId'
 import { Route as FeedbackDeckIdRouteImport } from './routes/feedback.$deckId'
@@ -33,7 +32,6 @@ import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
 import { Route as CommunityDeckIdRouteImport } from './routes/community.$deckId'
 import { Route as CollectionsCollectionIdRouteImport } from './routes/collections_.$collectionId'
-import { Route as BuilderDeckIdRouteImport } from './routes/builder.$deckId'
 import { Route as BlankDeckIdRouteImport } from './routes/blank.$deckId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
 
@@ -112,11 +110,6 @@ const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
   path: '/speed/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReviewDeckIdRoute = ReviewDeckIdRouteImport.update({
-  id: '/review/$deckId',
-  path: '/review/$deckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ReverseDeckIdRoute = ReverseDeckIdRouteImport.update({
   id: '/reverse/$deckId',
   path: '/reverse/$deckId',
@@ -157,11 +150,6 @@ const CollectionsCollectionIdRoute = CollectionsCollectionIdRouteImport.update({
   path: '/collections/$collectionId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const BuilderDeckIdRoute = BuilderDeckIdRouteImport.update({
-  id: '/builder/$deckId',
-  path: '/builder/$deckId',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const BlankDeckIdRoute = BlankDeckIdRouteImport.update({
   id: '/blank/$deckId',
   path: '/blank/$deckId',
@@ -188,7 +176,6 @@ export interface FileRoutesByFullPath {
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
-  '/builder/$deckId': typeof BuilderDeckIdRoute
   '/collections/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
@@ -197,7 +184,6 @@ export interface FileRoutesByFullPath {
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
   '/recall/$deckId': typeof RecallDeckIdRoute
   '/reverse/$deckId': typeof ReverseDeckIdRoute
-  '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
@@ -217,7 +203,6 @@ export interface FileRoutesByTo {
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
-  '/builder/$deckId': typeof BuilderDeckIdRoute
   '/collections/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
@@ -226,7 +211,6 @@ export interface FileRoutesByTo {
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
   '/recall/$deckId': typeof RecallDeckIdRoute
   '/reverse/$deckId': typeof ReverseDeckIdRoute
-  '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
@@ -247,7 +231,6 @@ export interface FileRoutesById {
   '/settings': typeof SettingsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/blank/$deckId': typeof BlankDeckIdRoute
-  '/builder/$deckId': typeof BuilderDeckIdRoute
   '/collections_/$collectionId': typeof CollectionsCollectionIdRoute
   '/community/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
@@ -256,7 +239,6 @@ export interface FileRoutesById {
   '/feedback/$deckId': typeof FeedbackDeckIdRoute
   '/recall/$deckId': typeof RecallDeckIdRoute
   '/reverse/$deckId': typeof ReverseDeckIdRoute
-  '/review/$deckId': typeof ReviewDeckIdRoute
   '/speed/$deckId': typeof SpeedDeckIdRoute
   '/study/$deckId': typeof StudyDeckIdRoute
   '/type/$deckId': typeof TypeDeckIdRoute
@@ -278,7 +260,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/assoc/$deckId'
     | '/blank/$deckId'
-    | '/builder/$deckId'
     | '/collections/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
@@ -287,7 +268,6 @@ export interface FileRouteTypes {
     | '/feedback/$deckId'
     | '/recall/$deckId'
     | '/reverse/$deckId'
-    | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
     | '/type/$deckId'
@@ -307,7 +287,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/assoc/$deckId'
     | '/blank/$deckId'
-    | '/builder/$deckId'
     | '/collections/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
@@ -316,7 +295,6 @@ export interface FileRouteTypes {
     | '/feedback/$deckId'
     | '/recall/$deckId'
     | '/reverse/$deckId'
-    | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
     | '/type/$deckId'
@@ -336,7 +314,6 @@ export interface FileRouteTypes {
     | '/settings'
     | '/assoc/$deckId'
     | '/blank/$deckId'
-    | '/builder/$deckId'
     | '/collections_/$collectionId'
     | '/community/$deckId'
     | '/creator/$userId'
@@ -345,7 +322,6 @@ export interface FileRouteTypes {
     | '/feedback/$deckId'
     | '/recall/$deckId'
     | '/reverse/$deckId'
-    | '/review/$deckId'
     | '/speed/$deckId'
     | '/study/$deckId'
     | '/type/$deckId'
@@ -366,7 +342,6 @@ export interface RootRouteChildren {
   SettingsRoute: typeof SettingsRoute
   AssocDeckIdRoute: typeof AssocDeckIdRoute
   BlankDeckIdRoute: typeof BlankDeckIdRoute
-  BuilderDeckIdRoute: typeof BuilderDeckIdRoute
   CollectionsCollectionIdRoute: typeof CollectionsCollectionIdRoute
   CreatorUserIdRoute: typeof CreatorUserIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
@@ -374,7 +349,6 @@ export interface RootRouteChildren {
   FeedbackDeckIdRoute: typeof FeedbackDeckIdRoute
   RecallDeckIdRoute: typeof RecallDeckIdRoute
   ReverseDeckIdRoute: typeof ReverseDeckIdRoute
-  ReviewDeckIdRoute: typeof ReviewDeckIdRoute
   SpeedDeckIdRoute: typeof SpeedDeckIdRoute
   StudyDeckIdRoute: typeof StudyDeckIdRoute
   TypeDeckIdRoute: typeof TypeDeckIdRoute
@@ -487,13 +461,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SpeedDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/review/$deckId': {
-      id: '/review/$deckId'
-      path: '/review/$deckId'
-      fullPath: '/review/$deckId'
-      preLoaderRoute: typeof ReviewDeckIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/reverse/$deckId': {
       id: '/reverse/$deckId'
       path: '/reverse/$deckId'
@@ -550,13 +517,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CollectionsCollectionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/builder/$deckId': {
-      id: '/builder/$deckId'
-      path: '/builder/$deckId'
-      fullPath: '/builder/$deckId'
-      preLoaderRoute: typeof BuilderDeckIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/blank/$deckId': {
       id: '/blank/$deckId'
       path: '/blank/$deckId'
@@ -601,7 +561,6 @@ const rootRouteChildren: RootRouteChildren = {
   SettingsRoute: SettingsRoute,
   AssocDeckIdRoute: AssocDeckIdRoute,
   BlankDeckIdRoute: BlankDeckIdRoute,
-  BuilderDeckIdRoute: BuilderDeckIdRoute,
   CollectionsCollectionIdRoute: CollectionsCollectionIdRoute,
   CreatorUserIdRoute: CreatorUserIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
@@ -609,7 +568,6 @@ const rootRouteChildren: RootRouteChildren = {
   FeedbackDeckIdRoute: FeedbackDeckIdRoute,
   RecallDeckIdRoute: RecallDeckIdRoute,
   ReverseDeckIdRoute: ReverseDeckIdRoute,
-  ReviewDeckIdRoute: ReviewDeckIdRoute,
   SpeedDeckIdRoute: SpeedDeckIdRoute,
   StudyDeckIdRoute: StudyDeckIdRoute,
   TypeDeckIdRoute: TypeDeckIdRoute,

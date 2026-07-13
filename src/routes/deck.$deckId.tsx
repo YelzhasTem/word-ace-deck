@@ -22,11 +22,9 @@ import {
   Loader2,
   Brain,
   Keyboard,
-  Shuffle,
   FileQuestion,
   Zap,
   Highlighter,
-  CalendarClock,
   LineChart,
   Hourglass,
   Globe2,
@@ -439,22 +437,10 @@ function DeckPage() {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {[
                 {
-                  to: "/review/$deckId",
-                  icon: CalendarClock,
-                  title: "Daily review",
-                  desc: "SRS queue: only words due for review.",
-                },
-                {
                   to: "/type/$deckId",
                   icon: Keyboard,
                   title: "Typed translation",
                   desc: "Active recall with fuzzy matching.",
-                },
-                {
-                  to: "/builder/$deckId",
-                  icon: Shuffle,
-                  title: "Word builder",
-                  desc: "Build the word from letters. 3 difficulty levels.",
                 },
                 {
                   to: "/blank/$deckId",
