@@ -5,7 +5,7 @@ import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Brain, Check, RotateCcw, X } from "lucide-react";
+import { ArrowLeft, Brain, Check, RotateCcw, X, Repeat, Shuffle } from "lucide-react";
 
 export const Route = createFileRoute("/deep/$deckId")({
   component: DeepPage,
@@ -13,6 +13,7 @@ export const Route = createFileRoute("/deep/$deckId")({
 
 type Question = {
   card: Card;
+  prompt: string;
   options: string[];
   correctIndex: number;
 };
@@ -26,16 +27,18 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function buildQuestions(cards: Card[]): Question[] {
-  const allDefs = cards.map((c) => c.definition);
+function buildQuestions(cards: Card[], reverseSides: boolean): Question[] {
+  const allAnswers = cards.map((c) => (reverseSides ? c.term : c.definition));
   return shuffle(cards).map((card) => {
-    const distractors = shuffle(allDefs.filter((d) => d !== card.definition)).slice(0, 3);
+    const answer = reverseSides ? card.term : card.definition;
+    const distractors = shuffle(allAnswers.filter((value) => value !== answer)).slice(0, 3);
     while (distractors.length < 3) distractors.push("—");
-    const options = shuffle([card.definition, ...distractors]);
+    const options = shuffle([answer, ...distractors]);
     return {
       card,
+      prompt: reverseSides ? card.definition : card.term,
       options,
-      correctIndex: options.indexOf(card.definition),
+      correctIndex: options.indexOf(answer),
     };
   });
 }
@@ -49,17 +52,19 @@ function DeepPage() {
   const [picked, setPicked] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [wrongCount, setWrongCount] = useState(0);
+  const [reverseSides, setReverseSides] = useState(false);
 
   const canPlay = useMemo(() => deck && deck.cards.length >= 4, [deck]);
 
   useEffect(() => {
     if (deck && canPlay) {
-      setQuestions(buildQuestions(deck.cards));
+      setQuestions(buildQuestions(deck.cards, reverseSides));
       setIdx(0);
       setPicked(null);
       setCorrectCount(0);
       setWrongCount(0);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId, deck?.cards.length, canPlay]);
 
   if (!deck) {
@@ -77,11 +82,31 @@ function DeepPage() {
   }
 
   const restart = () => {
-    setQuestions(buildQuestions(deck.cards));
+    setQuestions(buildQuestions(deck.cards, reverseSides));
     setIdx(0);
     setPicked(null);
     setCorrectCount(0);
     setWrongCount(0);
+  };
+
+  const shuffleRemaining = () => {
+    setQuestions((currentQuestions) => {
+      const answered = currentQuestions.slice(0, idx);
+      const remaining = currentQuestions.slice(idx);
+      return [...answered, ...shuffle(remaining)];
+    });
+    setPicked(null);
+  };
+
+  const toggleReverseSides = () => {
+    const nextReverseSides = !reverseSides;
+    setReverseSides(nextReverseSides);
+    setQuestions((currentQuestions) => {
+      const answered = currentQuestions.slice(0, idx);
+      const remainingCards = currentQuestions.slice(idx).map((question) => question.card);
+      return [...answered, ...buildQuestions(remainingCards, nextReverseSides)];
+    });
+    setPicked(null);
   };
 
   const handlePick = (i: number) => {
@@ -118,9 +143,31 @@ function DeepPage() {
           >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
-            <Brain className="h-4 w-4" /> Multiple Choice
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+              <Brain className="h-4 w-4" /> Multiple Choice
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={shuffleRemaining}
+              disabled={picked !== null || total - idx < 2}
+            >
+              <Shuffle className="h-4 w-4" /> Shuffle
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={toggleReverseSides}
+              disabled={picked !== null}
+            >
+              <Repeat className="h-4 w-4" /> Reverse sides
+            </Button>
+          </div>
         </div>
 
         {!canPlay ? (
@@ -167,10 +214,10 @@ function DeepPage() {
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
               <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
-                Choose the translation
+                {reverseSides ? "Choose the word" : "Choose the translation"}
               </span>
               <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
-                {current.card.term}
+                {current.prompt}
               </p>
             </div>
 

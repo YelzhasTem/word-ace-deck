@@ -8,18 +8,32 @@ import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Check, X, Keyboard, RotateCcw, Repeat } from "lucide-react";
+import { ArrowLeft, Check, X, Keyboard, RotateCcw, Repeat, Shuffle } from "lucide-react";
 
 export const Route = createFileRoute("/type/$deckId")({
   component: TypePage,
 });
+
+function shuffleList<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 function TypePage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
   const stats = useDeckStats(deckId);
 
-  const queue = useMemo<Card[]>(() => (deck ? prioritise(deckId, deck.cards) : []), [deck, deckId]);
+  const baseQueue = useMemo<Card[]>(
+    () => (deck ? prioritise(deckId, deck.cards) : []),
+    [deck, deckId],
+  );
+  const baseQueueKey = baseQueue.map((card) => card.id).join("|");
+  const [orderIds, setOrderIds] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState("");
   const [verdict, setVerdict] = useState<null | "ok" | "miss">(null);
@@ -30,6 +44,7 @@ function TypePage() {
   const [reverseSides, setReverseSides] = useState(false);
 
   useEffect(() => {
+    setOrderIds(baseQueueKey ? baseQueueKey.split("|") : []);
     setIdx(0);
     setInput("");
     setVerdict(null);
@@ -37,7 +52,13 @@ function TypePage() {
     setWrong(0);
     setWrongIds([]);
     setStartedAt(Date.now());
-  }, [deckId]);
+  }, [deckId, baseQueueKey]);
+
+  const queue = useMemo<Card[]>(() => {
+    const byId = new Map(baseQueue.map((card) => [card.id, card]));
+    return orderIds.map((id) => byId.get(id)).filter((card): card is Card => Boolean(card));
+  }, [baseQueue, orderIds]);
+
   useEffect(() => {
     setStartedAt(Date.now());
   }, [idx]);
@@ -94,12 +115,23 @@ function TypePage() {
     setIdx((i) => i + 1);
   };
   const restart = () => {
+    setOrderIds(baseQueueKey ? baseQueueKey.split("|") : []);
     setIdx(0);
     setInput("");
     setVerdict(null);
     setRight(0);
     setWrong(0);
     setWrongIds([]);
+    setStartedAt(Date.now());
+  };
+  const shuffleRemaining = () => {
+    setOrderIds((ids) => {
+      const answered = ids.slice(0, idx);
+      const remaining = ids.slice(idx);
+      return [...answered, ...shuffleList(remaining)];
+    });
+    setInput("");
+    setVerdict(null);
     setStartedAt(Date.now());
   };
 
@@ -119,6 +151,16 @@ function TypePage() {
             <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
               <Keyboard className="h-4 w-4" /> Typed translation
             </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={shuffleRemaining}
+              disabled={!!verdict || total - idx < 2}
+            >
+              <Shuffle className="h-4 w-4" /> Shuffle
+            </Button>
             <Button
               type="button"
               variant="ghost"

@@ -1,11 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
-import { getLearningLanguageOption } from "@/lib/languages";
+import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Check, X, Hourglass, RotateCcw } from "lucide-react";
+import { ArrowLeft, Check, X, Hourglass, RotateCcw, Repeat, Shuffle } from "lucide-react";
 import {
   decksWithReadyRecall,
   dueRecallEntries,
@@ -21,6 +21,15 @@ export const Route = createFileRoute("/recall/$deckId")({
   component: RecallPage,
 });
 
+function shuffleList<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 function RecallPage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
@@ -33,6 +42,7 @@ function RecallPage() {
   const [verdict, setVerdict] = useState<null | "ok" | "miss">(null);
   const [right, setRight] = useState(0);
   const [wrong, setWrong] = useState(0);
+  const [reverseSides, setReverseSides] = useState(false);
   const sessionStartedRef = useRef(false);
 
   useEffect(() => {
@@ -95,6 +105,7 @@ function RecallPage() {
   }
 
   const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage, deck.definitionLanguage);
 
   if (!enabled) {
     return (
@@ -120,11 +131,20 @@ function RecallPage() {
   const finished = !current && total > 0;
   const empty = total === 0;
   const nextReadyDeckId = decksWithReadyRecall().find((item) => item.deckId !== deck.id)?.deckId;
+  const promptLabel = reverseSides ? "Hint — recall the translation" : "Hint — recall the word";
+  const promptText = current ? (reverseSides ? current.term : current.definition) : "";
+  const expectedAnswer = current ? (reverseSides ? current.definition : current.term) : "";
+  const answerPlaceholder = reverseSides
+    ? `${definitionLanguage.label} translation...`
+    : `${learningLanguage.label} word...`;
+  const answerHelp = reverseSides
+    ? `Type the ${definitionLanguage.label} translation that matches this word.`
+    : `Type the ${learningLanguage.label} word that matches this definition.`;
 
   const submit = (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!current || verdict) return;
-    const ok = isCloseMatch(input, current.term);
+    const ok = isCloseMatch(input, expectedAnswer);
     if (ok) playCorrectSound();
     else playWrongSound();
     sessionStartedRef.current = true;
@@ -136,6 +156,20 @@ function RecallPage() {
     } else setWrong((w) => w + 1);
   };
   const next = () => setIdx((i) => i + 1);
+  const shuffleRemaining = () => {
+    setQueueIds((ids) => {
+      const answered = ids.slice(0, idx);
+      const remaining = ids.slice(idx);
+      return [...answered, ...shuffleList(remaining)];
+    });
+    setInput("");
+    setVerdict(null);
+  };
+  const toggleReverseSides = () => {
+    setReverseSides((value) => !value);
+    setInput("");
+    setVerdict(null);
+  };
 
   return (
     <div className="min-h-screen">
@@ -149,9 +183,31 @@ function RecallPage() {
           >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
-            <Hourglass className="h-4 w-4" /> Delayed Recall
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+              <Hourglass className="h-4 w-4" /> Delayed Recall
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={shuffleRemaining}
+              disabled={!!verdict || total - idx < 2}
+            >
+              <Shuffle className="h-4 w-4" /> Shuffle
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={toggleReverseSides}
+              disabled={!!verdict}
+            >
+              <Repeat className="h-4 w-4" /> Reverse sides
+            </Button>
+          </div>
         </div>
 
         {empty ? (
@@ -228,14 +284,12 @@ function RecallPage() {
 
             <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
               <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
-                Hint — recall the word
+                {promptLabel}
               </span>
               <p className="mt-6 font-display text-3xl md:text-4xl font-semibold leading-tight">
-                {current.definition}
+                {promptText}
               </p>
-              <p className="mt-6 text-sm text-muted-foreground">
-                Type the {learningLanguage.label} word that matches this definition.
-              </p>
+              <p className="mt-6 text-sm text-muted-foreground">{answerHelp}</p>
             </div>
 
             <form onSubmit={submit} className="space-y-3">
@@ -243,19 +297,19 @@ function RecallPage() {
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder={`${learningLanguage.label} word...`}
+                placeholder={answerPlaceholder}
                 disabled={!!verdict}
                 className="h-14 text-lg rounded-2xl"
               />
               {verdict === "ok" && (
                 <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm flex items-center gap-2">
-                  <Check className="h-4 w-4" /> Correct! {current.term}
+                  <Check className="h-4 w-4" /> Correct! {expectedAnswer}
                 </div>
               )}
               {verdict === "miss" && (
                 <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-center gap-2">
                   <X className="h-4 w-4" /> Correct answer:{" "}
-                  <span className="font-semibold">{current.term}</span>
+                  <span className="font-semibold">{expectedAnswer}</span>
                 </div>
               )}
               <div className="flex justify-end">

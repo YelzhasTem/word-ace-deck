@@ -8,7 +8,7 @@ import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, Check, X, RotateCcw, Repeat } from "lucide-react";
+import { ArrowLeft, Check, X, RotateCcw, Repeat, Shuffle } from "lucide-react";
 
 export const Route = createFileRoute("/reverse/$deckId")({
   component: ReversePage,
@@ -19,6 +19,16 @@ type Item = { cardId: string; dir: Dir };
 
 const REV_SUFFIX = ":rev";
 const statKey = (cardId: string, dir: Dir) => (dir === "fwd" ? cardId : cardId + REV_SUFFIX);
+const flipDir = (dir: Dir): Dir => (dir === "fwd" ? "rev" : "fwd");
+
+function shuffleList<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 function ReversePage() {
   const { deckId } = Route.useParams();
@@ -140,6 +150,24 @@ function ReversePage() {
     setFlipped(false);
   };
 
+  const shuffleRemaining = () => {
+    setQueue((items) => {
+      const answered = items.slice(0, idx);
+      const remaining = items.slice(idx);
+      return [...answered, ...shuffleList(remaining)];
+    });
+    setFlipped(false);
+    setStartedAt(Date.now());
+  };
+
+  const reverseRemainingSides = () => {
+    setQueue((items) =>
+      items.map((item, index) => (index < idx ? item : { ...item, dir: flipDir(item.dir) })),
+    );
+    setFlipped(false);
+    setStartedAt(Date.now());
+  };
+
   // Stats summary
   const sumFwd = { correct: 0, wrong: 0 };
   const sumRev = { correct: 0, wrong: 0 };
@@ -189,9 +217,31 @@ function ReversePage() {
           >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <Button variant="ghost" size="sm" className="rounded-full" onClick={restart}>
-            <RotateCcw className="h-4 w-4" /> Restart
-          </Button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={shuffleRemaining}
+              disabled={queue.length - idx < 2}
+            >
+              <Shuffle className="h-4 w-4" /> Shuffle
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={reverseRemainingSides}
+              disabled={queue.length - idx < 1}
+            >
+              <Repeat className="h-4 w-4" /> Reverse sides
+            </Button>
+            <Button variant="ghost" size="sm" className="rounded-full" onClick={restart}>
+              <RotateCcw className="h-4 w-4" /> Restart
+            </Button>
+          </div>
         </div>
 
         <div className="mb-6">

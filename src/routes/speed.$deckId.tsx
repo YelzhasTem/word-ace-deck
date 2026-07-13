@@ -6,14 +6,14 @@ import { recordAnswer, recordSpeedRun, useSpeedRecords } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Timer, Zap, Trophy, RotateCcw } from "lucide-react";
+import { ArrowLeft, Timer, Zap, Trophy, RotateCcw, Repeat, Shuffle } from "lucide-react";
 
 export const Route = createFileRoute("/speed/$deckId")({
   component: SpeedPage,
 });
 
 type Duration = 30 | 60 | 120;
-type Q = { card: Card; options: string[]; correct: number };
+type Q = { card: Card; prompt: string; options: string[]; correct: number };
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
@@ -24,13 +24,19 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function build(cards: Card[]): Q[] {
-  const allDefs = cards.map((c) => c.definition);
+function build(cards: Card[], reverseSides: boolean): Q[] {
+  const allAnswers = cards.map((c) => (reverseSides ? c.term : c.definition));
   return shuffle(cards).map((card) => {
-    const distractors = shuffle(allDefs.filter((d) => d !== card.definition)).slice(0, 3);
+    const answer = reverseSides ? card.term : card.definition;
+    const distractors = shuffle(allAnswers.filter((value) => value !== answer)).slice(0, 3);
     while (distractors.length < 3) distractors.push("—");
-    const opts = shuffle([card.definition, ...distractors]);
-    return { card, options: opts, correct: opts.indexOf(card.definition) };
+    const opts = shuffle([answer, ...distractors]);
+    return {
+      card,
+      prompt: reverseSides ? card.definition : card.term,
+      options: opts,
+      correct: opts.indexOf(answer),
+    };
   });
 }
 
@@ -39,6 +45,7 @@ function SpeedPage() {
   const { deck } = useDeck(deckId);
 
   const [duration, setDuration] = useState<Duration>(60);
+  const [reverseSides, setReverseSides] = useState(false);
   const [running, setRunning] = useState(false);
   const [left, setLeft] = useState(60);
   const [questions, setQuestions] = useState<Q[]>([]);
@@ -96,7 +103,7 @@ function SpeedPage() {
     setWrong(0);
     setWeak([]);
     setIdx(0);
-    setQuestions(build(deck.cards));
+    setQuestions(build(deck.cards, reverseSides));
     setRunning(true);
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
@@ -109,6 +116,24 @@ function SpeedPage() {
         return l - 1;
       });
     }, 1000);
+  };
+
+  const shuffleRemaining = () => {
+    setQuestions((qs) => {
+      const answered = qs.slice(0, idx);
+      const remaining = qs.slice(idx);
+      return [...answered, ...shuffle(remaining)];
+    });
+  };
+
+  const toggleReverseSides = () => {
+    const nextReverseSides = !reverseSides;
+    setReverseSides(nextReverseSides);
+    setQuestions((qs) => {
+      const answered = qs.slice(0, idx);
+      const remainingCards = qs.slice(idx).map((question) => question.card);
+      return [...answered, ...build(remainingCards, nextReverseSides)];
+    });
   };
 
   const cur = questions[idx];
@@ -130,7 +155,9 @@ function SpeedPage() {
       setWrong((w) => w + 1);
       setWeak((w) => (w.find((x) => x.id === cur.card.id) ? w : [...w, cur.card]));
     }
-    if (idx + 1 >= questions.length) setQuestions((qs) => [...qs, ...build(deck.cards)]);
+    if (idx + 1 >= questions.length) {
+      setQuestions((qs) => [...qs, ...build(deck.cards, reverseSides)]);
+    }
     setIdx((i2) => i2 + 1);
   };
 
@@ -146,9 +173,30 @@ function SpeedPage() {
           >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
-            <Zap className="h-4 w-4" /> Speed challenge
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+              <Zap className="h-4 w-4" /> Speed challenge
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={shuffleRemaining}
+              disabled={questions.length - idx < 2}
+            >
+              <Shuffle className="h-4 w-4" /> Shuffle
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={toggleReverseSides}
+            >
+              <Repeat className="h-4 w-4" /> Reverse sides
+            </Button>
+          </div>
         </div>
 
         {!canPlay ? (
@@ -241,7 +289,7 @@ function SpeedPage() {
               <>
                 <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
                   <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight">
-                    {cur.card.term}
+                    {cur.prompt}
                   </p>
                 </div>
                 <div className="grid sm:grid-cols-2 gap-3">

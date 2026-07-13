@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { generateAssociation } from "@/lib/ai.functions";
@@ -22,11 +22,22 @@ import {
   Eye,
   Check,
   X,
+  Repeat,
+  Shuffle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/assoc/$deckId")({
   component: AssocPage,
 });
+
+function shuffleList<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
 
 function AssocPage() {
   const { deckId } = Route.useParams();
@@ -39,9 +50,30 @@ function AssocPage() {
   const [error, setError] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [my, setMy] = useState("");
+  const [orderIds, setOrderIds] = useState<string[]>([]);
+  const [reverseSides, setReverseSides] = useState(false);
 
-  const total = deck?.cards.length ?? 0;
-  const current = deck?.cards[idx];
+  const deckCardIds = deck?.cards.map((card) => card.id).join("|") ?? "";
+
+  useEffect(() => {
+    if (!deck) return;
+    setOrderIds(deck.cards.map((card) => card.id));
+    setIdx(0);
+    setRevealed(false);
+    setMy("");
+  }, [deck, deckCardIds]);
+
+  const cards = useMemo(() => {
+    if (!deck) return [];
+    const byId = new Map(deck.cards.map((card) => [card.id, card]));
+    const ordered = orderIds
+      .map((id) => byId.get(id))
+      .filter((card): card is NonNullable<typeof card> => Boolean(card));
+    return ordered.length === deck.cards.length ? ordered : deck.cards;
+  }, [deck, orderIds]);
+
+  const total = cards.length;
+  const current = cards[idx];
   const assocs = useAssocs(current?.id ?? "");
 
   if (!deck) {
@@ -108,6 +140,21 @@ function AssocPage() {
     setRevealed(false);
   };
 
+  const shuffleRemaining = () => {
+    setOrderIds((ids) => {
+      const sourceIds = ids.length ? ids : deck.cards.map((card) => card.id);
+      const answered = sourceIds.slice(0, idx);
+      const remaining = sourceIds.slice(idx);
+      return [...answered, ...shuffleList(remaining)];
+    });
+    setRevealed(false);
+  };
+
+  const toggleReverseSides = () => {
+    setReverseSides((value) => !value);
+    setRevealed(false);
+  };
+
   const mark = (helped: boolean) => {
     if (helped) playCorrectSound();
     else playWrongSound();
@@ -115,6 +162,11 @@ function AssocPage() {
     if (helped) recordStreakToday();
     go(1);
   };
+
+  const frontLabel = reverseSides ? "Translation" : "Word";
+  const backLabel = reverseSides ? "Word" : "Translation";
+  const frontText = reverseSides ? current.definition : current.term;
+  const backText = reverseSides ? current.term : current.definition;
 
   return (
     <div className="min-h-screen">
@@ -128,9 +180,30 @@ function AssocPage() {
           >
             <ArrowLeft className="h-4 w-4" /> {deck.name}
           </Link>
-          <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
-            <Brain className="h-4 w-4" /> Memory associations
-          </span>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <span className="inline-flex items-center gap-1.5 text-sm text-accent font-medium">
+              <Brain className="h-4 w-4" /> Memory associations
+            </span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={shuffleRemaining}
+              disabled={total - idx < 2}
+            >
+              <Shuffle className="h-4 w-4" /> Shuffle
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="rounded-full"
+              onClick={toggleReverseSides}
+            >
+              <Repeat className="h-4 w-4" /> Reverse sides
+            </Button>
+          </div>
         </div>
 
         <div className="mb-4 flex items-center justify-between">
@@ -158,19 +231,21 @@ function AssocPage() {
         </div>
 
         <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
-          <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">Word</span>
+          <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
+            {frontLabel}
+          </span>
           <p className="mt-4 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
-            {current.term}
+            {frontText}
           </p>
           {revealed ? (
-            <p className="mt-6 font-display text-2xl text-primary">{current.definition}</p>
+            <p className="mt-6 font-display text-2xl text-primary">{backText}</p>
           ) : (
             <Button
               variant="outline"
               className="rounded-full mt-6"
               onClick={() => setRevealed(true)}
             >
-              <Eye className="h-4 w-4" /> Show translation
+              <Eye className="h-4 w-4" /> Show {backLabel.toLowerCase()}
             </Button>
           )}
         </div>
