@@ -77,7 +77,13 @@ function AssocPage() {
     setLoading(true);
     setError("");
     try {
-      const r = await gen({ data: { term: current.term, definition: current.definition } });
+      const r = await gen({
+        data: {
+          term: current.term,
+          definition: current.definition,
+          targetLanguage: deck.targetLanguage,
+        },
+      });
       addAssoc(current.id, {
         text: `${r.association}\n\n${r.story}`.trim(),
         source: "ai",

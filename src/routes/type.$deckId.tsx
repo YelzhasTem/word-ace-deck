@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
+import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, isCloseMatch, prioritise, accuracyFor, useDeckStats } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
@@ -55,13 +56,17 @@ function TypePage() {
     );
   }
 
+  const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage);
   const current = queue[idx];
   const finished = !current;
   const total = queue.length;
   const promptLabel = reverseSides ? "Type the word" : "Type the translation";
   const promptText = current ? (reverseSides ? current.definition : current.term) : "";
   const expectedAnswer = current ? (reverseSides ? current.term : current.definition) : "";
-  const answerPlaceholder = reverseSides ? "English word..." : "Russian translation...";
+  const answerPlaceholder = reverseSides
+    ? `${learningLanguage.label} word...`
+    : `${definitionLanguage.label} translation...`;
   const reviewPrimary = (card: Card) => (reverseSides ? card.definition : card.term);
   const reviewSecondary = (card: Card) => (reverseSides ? card.term : card.definition);
 

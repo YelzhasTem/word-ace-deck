@@ -15,7 +15,7 @@ const dict = {
     "nav.search": "Find a deck or word…",
 
     "home.kicker": "Calm learning",
-    "home.title.1": "Learn English",
+    "home.title.1": "Learn languages",
     "home.title.2": "focused",
     "home.title.3": "and without noise.",
     "home.subtitle":
@@ -75,7 +75,7 @@ const dict = {
     "create.import.readingImage": "Reading image…",
     "create.import.lastImage": "Last image:",
     "create.addWord": "Add a word",
-    "create.wordPh": "Type an English or Russian word",
+    "create.wordPh": "Type a word",
     "create.translationPh": "Type your translation",
     "create.addManual": "Add",
     "create.findTr": "Find",

@@ -51,6 +51,12 @@ import { useLastStudied } from "@/lib/last-studied";
 import { useCollections } from "@/lib/collections";
 import { DeckColorPicker } from "@/components/DeckColorPicker";
 import { getDeckColorOption, type DeckCoverColor } from "@/lib/deck-colors";
+import {
+  getDefinitionLanguageFor,
+  getLearningLanguageOption,
+  LEARNING_LANGUAGE_OPTIONS,
+  type LearningLanguage,
+} from "@/lib/languages";
 import { getUserErrorMessage } from "@/lib/user-errors";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import { cn } from "@/lib/utils";
@@ -58,10 +64,10 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
     meta: [
-      { title: "Memora — learn English words" },
+      { title: "Memora — learn vocabulary" },
       {
         name: "description",
-        content: "Create your own decks and study English words with flashcards.",
+        content: "Create your own decks and study vocabulary with flashcards.",
       },
     ],
   }),
@@ -112,6 +118,9 @@ function Home() {
   const navigate = useNavigate();
   const { collections } = useCollections();
   const [collectionId, setCollectionId] = useState<string>("__default__");
+  const [targetLanguage, setTargetLanguage] = useState<LearningLanguage>("en");
+  const learningLanguage = getLearningLanguageOption(targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(targetLanguage);
   const selectedCollectionId = collectionId === "__default__" ? null : collectionId;
   const COLLECTIONS_PAGE_SIZE = 3;
   const [collectionPage, setCollectionPage] = useState(0);
@@ -163,6 +172,7 @@ function Home() {
   const [trWord, setTrWord] = useState("");
   const [trOriginalWord, setTrOriginalWord] = useState("");
   const [trDirection, setTrDirection] = useState("");
+  const [trInputIsDefinition, setTrInputIsDefinition] = useState(false);
   const [trOptions, setTrOptions] = useState<string[]>([]);
   const fetchTranslations = useServerFn(getTranslations);
   const importCardsFromText = useServerFn(importManualCardsFromText);
@@ -199,7 +209,7 @@ function Home() {
     let result: Awaited<ReturnType<typeof genDeckFromUrl>>;
     try {
       result = await genDeckFromUrl({
-        data: { url: urlInput.trim(), count: safeCount },
+        data: { url: urlInput.trim(), count: safeCount, targetLanguage },
       });
     } catch (err) {
       setUrlError(`AI: ${errorMessage(err, "Could not extract words")}`);
@@ -214,6 +224,7 @@ function Home() {
         result.cards,
         selectedCollectionId,
         deckColor,
+        targetLanguage,
       );
       setUrlInput("");
       setUrlDesc("");
@@ -240,6 +251,7 @@ function Home() {
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
+    setTrInputIsDefinition(false);
     setTrOptions([]);
     setTrError("");
     setManualError("");
@@ -259,6 +271,7 @@ function Home() {
         manualCards,
         selectedCollectionId,
         deckColor,
+        targetLanguage,
       );
       resetManual();
       setDeckColor(null);
@@ -310,7 +323,7 @@ function Home() {
     setImportMode("text");
     setImportError("");
     try {
-      const result = await importCardsFromText({ data: { text } });
+      const result = await importCardsFromText({ data: { text, targetLanguage } });
       const added = appendImportedCards(result.cards);
       if (added > 0) {
         setImportText("");
@@ -350,7 +363,7 @@ function Home() {
       const dataUrl = await readFileAsDataUrl(file);
       const imageBase64 = dataUrl.split(",")[1] ?? dataUrl;
       const result = await importCardsFromImage({
-        data: { imageBase64, mimeType: file.type },
+        data: { imageBase64, mimeType: file.type, targetLanguage },
       });
       const added = appendImportedCards(result.cards);
       if (added === 0) setImportError("No new words were added.");
@@ -373,6 +386,7 @@ function Home() {
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
+    setTrInputIsDefinition(false);
     setTrOptions([]);
     setTrError("");
     setManualError("");
@@ -391,9 +405,10 @@ function Home() {
       setTrOptions([]);
       setTrDirection("");
       setTrOriginalWord("");
+      setTrInputIsDefinition(false);
       setTrWord(w);
       try {
-        const res = await fetchTranslations({ data: { word: w } });
+        const res = await fetchTranslations({ data: { word: w, targetLanguage } });
         const correctedWord = res.correctedWord?.trim() ?? "";
         if (correctedWord) {
           setTrWord(correctedWord);
@@ -401,24 +416,36 @@ function Home() {
         }
         setTrOptions(res.translations);
         setTrDirection(res.direction ?? "");
+        setTrInputIsDefinition(
+          res.sourceLanguage === definitionLanguage.code &&
+            res.targetLanguage === learningLanguage.code,
+        );
       } catch (err) {
         setTrError(err instanceof Error ? err.message : "Could not fetch translations");
       } finally {
         setTrLoading(false);
       }
     },
-    [fetchTranslations, isOnline],
+    [definitionLanguage.code, fetchTranslations, isOnline, learningLanguage.code, targetLanguage],
   );
 
   const handlePickTranslation = (translation: string) => {
     setManualCards((prev) =>
-      prev.length >= MAX_DECK_CARDS ? prev : [...prev, { term: trWord, definition: translation }],
+      prev.length >= MAX_DECK_CARDS
+        ? prev
+        : [
+            ...prev,
+            trInputIsDefinition
+              ? { term: translation, definition: trWord }
+              : { term: trWord, definition: translation },
+          ],
     );
     setWordInput("");
     setDefinitionInput("");
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
+    setTrInputIsDefinition(false);
     setTrOptions([]);
     setTrError("");
   };
@@ -429,6 +456,7 @@ function Home() {
     setTrWord("");
     setTrOriginalWord("");
     setTrDirection("");
+    setTrInputIsDefinition(false);
     setTrOptions([]);
     setTrError("");
   };
@@ -451,6 +479,7 @@ function Home() {
           description: aiDesc.trim(),
           level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
           count: safeCount,
+          targetLanguage,
         },
       });
     } catch (err) {
@@ -466,6 +495,7 @@ function Home() {
         result.cards,
         selectedCollectionId,
         deckColor,
+        targetLanguage,
       );
       setAiName("");
       setAiTopic("");
@@ -577,6 +607,28 @@ function Home() {
                         )}
                       </SelectContent>
                     </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Language to learn</label>
+                    <Select
+                      value={targetLanguage}
+                      onValueChange={(value) => setTargetLanguage(value as LearningLanguage)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LEARNING_LANGUAGE_OPTIONS.map((language) => (
+                          <SelectItem key={language.code} value={language.code}>
+                            {language.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Card terms will be in {learningLanguage.label}; definitions will be in{" "}
+                      {definitionLanguage.label}.
+                    </p>
                   </div>
                   <DeckColorPicker value={deckColor} onChange={setDeckColor} />
                   <Tabs defaultValue="manual" className="mt-2">
@@ -692,7 +744,7 @@ function Home() {
                         {!trWord ? (
                           <div className="space-y-2">
                             <Input
-                              placeholder={t("create.wordPh")}
+                              placeholder={`Type a ${learningLanguage.label} word`}
                               value={wordInput}
                               onChange={(e) => setWordInput(e.target.value)}
                               onKeyDown={(e) => {
@@ -709,7 +761,7 @@ function Home() {
                               disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
                             />
                             <Input
-                              placeholder={t("create.translationPh")}
+                              placeholder={`Type a ${definitionLanguage.label} translation`}
                               value={definitionInput}
                               onChange={(e) => setDefinitionInput(e.target.value)}
                               onKeyDown={(e) => {

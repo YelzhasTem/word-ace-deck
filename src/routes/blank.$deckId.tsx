@@ -83,7 +83,13 @@ function BlankPage() {
     }
     setLoading(true);
     try {
-      const r = await gen({ data: { term: card.term, definition: card.definition } });
+      const r = await gen({
+        data: {
+          term: card.term,
+          definition: card.definition,
+          targetLanguage: deck?.targetLanguage ?? "en",
+        },
+      });
       setSentence(r.sentence);
       setExplanation(r.explanation);
     } catch (e) {

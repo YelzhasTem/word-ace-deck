@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
+import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { accuracyFor, recordAnswer, useDeckStats } from "@/lib/stats";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
@@ -13,7 +14,7 @@ export const Route = createFileRoute("/reverse/$deckId")({
   component: ReversePage,
 });
 
-type Dir = "fwd" | "rev"; // fwd: EN→RU, rev: RU→EN
+type Dir = "fwd" | "rev"; // fwd: term to definition, rev: definition to term
 type Item = { cardId: string; dir: Dir };
 
 const REV_SUFFIX = ":rev";
@@ -98,6 +99,11 @@ function ReversePage() {
     );
   }
 
+  const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage);
+  const forwardLabel = `${learningLanguage.label} → ${definitionLanguage.label}`;
+  const reverseLabel = `${definitionLanguage.label} → ${learningLanguage.label}`;
+
   const handle = (correct: boolean) => {
     if (!current) return;
     if (correct) playCorrectSound();
@@ -169,7 +175,7 @@ function ReversePage() {
   const finished = !current;
   const front = card ? (current!.dir === "fwd" ? card.term : card.definition) : "";
   const back = card ? (current!.dir === "fwd" ? card.definition : card.term) : "";
-  const dirLabel = current?.dir === "fwd" ? "EN → RU" : "RU → EN";
+  const dirLabel = current?.dir === "fwd" ? forwardLabel : reverseLabel;
 
   return (
     <div className="min-h-screen">
@@ -202,7 +208,7 @@ function ReversePage() {
           <div>
             <p className="font-semibold">Enable Reverse Cards Mode</p>
             <p className="text-xs text-muted-foreground">
-              Random direction for each card: EN to RU and RU to EN.
+              Random direction for each card: {forwardLabel} and {reverseLabel}.
             </p>
           </div>
           <Switch checked={allowReverse} onCheckedChange={(v) => setAllowReverse(Boolean(v))} />
@@ -211,14 +217,14 @@ function ReversePage() {
         {/* Direction stats */}
         <div className="mb-6 grid grid-cols-2 gap-3">
           <div className="rounded-2xl border border-border bg-card px-4 py-3">
-            <p className="text-xs text-muted-foreground">EN → RU</p>
+            <p className="text-xs text-muted-foreground">{forwardLabel}</p>
             <p className="font-display text-2xl">{accFwd !== null ? `${accFwd}%` : "—"}</p>
             <p className="text-xs text-muted-foreground">
               {sumFwd.correct} correct · {sumFwd.wrong} mistakes
             </p>
           </div>
           <div className="rounded-2xl border border-border bg-card px-4 py-3">
-            <p className="text-xs text-muted-foreground">RU → EN</p>
+            <p className="text-xs text-muted-foreground">{reverseLabel}</p>
             <p className="font-display text-2xl">{accRev !== null ? `${accRev}%` : "—"}</p>
             <p className="text-xs text-muted-foreground">
               {sumRev.correct} correct · {sumRev.wrong} mistakes

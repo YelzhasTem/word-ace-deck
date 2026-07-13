@@ -92,11 +92,11 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Memora" },
-      { name: "description", content: "A calm flashcard app for learning English vocabulary." },
+      { name: "description", content: "A calm flashcard app for learning vocabulary." },
       { property: "og:title", content: "Memora" },
       {
         property: "og:description",
-        content: "A calm flashcard app for learning English vocabulary.",
+        content: "A calm flashcard app for learning vocabulary.",
       },
       { property: "og:type", content: "website" },
       { property: "og:locale", content: "en_US" },
@@ -104,7 +104,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Memora" },
       {
         name: "twitter:description",
-        content: "A calm flashcard app for learning English vocabulary.",
+        content: "A calm flashcard app for learning vocabulary.",
       },
       {
         property: "og:image",

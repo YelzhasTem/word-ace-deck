@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
+import { getLearningLanguageOption } from "@/lib/languages";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -92,6 +93,8 @@ function RecallPage() {
       </div>
     );
   }
+
+  const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
 
   if (!enabled) {
     return (
@@ -231,7 +234,7 @@ function RecallPage() {
                 {current.definition}
               </p>
               <p className="mt-6 text-sm text-muted-foreground">
-                Type the English word that matches this definition.
+                Type the {learningLanguage.label} word that matches this definition.
               </p>
             </div>
 
@@ -240,7 +243,7 @@ function RecallPage() {
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Word…"
+                placeholder={`${learningLanguage.label} word...`}
                 disabled={!!verdict}
                 className="h-14 text-lg rounded-2xl"
               />

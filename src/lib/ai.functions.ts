@@ -1,5 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import {
+  getDefinitionLanguageFor,
+  getLearningLanguageOption,
+  LEARNING_LANGUAGE_CODES,
+  normalizeLearningLanguage,
+  type LearningLanguage,
+} from "@/lib/languages";
 
 type DeckCard = { term: string; definition: string };
 type DeckPayload = { name?: string; description?: string; cards?: DeckCard[] };
@@ -16,6 +23,7 @@ const MAX_TRANSLATION_OPTIONS = 1;
 const MAX_MANUAL_IMPORT_TEXT = 6000;
 const MAX_IMAGE_BASE64_LENGTH = 9_500_000;
 const SUPPORTED_IMPORT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+const LearningLanguageInput = z.enum(LEARNING_LANGUAGE_CODES).default("en");
 
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
@@ -91,7 +99,7 @@ function cleanImportedCards(cards: unknown) {
 
 function getGeminiApiKey() {
   const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
-  if (!apiKey) throw new Error("GEMINI_API_KEY не настроен");
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not configured.");
   return apiKey;
 }
 
@@ -169,24 +177,24 @@ async function callGeminiParts(
       }
 
       const body = await res.text();
-      if (res.status === 400) throw new Error(`Gemini отклонил запрос: ${body.slice(0, 220)}`);
+      if (res.status === 400) throw new Error(`Gemini rejected the request: ${body.slice(0, 220)}`);
       if (res.status === 401 || res.status === 403) {
-        throw new Error("Gemini API key не принят. Проверьте GEMINI_API_KEY в .env.");
+        throw new Error("Gemini API key was rejected. Check GEMINI_API_KEY in the environment.");
       }
 
       if (isRetryableGeminiStatus(res.status)) {
-        lastRetryableError = `Gemini API ошибка ${res.status} (${model}): ${body.slice(0, 220)}`;
+        lastRetryableError = `Gemini API error ${res.status} (${model}): ${body.slice(0, 220)}`;
         if (attempt === 0) await wait(900);
         continue;
       }
 
-      throw new Error(`Gemini API ошибка ${res.status}: ${body.slice(0, 220)}`);
+      throw new Error(`Gemini API error ${res.status}: ${body.slice(0, 220)}`);
     }
   }
 
   throw new Error(
     lastRetryableError ||
-      "Gemini временно недоступен. Попробуйте еще раз через несколько минут или смените GEMINI_MODEL.",
+      "Gemini is temporarily unavailable. Try again in a few minutes or change GEMINI_MODEL.",
   );
 }
 
@@ -220,7 +228,34 @@ function uniqueTranslations(values: string[]) {
     .slice(0, MAX_TRANSLATION_OPTIONS);
 }
 
-function getTranslationDirection(word: string) {
+function getLanguagePair(targetLanguage?: string | null) {
+  const learning = getLearningLanguageOption(normalizeLearningLanguage(targetLanguage));
+  const definition = getDefinitionLanguageFor(learning.code);
+  return { learning, definition };
+}
+
+type LanguageDirection = { source: string; target: string; label: string };
+
+function languageLabelFor(
+  code: string,
+  learning: ReturnType<typeof getLearningLanguageOption>,
+  definition: ReturnType<typeof getLearningLanguageOption>,
+) {
+  if (code === learning.code) return learning.label;
+  if (code === definition.code) return definition.label;
+  return code;
+}
+
+function getDefaultTranslationDirection(word: string, learningLanguage: LearningLanguage) {
+  if (learningLanguage !== "en") {
+    const { learning, definition } = getLanguagePair(learningLanguage);
+    return {
+      source: learning.code,
+      target: definition.code,
+      label: `${learning.label} to ${definition.label}`,
+    };
+  }
+
   const hasCyrillic = /[\u0400-\u04ff]/.test(word);
   return hasCyrillic
     ? { source: "ru", target: "en", label: "Russian to English" }
@@ -231,13 +266,15 @@ function normalizeLookupWord(word: string) {
   return cleanText(word, 80).toLocaleLowerCase("en-US");
 }
 
-function getValidCorrection(inputWord: string, correctedWord: unknown, source: string) {
+function getValidCorrection(inputWord: string, correctedWord: unknown) {
   const corrected = cleanText(correctedWord, 80);
   if (!corrected) return "";
   if (normalizeLookupWord(corrected) === normalizeLookupWord(inputWord)) return "";
-  if (source === "en" && hasCyrillic(corrected)) return "";
-  if (source === "ru" && hasCyrillic(inputWord) && !hasCyrillic(corrected)) return "";
   return corrected;
+}
+
+function isSameTranslation(input: string, translation: string) {
+  return normalizeLookupWord(input) === normalizeLookupWord(translation);
 }
 
 async function fetchTranslatorOptions(word: string, source: string, target: string) {
@@ -268,9 +305,11 @@ export const generateStudyText = createServerFn({ method: "POST" })
       words: z.array(z.string().min(1).max(80)).min(1).max(50),
       deckName: z.string().max(120).optional(),
       seed: z.number().optional(),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
+    const { learning } = getLanguagePair(data.targetLanguage);
     const variations = [
       "a short story",
       "a dialogue between two friends",
@@ -282,24 +321,17 @@ export const generateStudyText = createServerFn({ method: "POST" })
     ];
     const variant = variations[(data.seed ?? 0) % variations.length];
 
-    const system =
-      "You are an English teacher. Write short, natural, connected English texts for B1-B2 learners. The entire response must be in English only. Do not use Russian or Cyrillic characters.";
+    const system = `You are a ${learning.label} teacher. Write short, natural, connected ${learning.label} texts for language learners. Return only the review text.`;
 
     const user =
       `Write ${variant} of about 110-160 words using every listed word or phrase at least once. ` +
       `Do not bold, highlight, wrap, or mark the listed words with Markdown asterisks. ` +
       `Use natural forms when needed: tense, number, articles, and word order may change naturally. ` +
-      `Do not add translations, explanations, vocabulary lists, headings in Russian, or any Cyrillic text. Return only the English review text.\n\n` +
+      `Write only in ${learning.label}. Do not add translations, explanations, vocabulary lists, or headings.\n\n` +
       `${data.deckName ? `Deck topic: ${data.deckName}.\n` : ""}` +
       `Words: ${data.words.join(", ")}.`;
 
-    let text = await callGemini(system, user);
-    if (hasCyrillic(text)) {
-      text = await callGemini(
-        "Rewrite the provided review text in English only. Do not use Russian or Cyrillic characters. Do not bold, highlight, wrap, or mark learning words with Markdown asterisks.",
-        text,
-      );
-    }
+    const text = await callGemini(system, user);
     return { text };
   });
 
@@ -310,27 +342,26 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
       description: z.string().max(300).default(""),
       level: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]),
       count: z.number().int().min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
+    const { learning, definition } = getLanguagePair(data.targetLanguage);
     const system =
-      "Ты лексикограф для русскоязычных студентов английского. Сгенерируй колоду карточек для запоминания английских слов. Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"name":"English name","cards":[{"term":"english word","definition":"один перевод на русский"}]}. Для каждой карточки definition должен содержать ровно один самый частый перевод, без запятых, слэшей и дополнительных вариантов. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
+      `You are a lexicographer creating vocabulary flashcards for ${learning.label} learners. Return only valid JSON without Markdown. Format: ` +
+      `{"name":"English deck name","cards":[{"term":"${learning.label} word or phrase","definition":"one ${definition.label} translation"}]}. ` +
+      `Every card term must be in ${learning.label}. Every definition must be exactly one common translation in ${definition.label}, with no commas, slashes, synonyms, examples, parentheses, or extra variants. The deck name must be in English only. Do not add words like Deck, Vocabulary, Words, Flashcards, Cards, or List.`;
 
     const user =
-      `Создай колоду из ${data.count} английских слов или выражений на тему "${data.topic}" уровня ${data.level}. ` +
-      `Для каждого слова дай только один самый частый перевод на русский. Не добавляй второй перевод, синонимы, варианты через запятую, слэш или скобки. Название колоды должно быть только названием темы на английском, без добавленных слов вроде Deck, Vocabulary, Words, Flashcards, Cards или List. Не используй русский язык в названии колоды. ` +
-      `Не создавай описание колоды. Отвечай строго JSON без комментариев.`;
+      `Create a deck of exactly ${data.count} ${learning.label} words or phrases about "${data.topic}" at level ${data.level}. ` +
+      `For every card, return only one short ${definition.label} translation. Do not include second meanings, synonyms, slash-separated variants, comma-separated variants, or parentheses. The deck name must be only the concise topic name in English, without added words like Deck, Vocabulary, Words, Flashcards, Cards, or List. Do not create a deck description. Return strict JSON only.`;
 
     const raw = await callGemini(system, user, { json: true });
-    const parsed = parseJsonResponse<DeckPayload>(
-      raw,
-      "ИИ вернул невалидный JSON. Попробуйте еще раз.",
-    );
+    const parsed = parseJsonResponse<DeckPayload>(raw, "AI returned invalid JSON. Try again.");
 
     const deck = cleanDeckPayload(parsed, data.topic, data.description);
     if (deck.cards.length < MIN_DECK_CARDS) {
-      throw new Error("ИИ сгенерировал слишком мало карточек. Попробуйте другую тему.");
+      throw new Error("AI generated too few cards. Try another topic.");
     }
 
     return deck;
@@ -340,58 +371,111 @@ export const getTranslations = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       word: z.string().min(1).max(80),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
     const inputWord = cleanText(data.word, 80);
-    const inputDirection = getTranslationDirection(inputWord);
+    const { learning, definition } = getLanguagePair(data.targetLanguage);
+    const defaultDirection = getDefaultTranslationDirection(inputWord, learning.code);
     let correctedWord = "";
     let aiTranslations: string[] = [];
+    let aiDirection = "";
+    let aiLanguageDirection: LanguageDirection | null = null;
 
     const system =
-      `${inputDirection.source === "ru" ? "Ты русско-английский словарь" : "Ты англо-русский словарь"}. ` +
-      `Получаешь ${inputDirection.source === "ru" ? "русское" : "английское"} слово или выражение. ` +
-      "Если в исходном слове есть очевидная опечатка и правильное слово можно уверенно понять, исправь его. Если не уверен, не исправляй. " +
-      "correctedWord должен быть исходным словом на том же языке, а не переводом. " +
-      `Верни ровно один самый частый перевод на ${inputDirection.target === "en" ? "английский" : "русский"} язык для исправленного слова или для исходного слова, если исправления нет. ` +
-      "Не возвращай второй перевод, синонимы или варианты через запятую, слэш или скобки. " +
-      "Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"correctedWord":"исправленное слово или пустая строка","translations":["один перевод"]}. Перевод короткий: 1-4 слова, без пояснений в скобках, без нумерации.';
+      `You are a bilingual dictionary for a deck where the learning language is ${learning.label} and the definition language is ${definition.label}. ` +
+      `The user may enter either a ${learning.label} word/phrase or a ${definition.label} word/phrase. If the input is in ${learning.label}, return one common ${definition.label} translation. If the input is in ${definition.label}, return one common ${learning.label} translation. ` +
+      "If there is an obvious typo and the intended word is clear, correct it. If unsure, do not correct it. correctedWord must stay in the same language as the original input, not the translation. " +
+      "Do not return a second translation, synonyms, comma-separated variants, slash-separated variants, parentheses, explanations, numbering, or examples. Return only valid JSON without Markdown. Format: " +
+      `{"correctedWord":"corrected original word or empty string","translations":["one translation"],"sourceLanguage":"${learning.code} or ${definition.code}","targetLanguage":"${learning.code} or ${definition.code}","direction":"Source language to target language"}. Translation length: 1-4 words.`;
 
-    const user = `Слово: "${inputWord}". Верни только один самый частый перевод.`;
+    const user = `Word or phrase: "${inputWord}". Return exactly one most common translation.`;
 
     try {
       const raw = await callGemini(system, user, { json: true, temperature: 0.2 });
-      const parsed = parseJsonResponse<{ correctedWord?: string; translations?: string[] }>(
-        raw,
-        "ИИ вернул невалидный ответ. Попробуйте еще раз.",
-      );
+      const parsed = parseJsonResponse<{
+        correctedWord?: string;
+        translations?: string[];
+        sourceLanguage?: string;
+        targetLanguage?: string;
+        direction?: string;
+      }>(raw, "AI returned an invalid response. Try again.");
 
-      correctedWord = getValidCorrection(inputWord, parsed.correctedWord, inputDirection.source);
+      correctedWord = getValidCorrection(inputWord, parsed.correctedWord);
       aiTranslations = uniqueTranslations(
         (parsed.translations ?? []).filter((translation) => typeof translation === "string"),
       );
+      aiDirection = typeof parsed.direction === "string" ? cleanText(parsed.direction, 80) : "";
+      const validLanguageCodes = new Set<string>([learning.code, definition.code]);
+      if (
+        validLanguageCodes.has(parsed.sourceLanguage ?? "") &&
+        validLanguageCodes.has(parsed.targetLanguage ?? "") &&
+        parsed.sourceLanguage !== parsed.targetLanguage
+      ) {
+        const source = parsed.sourceLanguage ?? defaultDirection.source;
+        const target = parsed.targetLanguage ?? defaultDirection.target;
+        aiLanguageDirection = {
+          source,
+          target,
+          label:
+            aiDirection ||
+            `${languageLabelFor(source, learning, definition)} to ${languageLabelFor(
+              target,
+              learning,
+              definition,
+            )}`,
+        };
+      }
     } catch {
       correctedWord = "";
       aiTranslations = [];
     }
 
     const lookupWord = correctedWord || inputWord;
-    const direction = getTranslationDirection(lookupWord);
-    const translatorOptions = await fetchTranslatorOptions(
-      lookupWord,
-      direction.source,
-      direction.target,
-    );
+    const fallbackDirections =
+      learning.code === "en"
+        ? [getDefaultTranslationDirection(lookupWord, learning.code)]
+        : [
+            aiLanguageDirection ?? defaultDirection,
+            {
+              source: definition.code,
+              target: learning.code,
+              label: `${definition.label} to ${learning.label}`,
+            },
+          ];
+
+    let translatorOptions: string[] = [];
+    let direction = fallbackDirections[0];
+    for (const option of fallbackDirections) {
+      const options = await fetchTranslatorOptions(lookupWord, option.source, option.target);
+      const usefulOptions = options.filter(
+        (translation) => !isSameTranslation(lookupWord, translation),
+      );
+      if (usefulOptions.length > 0) {
+        translatorOptions = usefulOptions;
+        direction = option;
+        break;
+      }
+    }
+
     const translations = translatorOptions.length > 0 ? translatorOptions : aiTranslations;
 
     if (translations.length === 0) {
-      throw new Error("Не удалось получить переводы. Попробуйте другое слово.");
+      throw new Error("Could not get a translation. Try another word.");
     }
 
     return {
       translations,
-      direction: direction.label,
+      direction: translatorOptions.length > 0 ? direction.label : aiDirection || direction.label,
+      sourceLanguage:
+        translatorOptions.length > 0
+          ? direction.source
+          : (aiLanguageDirection?.source ?? direction.source),
+      targetLanguage:
+        translatorOptions.length > 0
+          ? direction.target
+          : (aiLanguageDirection?.target ?? direction.target),
       correctedWord: correctedWord || undefined,
       originalWord: correctedWord ? inputWord : undefined,
     };
@@ -401,16 +485,18 @@ export const importManualCardsFromText = createServerFn({ method: "POST" })
   .inputValidator(
     z.object({
       text: z.string().min(1).max(MAX_MANUAL_IMPORT_TEXT),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
     const sourceText = cleanText(data.text, MAX_MANUAL_IMPORT_TEXT);
+    const { learning, definition } = getLanguagePair(data.targetLanguage);
 
     const system =
-      "You prepare vocabulary flashcards for a Russian-speaking English learner. Return only valid JSON without Markdown. Format: " +
+      `You prepare ${learning.label} vocabulary flashcards. Return only valid JSON without Markdown. Format: ` +
       '{"cards":[{"term":"word or phrase","definition":"one translation"}]}. ' +
       "Read the user's pasted list. Each line may contain only a word/phrase, or a word/phrase with its translation after a dash, colon, comma, semicolon, tab, or arrow. " +
-      "If a translation is already present, keep that meaning as a single short definition. If a translation is missing, translate it: English terms get one Russian translation, Russian terms get one English translation. " +
+      `Every card term must be in ${learning.label}. Every definition must be one short ${definition.label} translation. If a translation is already present, keep that meaning as one short definition in ${definition.label}. If a line is in ${definition.label} with no ${learning.label} term, translate it into ${learning.label}. ` +
       "Do not add explanations, numbering, synonyms, second meanings, parentheses, or multiple variants.";
 
     const user =
@@ -437,15 +523,17 @@ export const importManualCardsFromImage = createServerFn({ method: "POST" })
     z.object({
       imageBase64: z.string().min(1).max(MAX_IMAGE_BASE64_LENGTH),
       mimeType: z.enum(SUPPORTED_IMPORT_IMAGE_TYPES),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
     const imageBase64 = data.imageBase64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, "").trim();
+    const { learning, definition } = getLanguagePair(data.targetLanguage);
 
     const system =
-      "You are an OCR and vocabulary extraction assistant for a Russian-speaking English learner. Return only valid JSON without Markdown. Format: " +
+      `You are an OCR and vocabulary extraction assistant for ${learning.label} learners. Return only valid JSON without Markdown. Format: ` +
       '{"cards":[{"term":"word or phrase","definition":"one translation"}]}. ' +
-      "Extract visible vocabulary words or short phrases from the image. If the image already shows translations, use them as one short definition. If translations are missing, translate them: English terms get one Russian translation, Russian terms get one English translation. " +
+      `Extract visible vocabulary words or short phrases from the image. Every card term must be in ${learning.label}. Every definition must be one short ${definition.label} translation. If the image already shows translations, use them as one short definition in ${definition.label}. If translations are missing, translate into ${definition.label}. ` +
       "Ignore decorative text, page numbers, headers, watermarks, and duplicates. Do not add explanations, synonyms, second meanings, parentheses, or multiple variants.";
 
     const raw = await callGeminiParts(
@@ -499,9 +587,11 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
     z.object({
       url: z.string().url().max(2000),
       count: z.number().int().min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
+    const { learning, definition } = getLanguagePair(data.targetLanguage);
     let pageRes: Response;
     try {
       pageRes = await fetch(data.url, {
@@ -512,11 +602,11 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
         redirect: "follow",
       });
     } catch {
-      throw new Error("Не удалось загрузить страницу. Проверьте адрес.");
+      throw new Error("Could not load the page. Check the URL.");
     }
 
     if (!pageRes.ok) {
-      throw new Error(`Не удалось загрузить страницу (HTTP ${pageRes.status}).`);
+      throw new Error(`Could not load the page (HTTP ${pageRes.status}).`);
     }
 
     const contentType = pageRes.headers.get("content-type") ?? "";
@@ -524,25 +614,22 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
     const text = contentType.includes("html") ? stripHtml(html) : html.replace(/\s+/g, " ").trim();
 
     if (text.length < 200) {
-      throw new Error("На странице слишком мало текста для создания колоды.");
+      throw new Error("This page has too little text to create a deck.");
     }
 
     const excerpt = text.slice(0, 12000);
     const system =
-      "Ты лексикограф для русскоязычных студентов английского. На основе фрагмента текста выбери самые полезные для изучения английские слова и выражения, которые действительно встречаются в тексте. Избегай имен собственных, чисел, дат, географических названий и слишком простых базовых слов. Отвечай только валидным JSON без Markdown. Формат: " +
-      '{"name":"English name","cards":[{"term":"english word/expression","definition":"один перевод на русский"}]}. Для каждой карточки definition должен содержать ровно один самый частый перевод, без запятых, слэшей и дополнительных вариантов. Название колоды в поле name должно быть только на английском языке. Не добавляй слова вроде Deck, Vocabulary, Words, Flashcards, Cards или List.';
+      `You are a lexicographer for ${learning.label} learners. Based on the text excerpt, choose the most useful ${learning.label} words and phrases that actually appear in the text. Avoid proper names, numbers, dates, geographic names, and very basic words. Return only valid JSON without Markdown. Format: ` +
+      `{"name":"English deck name","cards":[{"term":"${learning.label} word/expression","definition":"one ${definition.label} translation"}]}. Every definition must contain exactly one common ${definition.label} translation, with no commas, slashes, synonyms, parentheses, or extra variants. The deck name must be in English only. Do not add words like Deck, Vocabulary, Words, Flashcards, Cards, or List.`;
 
     const user =
-      `Источник: ${data.url}\n` +
-      `Выбери ровно ${data.count} разных слов или выражений из текста ниже и дай каждому только один короткий перевод на русский. Не добавляй второй перевод, синонимы, варианты через запятую, слэш или скобки. ` +
-      `Название колоды — на английском, только краткая тема текста, без добавленных слов вроде Deck, Vocabulary, Words, Flashcards, Cards или List. Не используй русский язык в названии колоды. Не создавай описание колоды.\n\n` +
-      `Текст:\n"""${excerpt}"""`;
+      `Source: ${data.url}\n` +
+      `Choose exactly ${data.count} different ${learning.label} words or phrases from the text below and give each one only one short ${definition.label} translation. Do not add second meanings, synonyms, comma-separated variants, slash-separated variants, or parentheses. ` +
+      `The deck name must be only a short topic name in English, without added words like Deck, Vocabulary, Words, Flashcards, Cards, or List. Do not create a deck description.\n\n` +
+      `Text:\n"""${excerpt}"""`;
 
     const raw = await callGemini(system, user, { json: true });
-    const parsed = parseJsonResponse<DeckPayload>(
-      raw,
-      "ИИ вернул невалидный JSON. Попробуйте еще раз.",
-    );
+    const parsed = parseJsonResponse<DeckPayload>(raw, "AI returned invalid JSON. Try again.");
 
     let host = "";
     try {
@@ -553,7 +640,7 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
 
     const deck = cleanDeckPayload(parsed, host);
     if (deck.cards.length < MIN_DECK_CARDS) {
-      throw new Error("Не удалось извлечь слова из текста. Попробуйте другой источник.");
+      throw new Error("Could not extract enough words from the text. Try another source.");
     }
 
     return deck;
@@ -564,21 +651,23 @@ export const generateClozeSentence = createServerFn({ method: "POST" })
     z.object({
       term: z.string().min(1).max(80),
       definition: z.string().min(1).max(200),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
+    const { learning, definition } = getLanguagePair(data.targetLanguage);
     const system =
-      "Ты помогаешь учить английские слова. Возвращай только JSON без Markdown. Формат: " +
-      '{"sentence":"...","explanation":"..."}. sentence — короткое естественное английское предложение уровня B1 на 8-16 слов, где обязательно встречается заданное слово в базовой или естественной форме. explanation — короткое пояснение на русском, почему слово уместно.';
+      `You help learners practice ${learning.label} vocabulary. Return only JSON without Markdown. Format: ` +
+      `{"sentence":"...","explanation":"..."}. sentence is a short natural ${learning.label} sentence at about B1 level, 8-16 words when possible, and it must include the given word in its base or a natural inflected form. explanation is a short English note explaining why the word fits.`;
 
-    const user = `Слово: "${data.term}" (перевод: ${data.definition}). Сделай предложение и пояснение.`;
+    const user = `${learning.label} word: "${data.term}" (${definition.label} translation: ${data.definition}). Create the sentence and explanation.`;
     const raw = await callGemini(system, user, { json: true });
     const parsed = parseJsonResponse<{ sentence?: string; explanation?: string }>(
       raw,
-      "ИИ вернул невалидный ответ.",
+      "AI returned an invalid response.",
     );
 
-    if (!parsed.sentence) throw new Error("Не удалось сгенерировать предложение.");
+    if (!parsed.sentence) throw new Error("Could not generate a sentence.");
     return { sentence: parsed.sentence, explanation: parsed.explanation ?? "" };
   });
 
@@ -587,22 +676,24 @@ export const generateAssociation = createServerFn({ method: "POST" })
     z.object({
       term: z.string().min(1).max(80),
       definition: z.string().min(1).max(200),
+      targetLanguage: LearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
+    const { learning, definition } = getLanguagePair(data.targetLanguage);
     const system =
-      "Ты создаешь яркие мнемонические ассоциации на русском, чтобы помочь запомнить английские слова. Отвечай только JSON без Markdown. Формат: " +
-      '{"association":"...","story":"..."}. association — 1-2 предложения: на что похоже звучание слова, какой образ возникает. story — короткая история-мнемоника на 2-3 предложения, связывающая образ с переводом.';
+      `You create vivid mnemonic associations in English to help remember ${learning.label} words. Return only JSON without Markdown. Format: ` +
+      '{"association":"...","story":"..."}. association is 1-2 sentences about sound, shape, or imagery. story is a short 2-3 sentence mnemonic linking the image to the meaning.';
 
-    const user = `Слово: "${data.term}" — перевод: "${data.definition}".`;
+    const user = `${learning.label} word: "${data.term}" — ${definition.label} translation: "${data.definition}".`;
     const raw = await callGemini(system, user, { json: true });
     const parsed = parseJsonResponse<{ association?: string; story?: string }>(
       raw,
-      "ИИ вернул невалидный ответ.",
+      "AI returned an invalid response.",
     );
 
     if (!parsed.association && !parsed.story) {
-      throw new Error("Не удалось сгенерировать ассоциацию.");
+      throw new Error("Could not generate an association.");
     }
 
     return { association: parsed.association ?? "", story: parsed.story ?? "" };
@@ -634,8 +725,8 @@ export const generateSessionFeedback = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const system =
-      "Ты персональный AI-тренер по английской лексике для русскоязычного студента. На основе статистики сессии дай теплый, конкретный и краткий разбор по-русски. Отвечай только JSON без Markdown. Формат: " +
-      '{"summary":"...","weakAnalysis":"...","confusions":[{"pair":"borrow vs lend","note":"..."}],"focus":["..."],"plan":"...","trend":"..."}. summary — 1-2 предложения с общей оценкой. weakAnalysis — что объединяет слабые слова и как с ними работать. confusions — короткие пояснения частых путаниц похожих слов. focus — массив из 2-4 коротких пунктов на завтра. plan — рекомендация по режимам и количеству карточек. trend — короткая фраза о динамике.';
+      "You are a personal AI vocabulary coach. Based on the session stats, give warm, concrete, concise feedback in English. Return only JSON without Markdown. Format: " +
+      '{"summary":"...","weakAnalysis":"...","confusions":[{"pair":"borrow vs lend","note":"..."}],"focus":["..."],"plan":"...","trend":"..."}. summary is 1-2 sentences with an overall assessment. weakAnalysis explains what connects the weak words and how to practice them. confusions gives short notes about commonly confused pairs. focus is an array of 2-4 short focus points for tomorrow. plan recommends modes and number of cards. trend is a short phrase about progress.';
 
     const raw = await callGemini(system, JSON.stringify(data), { json: true });
     const parsed = parseJsonResponse<{
@@ -645,7 +736,7 @@ export const generateSessionFeedback = createServerFn({ method: "POST" })
       focus?: string[];
       plan?: string;
       trend?: string;
-    }>(raw, "ИИ вернул невалидный ответ.");
+    }>(raw, "AI returned an invalid response.");
 
     return {
       summary: parsed.summary ?? "",

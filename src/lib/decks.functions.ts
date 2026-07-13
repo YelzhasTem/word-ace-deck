@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { DECK_COVER_COLOR_VALUES, type DeckCoverColor } from "@/lib/deck-colors";
+import { LEARNING_LANGUAGE_CODES, type LearningLanguage } from "@/lib/languages";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 const DEFAULT_COLLECTION_NAME = "My collection";
@@ -66,13 +67,24 @@ const CardInput = z.object({
   definition: z.string().min(1).max(300),
 });
 const DeckCoverColorInput = z.enum(DECK_COVER_COLOR_VALUES).optional().nullable();
+const LearningLanguageInput = z.enum(LEARNING_LANGUAGE_CODES).default("en");
 
 async function createDeckRow(
   supabase: SupabaseClient,
   userId: string,
-  data: { name: string; description: string; coverColor?: DeckCoverColor | null },
+  data: {
+    name: string;
+    description: string;
+    coverColor?: DeckCoverColor | null;
+    targetLanguage?: LearningLanguage;
+  },
 ) {
-  const baseInsert = { user_id: userId, name: data.name, description: data.description };
+  const baseInsert = {
+    user_id: userId,
+    name: data.name,
+    description: data.description,
+    target_language: data.targetLanguage ?? "en",
+  };
   const coverColor = data.coverColor ?? null;
   let result = await supabase
     .from("decks")
@@ -81,7 +93,15 @@ async function createDeckRow(
     .single();
 
   if (result.error?.code === "42703") {
-    result = await supabase.from("decks").insert(baseInsert).select("id").single();
+    result = await supabase
+      .from("decks")
+      .insert({
+        user_id: userId,
+        name: data.name,
+        description: data.description,
+      })
+      .select("id")
+      .single();
   }
 
   return result;
@@ -95,7 +115,7 @@ export const getMyDecks = createServerFn({ method: "GET" })
     let decksRes = await supabase
       .from("decks")
       .select(
-        "id, name, description, cover_color, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id",
+        "id, name, description, cover_color, target_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
@@ -128,6 +148,7 @@ export const createDeckRecord = createServerFn({ method: "POST" })
         name: z.string().min(1).max(120),
         description: z.string().max(300).default(""),
         coverColor: DeckCoverColorInput,
+        targetLanguage: LearningLanguageInput,
         collectionId: z.string().uuid().optional().nullable(),
       })
       .parse(input),
@@ -148,6 +169,7 @@ export const createDeckWithCardsRecord = createServerFn({ method: "POST" })
         name: z.string().min(1).max(120),
         description: z.string().max(300).default(""),
         coverColor: DeckCoverColorInput,
+        targetLanguage: LearningLanguageInput,
         cards: z.array(CardInput).min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
         collectionId: z.string().uuid().optional().nullable(),
       })

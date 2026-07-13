@@ -17,13 +17,13 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Memora — learn English words and remember them longer" },
+      { title: "Memora — learn vocabulary and remember it longer" },
       {
         name: "description",
         content:
-          "Memora is an English vocabulary app with spaced repetition. Move words into long-term memory and stop forgetting them.",
+          "Memora is a vocabulary app with spaced repetition. Move words into long-term memory and stop forgetting them.",
       },
-      { property: "og:title", content: "Memora — learn English words for the long term" },
+      { property: "og:title", content: "Memora — learn vocabulary for the long term" },
       {
         property: "og:description",
         content:
@@ -65,12 +65,11 @@ function Landing() {
             Vocabulary that stays with you
           </p>
           <h1 className="font-display text-5xl md:text-7xl font-extrabold leading-[1.02] tracking-tight max-w-4xl mx-auto">
-            Learn English words{" "}
-            <span className="text-primary">and remember them for good</span>
+            Learn vocabulary <span className="text-primary">and remember them for good</span>
           </h1>
           <p className="mt-7 max-w-2xl mx-auto text-lg md:text-xl leading-relaxed text-muted-foreground">
-            Memora uses spaced repetition to move every word into
-            long-term memory. No cramming, just short reviews at the right time.
+            Memora uses spaced repetition to move every word into long-term memory. No cramming,
+            just short reviews at the right time.
           </p>
           <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
             <Button asChild size="lg" className="rounded-full px-7 h-13 text-base">
@@ -80,9 +79,15 @@ function Landing() {
             </Button>
           </div>
           <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
-            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Ad-free</span>
-            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> AI deck generation</span>
-            <span className="inline-flex items-center gap-1.5"><Check className="h-4 w-4 text-primary" /> Progress syncs</span>
+            <span className="inline-flex items-center gap-1.5">
+              <Check className="h-4 w-4 text-primary" /> Ad-free
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Check className="h-4 w-4 text-primary" /> AI deck generation
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Check className="h-4 w-4 text-primary" /> Progress syncs
+            </span>
           </div>
         </div>
       </section>
@@ -98,8 +103,8 @@ function Landing() {
               Words move into long-term memory instead of vanishing the next day
             </h2>
             <p className="mt-4 text-sm text-muted-foreground leading-relaxed">
-              Memora tracks how well you know each word and chooses when to review it:
-              after 10 minutes, a day, a week, a month. This is
+              Memora tracks how well you know each word and chooses when to review it: after 10
+              minutes, a day, a week, a month. This is
               <span className="text-foreground font-medium"> spaced repetition</span>, a proven
               memorization method.
             </p>
@@ -132,7 +137,9 @@ function Landing() {
                 style={{ opacity: 0.55 + i * 0.075 }}
               >
                 <div className="text-xl font-display font-bold text-primary">{s.label}</div>
-                <div className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wider">{s.sub}</div>
+                <div className="text-xs text-muted-foreground mt-0.5 uppercase tracking-wider">
+                  {s.sub}
+                </div>
               </div>
             ))}
           </div>
@@ -203,13 +210,23 @@ function Landing() {
           <h2 className="font-display text-3xl md:text-4xl font-bold tracking-tight">
             How it works
           </h2>
-          <p className="mt-4 text-muted-foreground">Four steps from your first word to confident recall.</p>
+          <p className="mt-4 text-muted-foreground">
+            Four steps from your first word to confident recall.
+          </p>
         </div>
         <div className="grid md:grid-cols-4 gap-4">
           {[
             { n: "01", t: "Create a deck", d: "Manually, with AI, or from an article link." },
-            { n: "02", t: "Study cards", d: "Choose a mode that fits, from simple cards to typed recall." },
-            { n: "03", t: "Review on schedule", d: "Memora reminds you when to come back to the words." },
+            {
+              n: "02",
+              t: "Study cards",
+              d: "Choose a mode that fits, from simple cards to typed recall.",
+            },
+            {
+              n: "03",
+              t: "Review on schedule",
+              d: "Memora reminds you when to come back to the words.",
+            },
             { n: "04", t: "Remember longer", d: "Words move into long-term memory." },
           ].map((s) => (
             <div key={s.n} className="rounded-2xl border border-border bg-card p-6">
@@ -254,8 +271,20 @@ function Landing() {
             <span>© {new Date().getFullYear()} Memora. Learn words for good.</span>
           </div>
           <div className="flex items-center gap-5">
-            <Link to="/auth" search={{ mode: "login" }} className="hover:text-foreground transition-colors">Sign in</Link>
-            <Link to="/auth" search={{ mode: "signup" }} className="hover:text-foreground transition-colors">Sign up</Link>
+            <Link
+              to="/auth"
+              search={{ mode: "login" }}
+              className="hover:text-foreground transition-colors"
+            >
+              Sign in
+            </Link>
+            <Link
+              to="/auth"
+              search={{ mode: "signup" }}
+              className="hover:text-foreground transition-colors"
+            >
+              Sign up
+            </Link>
           </div>
         </div>
       </footer>

@@ -32,6 +32,7 @@ import {
   Globe2,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
+import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import {
   useDeckDelayedRecallEnabled,
@@ -215,6 +216,7 @@ function DeckPage() {
           words: deck.cards.map((c) => c.term),
           deckName: deck.name,
           seed: nextSeed,
+          targetLanguage: deck.targetLanguage,
         },
       });
       setAiText(text);
@@ -278,6 +280,9 @@ function DeckPage() {
       </div>
     );
   }
+
+  const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage);
 
   const handleAdd = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -577,13 +582,13 @@ function DeckPage() {
           <h2 className="font-display text-xl mb-4">Add card</h2>
           <div className="grid md:grid-cols-[1fr_1.4fr_auto] gap-3">
             <Input
-              placeholder="English word"
+              placeholder={`${learningLanguage.label} word`}
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               disabled={!canSaveCard}
             />
             <Input
-              placeholder="Translation or definition"
+              placeholder={`${definitionLanguage.label} translation or definition`}
               value={def}
               onChange={(e) => setDef(e.target.value)}
               disabled={!canSaveCard}
@@ -642,8 +647,8 @@ function DeckPage() {
                 <Sparkles className="h-5 w-5 text-accent" /> Text for active review
               </h2>
               <p className="mt-1 text-sm text-muted-foreground max-w-xl">
-                AI will write a short English text using all words in the deck — read it and meet
-                the words in living context.
+                AI will write a short {learningLanguage.label} text using all words in the deck —
+                read it and meet the words in living context.
               </p>
             </div>
             <div className="flex gap-2">

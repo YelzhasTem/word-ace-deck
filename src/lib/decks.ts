@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { scheduleNewCard } from "@/lib/delayed-recall";
 import { normalizeDeckCoverColor, type DeckCoverColor } from "@/lib/deck-colors";
+import { normalizeLearningLanguage, type LearningLanguage } from "@/lib/languages";
 import { OFFLINE_SAVE_MESSAGE, isBrowserOnline } from "@/lib/online-status";
 import { getUserErrorMessage } from "@/lib/user-errors";
 import {
@@ -48,6 +49,7 @@ export type Deck = {
   publishedAt: string | null;
   sourceDeckId: string | null;
   coverColor: DeckCoverColor | null;
+  targetLanguage: LearningLanguage;
 };
 
 type DbDeck = {
@@ -66,6 +68,7 @@ type DbDeck = {
   published_at?: string | null;
   source_deck_id?: string | null;
   cover_color?: string | null;
+  target_language?: string | null;
 };
 
 type DbCard = {
@@ -102,6 +105,7 @@ function mapDecks(decks: DbDeck[], cards: DbCard[]): Deck[] {
     publishedAt: d.published_at ?? null,
     sourceDeckId: d.source_deck_id ?? null,
     coverColor: normalizeDeckCoverColor(d.cover_color),
+    targetLanguage: normalizeLearningLanguage(d.target_language),
   }));
 }
 
@@ -179,6 +183,7 @@ export function useDecks() {
       description: string;
       collectionId?: string | null;
       coverColor?: DeckCoverColor | null;
+      targetLanguage?: LearningLanguage;
     }) => {
       requireOnline();
       return createDeckFn({ data: vars });
@@ -197,6 +202,7 @@ export function useDecks() {
       cards: { term: string; definition: string }[];
       collectionId?: string | null;
       coverColor?: DeckCoverColor | null;
+      targetLanguage?: LearningLanguage;
     }) => {
       requireOnline();
       return createDeckWithCardsFn({ data: vars });
@@ -297,8 +303,15 @@ export function useDecks() {
       description: string,
       collectionId?: string | null,
       coverColor?: DeckCoverColor | null,
+      targetLanguage?: LearningLanguage,
     ) => {
-      return createDeckMut.mutateAsync({ name, description, collectionId, coverColor });
+      return createDeckMut.mutateAsync({
+        name,
+        description,
+        collectionId,
+        coverColor,
+        targetLanguage,
+      });
     },
     createDeckWithCards: (
       name: string,
@@ -306,6 +319,7 @@ export function useDecks() {
       cards: { term: string; definition: string }[],
       collectionId?: string | null,
       coverColor?: DeckCoverColor | null,
+      targetLanguage?: LearningLanguage,
     ) => {
       return createDeckWithCardsMut.mutateAsync({
         name,
@@ -313,6 +327,7 @@ export function useDecks() {
         cards,
         collectionId,
         coverColor,
+        targetLanguage,
       });
     },
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
