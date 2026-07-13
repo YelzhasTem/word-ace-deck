@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
-import { recordAnswer, getDeckStats, accuracyFor } from "@/lib/stats";
+import { accuracyFor, recordAnswer, useDeckStats } from "@/lib/stats";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -19,24 +19,20 @@ type Item = { cardId: string; dir: Dir };
 const REV_SUFFIX = ":rev";
 const statKey = (cardId: string, dir: Dir) => (dir === "fwd" ? cardId : cardId + REV_SUFFIX);
 
-
-
-
 function ReversePage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
+  const stats = useDeckStats(deckId);
   const [allowReverse, setAllowReverse] = useState(true);
   const [queue, setQueue] = useState<Item[]>([]);
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [startedAt, setStartedAt] = useState<number>(Date.now());
-  const [tick, setTick] = useState(0); // force stat refresh
 
   // Build weighted queue: weaker direction more likely; new directions on top.
   const buildQueue = useMemo(
     () => () => {
       if (!deck) return [];
-      const stats = getDeckStats(deck.id);
       const items: { item: Item; weight: number; unseen: boolean }[] = [];
       for (const c of deck.cards) {
         const dirs: Dir[] = allowReverse ? ["fwd", "rev"] : ["fwd"];
@@ -56,7 +52,7 @@ function ReversePage() {
         .map((x) => x.item);
       return sorted;
     },
-    [deck, allowReverse],
+    [deck, allowReverse, stats],
   );
 
   useEffect(() => {
@@ -77,8 +73,10 @@ function ReversePage() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (!current) return;
-      if (e.key === " ") { e.preventDefault(); setFlipped((f) => !f); }
-      else if (e.key === "ArrowRight" || e.key === "2") handle(true);
+      if (e.key === " ") {
+        e.preventDefault();
+        setFlipped((f) => !f);
+      } else if (e.key === "ArrowRight" || e.key === "2") handle(true);
       else if (e.key === "ArrowLeft" || e.key === "1") handle(false);
     };
     window.addEventListener("keydown", h);
@@ -92,7 +90,9 @@ function ReversePage() {
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
+          <Link to="/" className="mt-6 inline-block text-accent underline">
+            Home
+          </Link>
         </main>
       </div>
     );
@@ -105,7 +105,6 @@ function ReversePage() {
     const ms = Date.now() - startedAt;
     recordAnswer(deck.id, statKey(current.cardId, current.dir), correct, ms);
     recordStreakToday();
-    setTick((t) => t + 1);
     // Re-insert incorrect near the end for quick re-test
     if (!correct) {
       const currentIndex = queue.findIndex(
@@ -136,17 +135,28 @@ function ReversePage() {
   };
 
   // Stats summary
-  const stats = (() => { void tick; return getDeckStats(deck.id); })();
   const sumFwd = { correct: 0, wrong: 0 };
   const sumRev = { correct: 0, wrong: 0 };
   for (const c of deck.cards) {
     const f = stats[c.id];
     const r = stats[c.id + REV_SUFFIX];
-    if (f) { sumFwd.correct += f.correct; sumFwd.wrong += f.wrong; }
-    if (r) { sumRev.correct += r.correct; sumRev.wrong += r.wrong; }
+    if (f) {
+      sumFwd.correct += f.correct;
+      sumFwd.wrong += f.wrong;
+    }
+    if (r) {
+      sumRev.correct += r.correct;
+      sumRev.wrong += r.wrong;
+    }
   }
-  const accFwd = sumFwd.correct + sumFwd.wrong > 0 ? Math.round((sumFwd.correct / (sumFwd.correct + sumFwd.wrong)) * 100) : null;
-  const accRev = sumRev.correct + sumRev.wrong > 0 ? Math.round((sumRev.correct / (sumRev.correct + sumRev.wrong)) * 100) : null;
+  const accFwd =
+    sumFwd.correct + sumFwd.wrong > 0
+      ? Math.round((sumFwd.correct / (sumFwd.correct + sumFwd.wrong)) * 100)
+      : null;
+  const accRev =
+    sumRev.correct + sumRev.wrong > 0
+      ? Math.round((sumRev.correct / (sumRev.correct + sumRev.wrong)) * 100)
+      : null;
 
   // Hardest in reverse (lowest accuracy with at least 2 attempts)
   const hardestReverse = deck.cards
@@ -195,10 +205,7 @@ function ReversePage() {
               Random direction for each card: EN to RU and RU to EN.
             </p>
           </div>
-          <Switch
-            checked={allowReverse}
-            onCheckedChange={(v) => setAllowReverse(Boolean(v))}
-          />
+          <Switch checked={allowReverse} onCheckedChange={(v) => setAllowReverse(Boolean(v))} />
         </div>
 
         {/* Direction stats */}
@@ -226,7 +233,9 @@ function ReversePage() {
             <p className="mt-3 text-muted-foreground">All directions are complete.</p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>
+                  Back to deck
+                </Link>
               </Button>
               <Button className="rounded-full" onClick={restart}>
                 <RotateCcw className="h-4 w-4" /> Another round
@@ -236,7 +245,9 @@ function ReversePage() {
         ) : (
           <>
             <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
-              <span>{idx + 1} / {queue.length}</span>
+              <span>
+                {idx + 1} / {queue.length}
+              </span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-accent/10 text-accent font-semibold uppercase tracking-wider">
                 <Repeat className="h-3 w-3" /> {dirLabel}
               </span>
@@ -264,9 +275,7 @@ function ReversePage() {
                   <span className="text-xs uppercase tracking-[0.2em] opacity-70 font-semibold mb-6">
                     {current!.dir === "fwd" ? "Translation" : "Word"}
                   </span>
-                  <p className="font-display text-3xl md:text-4xl font-bold leading-snug">
-                    {back}
-                  </p>
+                  <p className="font-display text-3xl md:text-4xl font-bold leading-snug">{back}</p>
                 </div>
               </div>
             </div>
@@ -302,7 +311,10 @@ function ReversePage() {
             <h2 className="font-display text-xl mb-3">Hardest in reverse direction</h2>
             <div className="flex flex-wrap gap-2">
               {hardestReverse.map(({ c, acc }) => (
-                <span key={c.id} className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs">
+                <span
+                  key={c.id}
+                  className="px-3 py-1 rounded-full bg-destructive/10 text-destructive text-xs"
+                >
                   {c.definition} → {c.term} · {acc}%
                 </span>
               ))}

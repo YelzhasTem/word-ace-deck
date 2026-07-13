@@ -1,12 +1,23 @@
-import { useEffect, useState, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { accountLearningDb } from "@/lib/account-learning-db";
 
-const STORAGE_KEY = "lingocards.streak.v1";
+const LEGACY_STORAGE_KEY = "lingocards.streak.v1";
+const MIGRATION_KEY = "lingocards.accountStreakMigrated.v1";
 
 type StreakData = {
   // ISO date strings (YYYY-MM-DD) of days with activity
   days: string[];
 };
+
+let daysCache: string[] = [];
+let hydrated = false;
+let hydrationStarted = false;
+let migrationStarted = false;
+
+function dispatchChanged() {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("streak:changed"));
+}
 
 function todayKey(d = new Date()): string {
   const y = d.getFullYear();
@@ -15,10 +26,10 @@ function todayKey(d = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-function load(): StreakData {
+function loadLegacy(): StreakData {
   if (typeof window === "undefined") return { days: [] };
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return { days: [] };
     const parsed = JSON.parse(raw) as StreakData;
     return { days: Array.isArray(parsed.days) ? parsed.days : [] };
@@ -27,21 +38,58 @@ function load(): StreakData {
   }
 }
 
-function save(data: StreakData) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  window.dispatchEvent(new Event("streak:changed"));
-}
-
 function normalizeDays(days: string[]) {
-  return Array.from(new Set(days)).sort();
+  return Array.from(new Set(days.filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day)))).sort();
 }
 
-async function loadAccountDays(): Promise<string[] | null> {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user.id;
-  if (!userId) return null;
+async function getUserId() {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.user.id ?? null;
+}
 
-  const { data, error } = await (supabase as any)
+async function migrateLegacyStreak(userId: string) {
+  if (typeof window === "undefined" || migrationStarted) return;
+  if (localStorage.getItem(MIGRATION_KEY) === userId) return;
+  migrationStarted = true;
+
+  try {
+    const rows = normalizeDays(loadLegacy().days).map((day) => ({ user_id: userId, day }));
+    if (rows.length > 0) {
+      const { error } = await accountLearningDb()
+        .from("streak_days")
+        .upsert(rows, { onConflict: "user_id,day" });
+      if (error) throw new Error(error.message);
+    }
+    localStorage.setItem(MIGRATION_KEY, userId);
+  } finally {
+    migrationStarted = false;
+  }
+}
+
+async function ensureMigrated() {
+  const userId = await getUserId();
+  if (!userId) return null;
+  try {
+    await migrateLegacyStreak(userId);
+  } catch (error) {
+    console.warn("[Streak] Legacy migration skipped:", error);
+  }
+  return userId;
+}
+
+async function hydrateStreakDays() {
+  if (hydrationStarted) return;
+  hydrationStarted = true;
+  const userId = await ensureMigrated();
+  if (!userId) {
+    daysCache = [];
+    hydrated = true;
+    hydrationStarted = false;
+    dispatchChanged();
+    return;
+  }
+
+  const { data, error } = await accountLearningDb()
     .from("streak_days")
     .select("day")
     .eq("user_id", userId)
@@ -49,22 +97,25 @@ async function loadAccountDays(): Promise<string[] | null> {
 
   if (error) {
     console.warn("[Streak] Could not load account streak days:", error.message);
-    return null;
+    hydrationStarted = false;
+    return;
   }
 
-  return normalizeDays(
+  daysCache = normalizeDays(
     (data ?? [])
       .map((row: { day?: string }) => row.day)
       .filter((day: unknown): day is string => typeof day === "string"),
   );
+  hydrated = true;
+  hydrationStarted = false;
+  dispatchChanged();
 }
 
 async function saveAccountDay(day: string) {
-  const { data: sessionData } = await supabase.auth.getSession();
-  const userId = sessionData.session?.user.id;
+  const userId = await ensureMigrated();
   if (!userId) return;
 
-  const { error } = await (supabase as any)
+  const { error } = await accountLearningDb()
     .from("streak_days")
     .upsert({ user_id: userId, day }, { onConflict: "user_id,day" });
 
@@ -72,7 +123,7 @@ async function saveAccountDay(day: string) {
     console.warn("[Streak] Could not save account streak day:", error.message);
     return;
   }
-  window.dispatchEvent(new Event("streak:changed"));
+  dispatchChanged();
 }
 
 function diffDays(a: string, b: string): number {
@@ -158,40 +209,30 @@ export function useStreak() {
   const [data, setData] = useState<StreakData>({ days: [] });
 
   useEffect(() => {
-    let cancelled = false;
-
-    const refresh = async () => {
-      const local = load();
-      setData(local);
-
-      const accountDays = await loadAccountDays();
-      if (!cancelled && accountDays) {
-        setData({ days: accountDays });
-      }
-    };
-
-    void refresh();
-    const h = () => void refresh();
+    const sync = () => setData({ days: daysCache });
+    sync();
+    if (!hydrated) void hydrateStreakDays();
+    const h = () => void hydrateStreakDays();
     const authSub = supabase.auth.onAuthStateChange((event) => {
       if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") {
-        void refresh();
+        hydrated = false;
+        void hydrateStreakDays();
       }
     });
-    window.addEventListener("streak:changed", h);
-    window.addEventListener("storage", h);
+    window.addEventListener("streak:changed", sync);
+    window.addEventListener("focus", h);
     return () => {
-      cancelled = true;
       authSub.data.subscription.unsubscribe();
-      window.removeEventListener("streak:changed", h);
-      window.removeEventListener("storage", h);
+      window.removeEventListener("streak:changed", sync);
+      window.removeEventListener("focus", h);
     };
   }, []);
 
   const recordToday = useCallback(() => {
     const today = todayKey();
-    const cur = load();
-    if (!cur.days.includes(today)) {
-      save({ days: normalizeDays([...cur.days, today]) });
+    if (!daysCache.includes(today)) {
+      daysCache = normalizeDays([...daysCache, today]);
+      dispatchChanged();
     }
     void saveAccountDay(today);
   }, []);
@@ -209,9 +250,9 @@ export function useStreak() {
 export function recordStreakToday() {
   if (typeof window === "undefined") return;
   const today = todayKey();
-  const cur = load();
-  if (!cur.days.includes(today)) {
-    save({ days: normalizeDays([...cur.days, today]) });
+  if (!daysCache.includes(today)) {
+    daysCache = normalizeDays([...daysCache, today]);
+    dispatchChanged();
   }
   void saveAccountDay(today);
 }

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { generateSessionFeedback } from "@/lib/ai.functions";
-import { accuracyFor, getDeckStats, getSessionLog, STAGE_NAMES, weakCardIds } from "@/lib/stats";
+import { accuracyFor, STAGE_NAMES, useDeckStats, useSessionLog, weakCardIds } from "@/lib/stats";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { OFFLINE_AI_MESSAGE, useOnlineStatus } from "@/lib/online-status";
@@ -32,8 +32,8 @@ function FeedbackPage() {
   const [error, setError] = useState("");
 
   // Aggregate today's session (last 24h) from real performance data
-  const session = deck ? getSessionLog(deck.id, 1000 * 60 * 60 * 24) : [];
-  const stats = deck ? getDeckStats(deck.id) : {};
+  const session = useSessionLog(deckId, 1000 * 60 * 60 * 24);
+  const stats = useDeckStats(deckId);
   const totals = (() => {
     const correct = session.filter((x) => x.correct).length;
     const wrong = session.length - correct;
@@ -130,7 +130,7 @@ function FeedbackPage() {
     // auto-run once when data exists
     if (isOnline && deck && totals.answered > 0 && !fb && !loading && !error) run();
     // eslint-disable-next-line
-  }, [deck?.id, isOnline]);
+  }, [deck?.id, isOnline, totals.answered]);
 
   if (!deck) {
     return (
