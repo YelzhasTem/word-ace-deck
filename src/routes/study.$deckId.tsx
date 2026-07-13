@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDeck } from "@/lib/decks";
 import { useServerFn } from "@tanstack/react-start";
 import { recordStreakToday } from "@/lib/streak";
@@ -7,7 +7,7 @@ import { recordAnswer } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat, Star } from "lucide-react";
+import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat, Star, Loader2 } from "lucide-react";
 import { rateDeck } from "@/lib/community.functions";
 
 export const Route = createFileRoute("/study/$deckId")({
@@ -26,6 +26,7 @@ function StudyPage() {
   const [rated, setRated] = useState(false);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [sessionWrong, setSessionWrong] = useState(0);
+  const autoResetDeckRef = useRef<string | null>(null);
 
   const queueSource = useMemo(
     () => (deck ? deck.cards.filter((c) => !c.known).map((c) => c.id) : []),
@@ -33,6 +34,7 @@ function StudyPage() {
   );
 
   useEffect(() => {
+    autoResetDeckRef.current = null;
     setOrder(queueSource);
     setIdx(0);
     setFlipped(false);
@@ -49,6 +51,20 @@ function StudyPage() {
       return [...kept, ...newOnes];
     });
   }, [queueSource]);
+
+  useEffect(() => {
+    if (!deck || deck.cards.length === 0) return;
+    const sessionAnswered = sessionCorrect + sessionWrong;
+    const completedBeforeSession = sessionAnswered === 0 && deck.cards.every((card) => card.known);
+
+    if (!completedBeforeSession || autoResetDeckRef.current === deck.id) return;
+
+    autoResetDeckRef.current = deck.id;
+    resetProgress(deck.id);
+    setOrder(deck.cards.map((card) => card.id));
+    setIdx(0);
+    setFlipped(false);
+  }, [deck, resetProgress, sessionCorrect, sessionWrong]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -72,7 +88,9 @@ function StudyPage() {
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center">
           <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">Home</Link>
+          <Link to="/" className="mt-6 inline-block text-accent underline">
+            Home
+          </Link>
         </main>
       </div>
     );
@@ -82,6 +100,8 @@ function StudyPage() {
   const current = deck.cards.find((c) => c.id === currentId);
   const total = deck.cards.length;
   const knownCount = deck.cards.filter((c) => c.known).length;
+  const sessionAnswered = sessionCorrect + sessionWrong;
+  const completedBeforeSession = total > 0 && knownCount === total && sessionAnswered === 0;
   const frontLabel = reverseSides ? "Translation" : "Word";
   const backLabel = reverseSides ? "Word" : "Translation";
   const frontText = current ? (reverseSides ? current.definition : current.term) : "";
@@ -124,8 +144,7 @@ function StudyPage() {
     setFlipped(false);
   };
 
-  const finished = !current;
-  const sessionAnswered = sessionCorrect + sessionWrong;
+  const finished = !current && !completedBeforeSession;
 
   const onRateOriginal = async (rating: number) => {
     if (!deck?.sourceDeckId) return;
@@ -188,7 +207,7 @@ function StudyPage() {
         <div className="mb-8">
           <div className="flex justify-between text-xs text-muted-foreground mb-2">
             <span>
-              {finished ? total : (total - order.length) + (idx + 1)} / {total}
+              {finished ? total : total - order.length + (idx + 1)} / {total}
             </span>
             <span>learned {knownCount}</span>
           </div>
@@ -202,7 +221,15 @@ function StudyPage() {
           </div>
         </div>
 
-        {finished ? (
+        {completedBeforeSession && !current ? (
+          <div className="rounded-3xl border border-border bg-card p-12 text-center">
+            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-accent" />
+            <h2 className="font-display text-3xl font-semibold">Starting a new run</h2>
+            <p className="mt-3 text-muted-foreground">
+              Preparing this deck for another study session.
+            </p>
+          </div>
+        ) : finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
             <p className="text-5xl mb-4">🎉</p>
             <h2 className="font-display text-3xl font-semibold">Run complete</h2>
@@ -216,7 +243,9 @@ function StudyPage() {
             </p>
             <div className="mt-8 flex justify-center gap-3">
               <Button asChild variant="outline" className="rounded-full">
-                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>Back to deck</Link>
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>
+                  Back to deck
+                </Link>
               </Button>
               <Button
                 className="rounded-full"
@@ -234,7 +263,9 @@ function StudyPage() {
             {deck.sourceDeckId && (
               <div className="mx-auto mt-8 max-w-md rounded-2xl border border-border bg-background p-4">
                 <p className="text-sm font-medium">Rate the original community deck</p>
-                <p className="mt-1 text-xs text-muted-foreground">This is optional, but helps other users find useful decks.</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  This is optional, but helps other users find useful decks.
+                </p>
                 {rated ? (
                   <p className="mt-3 text-sm text-primary">Thanks, your rating was saved.</p>
                 ) : (

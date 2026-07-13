@@ -303,8 +303,29 @@ export function useDecks() {
       requireOnline();
       return resetDeckProgressFn({ data: { deckId } });
     },
+    onMutate: async (deckId) => {
+      await queryClient.cancelQueries({ queryKey: DECKS_KEY });
+      const prev = queryClient.getQueryData<Deck[]>(DECKS_KEY);
+      if (prev) {
+        queryClient.setQueryData<Deck[]>(
+          DECKS_KEY,
+          prev.map((d) =>
+            d.id === deckId
+              ? {
+                  ...d,
+                  cards: d.cards.map((c) => ({ ...c, known: false })),
+                }
+              : d,
+          ),
+        );
+      }
+      return { prev };
+    },
     onSuccess: invalidate,
-    onError: onError("Could not reset"),
+    onError: (error, _deckId, ctx) => {
+      if (ctx?.prev) queryClient.setQueryData(DECKS_KEY, ctx.prev);
+      onError("Could not reset")(error);
+    },
   });
 
   return {
