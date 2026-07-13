@@ -5,6 +5,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat, Star, Loader2 } from "lucide-react";
@@ -14,10 +15,20 @@ export const Route = createFileRoute("/study/$deckId")({
   component: StudyPage,
 });
 
+function shuffleList<T>(items: T[]): T[] {
+  const shuffled = [...items];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 function StudyPage() {
   const { deckId } = Route.useParams();
   const { deck, markCard, resetProgress } = useDeck(deckId);
   const rateOriginalDeck = useServerFn(rateDeck);
+  const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const [order, setOrder] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
@@ -32,24 +43,29 @@ function StudyPage() {
     () => (deck ? deck.cards.filter((c) => !c.known).map((c) => c.id) : []),
     [deck],
   );
+  const deckCardsKey = deck?.cards.map((card) => card.id).join("|") ?? "";
+
+  const buildOrder = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
 
   useEffect(() => {
     autoResetDeckRef.current = null;
-    setOrder(queueSource);
+    setOrder(buildOrder(queueSource));
     setIdx(0);
     setFlipped(false);
     setSessionCorrect(0);
     setSessionWrong(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckId]);
+  }, [deckId, deckCardsKey]);
 
   useEffect(() => {
     setOrder((prev) => {
       const set = new Set(queueSource);
       const kept = prev.filter((id) => set.has(id));
       const newOnes = queueSource.filter((id) => !prev.includes(id));
-      return [...kept, ...newOnes];
+      if (kept.length === 0) return buildOrder(queueSource);
+      return [...kept, ...(shuffleEnabled ? shuffleList(newOnes) : newOnes)];
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [queueSource]);
 
   useEffect(() => {
@@ -61,9 +77,10 @@ function StudyPage() {
 
     autoResetDeckRef.current = deck.id;
     resetProgress(deck.id);
-    setOrder(deck.cards.map((card) => card.id));
+    setOrder(buildOrder(deck.cards.map((card) => card.id)));
     setIdx(0);
     setFlipped(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck, resetProgress, sessionCorrect, sessionWrong]);
 
   useEffect(() => {
@@ -81,6 +98,14 @@ function StudyPage() {
     return () => window.removeEventListener("keydown", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [idx, order, deck]);
+
+  useEffect(() => {
+    if (sessionCorrect + sessionWrong > 0) return;
+    setOrder(buildOrder(queueSource));
+    setIdx(0);
+    setFlipped(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleEnabled]);
 
   if (!deck) {
     return (
@@ -138,9 +163,16 @@ function StudyPage() {
     }
   };
 
-  const shuffle = () => {
-    setOrder((prev) => [...prev].sort(() => Math.random() - 0.5));
-    setIdx(0);
+  const toggleShuffle = () => {
+    const nextShuffleEnabled = !shuffleEnabled;
+    setShuffleEnabled(nextShuffleEnabled);
+    if (nextShuffleEnabled) {
+      setOrder((prev) => {
+        const answered = prev.slice(0, idx);
+        const remaining = prev.slice(idx);
+        return [...answered, ...shuffleList(remaining)];
+      });
+    }
     setFlipped(false);
   };
 
@@ -167,11 +199,11 @@ function StudyPage() {
           </Link>
           <div className="flex gap-2">
             <Button
-              variant="ghost"
+              aria-pressed={shuffleEnabled}
+              variant={shuffleEnabled ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-full"
-              onClick={shuffle}
-              disabled={order.length < 2}
+              className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
+              onClick={toggleShuffle}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>
@@ -192,6 +224,7 @@ function StudyPage() {
               className="rounded-full"
               onClick={() => {
                 resetProgress(deck.id);
+                setOrder(buildOrder(deck.cards.map((card) => card.id)));
                 setIdx(0);
                 setFlipped(false);
                 setSessionCorrect(0);
@@ -251,6 +284,7 @@ function StudyPage() {
                 className="rounded-full"
                 onClick={() => {
                   resetProgress(deck.id);
+                  setOrder(buildOrder(deck.cards.map((card) => card.id)));
                   setIdx(0);
                   setFlipped(false);
                   setSessionCorrect(0);

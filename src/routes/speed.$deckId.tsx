@@ -4,6 +4,7 @@ import { useDeck, type Card } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, recordSpeedRun, useSpeedRecords } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Timer, Zap, Trophy, RotateCcw, Repeat, Shuffle } from "lucide-react";
@@ -24,9 +25,10 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function build(cards: Card[], reverseSides: boolean): Q[] {
+function build(cards: Card[], reverseSides: boolean, shuffleQuestions: boolean): Q[] {
   const allAnswers = cards.map((c) => (reverseSides ? c.term : c.definition));
-  return shuffle(cards).map((card) => {
+  const orderedCards = shuffleQuestions ? shuffle(cards) : cards;
+  return orderedCards.map((card) => {
     const answer = reverseSides ? card.term : card.definition;
     const distractors = shuffle(allAnswers.filter((value) => value !== answer)).slice(0, 3);
     while (distractors.length < 3) distractors.push("—");
@@ -43,6 +45,7 @@ function build(cards: Card[], reverseSides: boolean): Q[] {
 function SpeedPage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
+  const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const [duration, setDuration] = useState<Duration>(60);
   const [reverseSides, setReverseSides] = useState(false);
@@ -103,7 +106,7 @@ function SpeedPage() {
     setWrong(0);
     setWeak([]);
     setIdx(0);
-    setQuestions(build(deck.cards, reverseSides));
+    setQuestions(build(deck.cards, reverseSides, shuffleEnabled));
     setRunning(true);
     if (timerRef.current) window.clearInterval(timerRef.current);
     timerRef.current = window.setInterval(() => {
@@ -118,11 +121,13 @@ function SpeedPage() {
     }, 1000);
   };
 
-  const shuffleRemaining = () => {
+  const toggleShuffle = () => {
+    const nextShuffleEnabled = !shuffleEnabled;
+    setShuffleEnabled(nextShuffleEnabled);
     setQuestions((qs) => {
       const answered = qs.slice(0, idx);
-      const remaining = qs.slice(idx);
-      return [...answered, ...shuffle(remaining)];
+      const remainingCards = qs.slice(idx).map((question) => question.card);
+      return [...answered, ...build(remainingCards, reverseSides, nextShuffleEnabled)];
     });
   };
 
@@ -132,7 +137,7 @@ function SpeedPage() {
     setQuestions((qs) => {
       const answered = qs.slice(0, idx);
       const remainingCards = qs.slice(idx).map((question) => question.card);
-      return [...answered, ...build(remainingCards, nextReverseSides)];
+      return [...answered, ...build(remainingCards, nextReverseSides, shuffleEnabled)];
     });
   };
 
@@ -156,7 +161,7 @@ function SpeedPage() {
       setWeak((w) => (w.find((x) => x.id === cur.card.id) ? w : [...w, cur.card]));
     }
     if (idx + 1 >= questions.length) {
-      setQuestions((qs) => [...qs, ...build(deck.cards, reverseSides)]);
+      setQuestions((qs) => [...qs, ...build(deck.cards, reverseSides, shuffleEnabled)]);
     }
     setIdx((i2) => i2 + 1);
   };
@@ -179,11 +184,11 @@ function SpeedPage() {
             </span>
             <Button
               type="button"
-              variant="ghost"
+              aria-pressed={shuffleEnabled}
+              variant={shuffleEnabled ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-full"
-              onClick={shuffleRemaining}
-              disabled={questions.length - idx < 2}
+              className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
+              onClick={toggleShuffle}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>

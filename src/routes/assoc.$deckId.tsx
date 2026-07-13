@@ -6,6 +6,7 @@ import { generateAssociation } from "@/lib/ai.functions";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, useAssocs, addAssoc, toggleFavoriteAssoc, removeAssoc } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { OFFLINE_AI_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -44,6 +45,7 @@ function AssocPage() {
   const { deck } = useDeck(deckId);
   const gen = useServerFn(generateAssociation);
   const isOnline = useOnlineStatus();
+  const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const [idx, setIdx] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -54,13 +56,15 @@ function AssocPage() {
   const [reverseSides, setReverseSides] = useState(false);
 
   const deckCardIds = deck?.cards.map((card) => card.id).join("|") ?? "";
+  const buildOrderIds = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
 
   useEffect(() => {
     if (!deck) return;
-    setOrderIds(deck.cards.map((card) => card.id));
+    setOrderIds(buildOrderIds(deck.cards.map((card) => card.id)));
     setIdx(0);
     setRevealed(false);
     setMy("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck, deckCardIds]);
 
   const cards = useMemo(() => {
@@ -75,6 +79,13 @@ function AssocPage() {
   const total = cards.length;
   const current = cards[idx];
   const assocs = useAssocs(current?.id ?? "");
+
+  useEffect(() => {
+    if (!deck || idx > 0) return;
+    setOrderIds(buildOrderIds(deck.cards.map((card) => card.id)));
+    setRevealed(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleEnabled]);
 
   if (!deck) {
     return (
@@ -140,12 +151,14 @@ function AssocPage() {
     setRevealed(false);
   };
 
-  const shuffleRemaining = () => {
+  const toggleShuffle = () => {
+    const nextShuffleEnabled = !shuffleEnabled;
+    setShuffleEnabled(nextShuffleEnabled);
     setOrderIds((ids) => {
       const sourceIds = ids.length ? ids : deck.cards.map((card) => card.id);
       const answered = sourceIds.slice(0, idx);
       const remaining = sourceIds.slice(idx);
-      return [...answered, ...shuffleList(remaining)];
+      return [...answered, ...(nextShuffleEnabled ? shuffleList(remaining) : remaining)];
     });
     setRevealed(false);
   };
@@ -186,11 +199,11 @@ function AssocPage() {
             </span>
             <Button
               type="button"
-              variant="ghost"
+              aria-pressed={shuffleEnabled}
+              variant={shuffleEnabled ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-full"
-              onClick={shuffleRemaining}
-              disabled={total - idx < 2}
+              className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
+              onClick={toggleShuffle}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>

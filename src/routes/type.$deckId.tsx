@@ -5,6 +5,7 @@ import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/langu
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, isCloseMatch, prioritise, accuracyFor, useDeckStats } from "@/lib/stats";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,12 +28,15 @@ function TypePage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
   const stats = useDeckStats(deckId);
+  const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const baseQueue = useMemo<Card[]>(
     () => (deck ? prioritise(deckId, deck.cards) : []),
     [deck, deckId],
   );
   const baseQueueKey = baseQueue.map((card) => card.id).join("|");
+  const baseQueueIds = () => (baseQueueKey ? baseQueueKey.split("|") : []);
+  const buildOrderIds = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
   const [orderIds, setOrderIds] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState("");
@@ -44,7 +48,7 @@ function TypePage() {
   const [reverseSides, setReverseSides] = useState(false);
 
   useEffect(() => {
-    setOrderIds(baseQueueKey ? baseQueueKey.split("|") : []);
+    setOrderIds(buildOrderIds(baseQueueIds()));
     setIdx(0);
     setInput("");
     setVerdict(null);
@@ -52,6 +56,7 @@ function TypePage() {
     setWrong(0);
     setWrongIds([]);
     setStartedAt(Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId, baseQueueKey]);
 
   const queue = useMemo<Card[]>(() => {
@@ -62,6 +67,15 @@ function TypePage() {
   useEffect(() => {
     setStartedAt(Date.now());
   }, [idx]);
+
+  useEffect(() => {
+    if (right > 0 || wrong > 0 || verdict) return;
+    setOrderIds(buildOrderIds(baseQueueIds()));
+    setIdx(0);
+    setInput("");
+    setStartedAt(Date.now());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleEnabled]);
 
   if (!deck) {
     return (
@@ -115,7 +129,7 @@ function TypePage() {
     setIdx((i) => i + 1);
   };
   const restart = () => {
-    setOrderIds(baseQueueKey ? baseQueueKey.split("|") : []);
+    setOrderIds(buildOrderIds(baseQueueIds()));
     setIdx(0);
     setInput("");
     setVerdict(null);
@@ -125,11 +139,16 @@ function TypePage() {
     setStartedAt(Date.now());
   };
   const shuffleRemaining = () => {
-    setOrderIds((ids) => {
-      const answered = ids.slice(0, idx);
-      const remaining = ids.slice(idx);
-      return [...answered, ...shuffleList(remaining)];
-    });
+    const nextShuffleEnabled = !shuffleEnabled;
+    setShuffleEnabled(nextShuffleEnabled);
+    if (nextShuffleEnabled) {
+      setOrderIds((ids) => {
+        const splitAt = verdict ? idx + 1 : idx;
+        const answered = ids.slice(0, splitAt);
+        const remaining = ids.slice(splitAt);
+        return [...answered, ...shuffleList(remaining)];
+      });
+    }
     setInput("");
     setVerdict(null);
     setStartedAt(Date.now());
@@ -153,11 +172,12 @@ function TypePage() {
             </span>
             <Button
               type="button"
-              variant="ghost"
+              aria-pressed={shuffleEnabled}
+              variant={shuffleEnabled ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-full"
+              className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
               onClick={shuffleRemaining}
-              disabled={!!verdict || total - idx < 2}
+              disabled={!!verdict}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>

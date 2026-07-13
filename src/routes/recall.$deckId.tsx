@@ -16,6 +16,7 @@ import {
 import { isCloseMatch } from "@/lib/stats";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 
 export const Route = createFileRoute("/recall/$deckId")({
   component: RecallPage,
@@ -34,6 +35,7 @@ function RecallPage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
   const [enabled] = useDeckDelayedRecallEnabled(deckId);
+  const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const [queueIds, setQueueIds] = useState<string[]>([]);
   const [recallTick, setRecallTick] = useState(0);
@@ -65,6 +67,7 @@ function RecallPage() {
   }, []);
 
   const deckCardIds = deck?.cards.map((card) => card.id).join("|") ?? "";
+  const buildQueueIds = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
 
   useEffect(() => {
     if (!deck || !enabled) {
@@ -74,7 +77,8 @@ function RecallPage() {
     const due = dueRecallEntries(deckId).map((e) => e.cardId);
     const setDue = new Set(due);
     // Preserve deck order, only include ids that still exist
-    setQueueIds(deck.cards.filter((c) => setDue.has(c.id)).map((c) => c.id));
+    setQueueIds(buildQueueIds(deck.cards.filter((c) => setDue.has(c.id)).map((c) => c.id)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId, deck, deckCardIds, enabled, recallTick]);
 
   const cards: Card[] = useMemo(
@@ -89,6 +93,16 @@ function RecallPage() {
     setInput("");
     setVerdict(null);
   }, [idx]);
+
+  useEffect(() => {
+    if (!deck || !enabled || right > 0 || wrong > 0 || verdict) return;
+    const due = dueRecallEntries(deckId).map((e) => e.cardId);
+    const setDue = new Set(due);
+    setQueueIds(buildQueueIds(deck.cards.filter((c) => setDue.has(c.id)).map((c) => c.id)));
+    setIdx(0);
+    setInput("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleEnabled]);
 
   if (!deck) {
     return (
@@ -156,11 +170,14 @@ function RecallPage() {
     } else setWrong((w) => w + 1);
   };
   const next = () => setIdx((i) => i + 1);
-  const shuffleRemaining = () => {
+  const toggleShuffle = () => {
+    const nextShuffleEnabled = !shuffleEnabled;
+    setShuffleEnabled(nextShuffleEnabled);
     setQueueIds((ids) => {
-      const answered = ids.slice(0, idx);
-      const remaining = ids.slice(idx);
-      return [...answered, ...shuffleList(remaining)];
+      const splitAt = verdict ? idx + 1 : idx;
+      const answered = ids.slice(0, splitAt);
+      const remaining = ids.slice(splitAt);
+      return [...answered, ...(nextShuffleEnabled ? shuffleList(remaining) : remaining)];
     });
     setInput("");
     setVerdict(null);
@@ -189,11 +206,12 @@ function RecallPage() {
             </span>
             <Button
               type="button"
-              variant="ghost"
+              aria-pressed={shuffleEnabled}
+              variant={shuffleEnabled ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-full"
-              onClick={shuffleRemaining}
-              disabled={!!verdict || total - idx < 2}
+              className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
+              onClick={toggleShuffle}
+              disabled={!!verdict}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>

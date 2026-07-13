@@ -5,6 +5,7 @@ import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/langu
 import { accuracyFor, recordAnswer, useDeckStats } from "@/lib/stats";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -34,6 +35,7 @@ function ReversePage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
   const stats = useDeckStats(deckId);
+  const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
   const [allowReverse, setAllowReverse] = useState(true);
   const [queue, setQueue] = useState<Item[]>([]);
   const [idx, setIdx] = useState(0);
@@ -56,6 +58,8 @@ function ReversePage() {
           items.push({ item: { cardId: c.id, dir }, weight, unseen });
         }
       }
+      if (!shuffleEnabled) return items.map((x) => x.item);
+
       // Weighted shuffle: sample without replacement by random^(1/weight)
       const sorted = items
         .map((x) => ({ ...x, key: Math.random() ** (1 / x.weight) }))
@@ -63,7 +67,7 @@ function ReversePage() {
         .map((x) => x.item);
       return sorted;
     },
-    [deck, allowReverse, stats],
+    [deck, allowReverse, stats, shuffleEnabled],
   );
 
   useEffect(() => {
@@ -150,12 +154,16 @@ function ReversePage() {
     setFlipped(false);
   };
 
-  const shuffleRemaining = () => {
-    setQueue((items) => {
-      const answered = items.slice(0, idx);
-      const remaining = items.slice(idx);
-      return [...answered, ...shuffleList(remaining)];
-    });
+  const toggleShuffle = () => {
+    const nextShuffleEnabled = !shuffleEnabled;
+    setShuffleEnabled(nextShuffleEnabled);
+    if (nextShuffleEnabled) {
+      setQueue((items) => {
+        const answered = items.slice(0, idx);
+        const remaining = items.slice(idx);
+        return [...answered, ...shuffleList(remaining)];
+      });
+    }
     setFlipped(false);
     setStartedAt(Date.now());
   };
@@ -220,11 +228,11 @@ function ReversePage() {
           <div className="flex flex-wrap items-center justify-end gap-2">
             <Button
               type="button"
-              variant="ghost"
+              aria-pressed={shuffleEnabled}
+              variant={shuffleEnabled ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-full"
-              onClick={shuffleRemaining}
-              disabled={queue.length - idx < 2}
+              className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
+              onClick={toggleShuffle}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>

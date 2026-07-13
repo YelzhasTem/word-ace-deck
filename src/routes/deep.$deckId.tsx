@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
+import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Brain, Check, RotateCcw, X, Repeat, Shuffle } from "lucide-react";
@@ -27,9 +28,14 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-function buildQuestions(cards: Card[], reverseSides: boolean): Question[] {
+function buildQuestions(
+  cards: Card[],
+  reverseSides: boolean,
+  shuffleQuestions: boolean,
+): Question[] {
   const allAnswers = cards.map((c) => (reverseSides ? c.term : c.definition));
-  return shuffle(cards).map((card) => {
+  const orderedCards = shuffleQuestions ? shuffle(cards) : cards;
+  return orderedCards.map((card) => {
     const answer = reverseSides ? card.term : card.definition;
     const distractors = shuffle(allAnswers.filter((value) => value !== answer)).slice(0, 3);
     while (distractors.length < 3) distractors.push("—");
@@ -46,6 +52,7 @@ function buildQuestions(cards: Card[], reverseSides: boolean): Question[] {
 function DeepPage() {
   const { deckId } = Route.useParams();
   const { deck } = useDeck(deckId);
+  const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const [questions, setQuestions] = useState<Question[]>([]);
   const [idx, setIdx] = useState(0);
@@ -58,7 +65,7 @@ function DeepPage() {
 
   useEffect(() => {
     if (deck && canPlay) {
-      setQuestions(buildQuestions(deck.cards, reverseSides));
+      setQuestions(buildQuestions(deck.cards, reverseSides, shuffleEnabled));
       setIdx(0);
       setPicked(null);
       setCorrectCount(0);
@@ -66,6 +73,13 @@ function DeepPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId, deck?.cards.length, canPlay]);
+
+  useEffect(() => {
+    if (!deck || !canPlay || correctCount > 0 || wrongCount > 0 || picked !== null) return;
+    setQuestions(buildQuestions(deck.cards, reverseSides, shuffleEnabled));
+    setIdx(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shuffleEnabled]);
 
   if (!deck) {
     return (
@@ -82,18 +96,20 @@ function DeepPage() {
   }
 
   const restart = () => {
-    setQuestions(buildQuestions(deck.cards, reverseSides));
+    setQuestions(buildQuestions(deck.cards, reverseSides, shuffleEnabled));
     setIdx(0);
     setPicked(null);
     setCorrectCount(0);
     setWrongCount(0);
   };
 
-  const shuffleRemaining = () => {
+  const toggleShuffle = () => {
+    const nextShuffleEnabled = !shuffleEnabled;
+    setShuffleEnabled(nextShuffleEnabled);
     setQuestions((currentQuestions) => {
       const answered = currentQuestions.slice(0, idx);
-      const remaining = currentQuestions.slice(idx);
-      return [...answered, ...shuffle(remaining)];
+      const remainingCards = currentQuestions.slice(idx).map((question) => question.card);
+      return [...answered, ...buildQuestions(remainingCards, reverseSides, nextShuffleEnabled)];
     });
     setPicked(null);
   };
@@ -104,7 +120,7 @@ function DeepPage() {
     setQuestions((currentQuestions) => {
       const answered = currentQuestions.slice(0, idx);
       const remainingCards = currentQuestions.slice(idx).map((question) => question.card);
-      return [...answered, ...buildQuestions(remainingCards, nextReverseSides)];
+      return [...answered, ...buildQuestions(remainingCards, nextReverseSides, shuffleEnabled)];
     });
     setPicked(null);
   };
@@ -149,11 +165,12 @@ function DeepPage() {
             </span>
             <Button
               type="button"
-              variant="ghost"
+              aria-pressed={shuffleEnabled}
+              variant={shuffleEnabled ? "secondary" : "ghost"}
               size="sm"
-              className="rounded-full"
-              onClick={shuffleRemaining}
-              disabled={picked !== null || total - idx < 2}
+              className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
+              onClick={toggleShuffle}
+              disabled={picked !== null}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>
