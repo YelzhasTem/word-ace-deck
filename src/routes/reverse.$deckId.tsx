@@ -88,7 +88,8 @@ function ReversePage() {
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (!current) return;
-      if (e.key === " ") {
+      if (e.key === " " || e.key === "Shift") {
+        if (e.repeat) return;
         e.preventDefault();
         setFlipped((f) => !f);
       } else if (e.key === "ArrowRight" || e.key === "2") handle(true);
@@ -332,7 +333,7 @@ function ReversePage() {
                     {front}
                   </p>
                   <span className="mt-8 text-xs text-muted-foreground">
-                    Think, then click to reveal the answer
+                    Think, then click or press Space / Shift to reveal the answer
                   </span>
                 </div>
                 <div className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
@@ -363,7 +364,8 @@ function ReversePage() {
             </div>
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
-              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> — flip ·{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> /{" "}
+              <kbd className="px-1.5 py-0.5 rounded bg-secondary">Shift</kbd> — flip ·{" "}
               <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> do not know ·{" "}
               <kbd className="px-1.5 py-0.5 rounded bg-secondary">→</kbd> know it
             </p>
