@@ -113,31 +113,6 @@ function isSupportedImportImageType(type: string): type is ImportImageMimeType {
   return SUPPORTED_IMPORT_IMAGE_TYPES.includes(type as ImportImageMimeType);
 }
 
-function CompactLanguageSelect({
-  value,
-  onChange,
-  ariaLabel,
-}: {
-  value: LearningLanguage;
-  onChange: (value: LearningLanguage) => void;
-  ariaLabel: string;
-}) {
-  return (
-    <Select value={value} onValueChange={(next) => onChange(next as LearningLanguage)}>
-      <SelectTrigger aria-label={ariaLabel} className="h-10 w-[118px] shrink-0 px-2 text-xs">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {LEARNING_LANGUAGE_OPTIONS.map((language) => (
-          <SelectItem key={language.code} value={language.code}>
-            {language.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
   const navigate = useNavigate();
@@ -827,56 +802,40 @@ function Home() {
                         <label className="text-sm font-medium">{t("create.addWord")}</label>
                         {!trWord ? (
                           <div className="space-y-2">
-                            <div className="flex gap-2">
-                              <Input
-                                className="min-w-0 flex-1"
-                                placeholder={`Type a ${learningLanguage.label} word`}
-                                value={wordInput}
-                                onChange={(e) => setWordInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (
-                                    e.key === "Enter" &&
-                                    wordInput.trim() &&
-                                    !trLoading &&
-                                    manualCards.length < MAX_DECK_CARDS
-                                  ) {
-                                    e.preventDefault();
-                                    void handleLookup(wordInput);
-                                  }
-                                }}
-                                disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
-                              />
-                              <CompactLanguageSelect
-                                value={targetLanguage}
-                                onChange={handleTargetLanguageChange}
-                                ariaLabel="Word language"
-                              />
-                            </div>
-                            <div className="flex gap-2">
-                              <Input
-                                className="min-w-0 flex-1"
-                                placeholder={`Type a ${definitionLanguage.label} translation`}
-                                value={definitionInput}
-                                onChange={(e) => setDefinitionInput(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (
-                                    e.key === "Enter" &&
-                                    wordInput.trim() &&
-                                    definitionInput.trim() &&
-                                    manualCards.length < MAX_DECK_CARDS
-                                  ) {
-                                    e.preventDefault();
-                                    handleAddManualCard();
-                                  }
-                                }}
-                                disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
-                              />
-                              <CompactLanguageSelect
-                                value={definitionLanguage.code}
-                                onChange={handleDefinitionLanguageChange}
-                                ariaLabel="Translation language"
-                              />
-                            </div>
+                            <Input
+                              placeholder={`Type a ${learningLanguage.label} word`}
+                              value={wordInput}
+                              onChange={(e) => setWordInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "Enter" &&
+                                  wordInput.trim() &&
+                                  !trLoading &&
+                                  manualCards.length < MAX_DECK_CARDS
+                                ) {
+                                  e.preventDefault();
+                                  void handleLookup(wordInput);
+                                }
+                              }}
+                              disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
+                            />
+                            <Input
+                              placeholder={`Type a ${definitionLanguage.label} translation`}
+                              value={definitionInput}
+                              onChange={(e) => setDefinitionInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (
+                                  e.key === "Enter" &&
+                                  wordInput.trim() &&
+                                  definitionInput.trim() &&
+                                  manualCards.length < MAX_DECK_CARDS
+                                ) {
+                                  e.preventDefault();
+                                  handleAddManualCard();
+                                }
+                              }}
+                              disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
+                            />
                             <div className="flex flex-col gap-2 sm:flex-row">
                               <Button
                                 type="button"
