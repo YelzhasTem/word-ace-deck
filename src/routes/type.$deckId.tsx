@@ -57,7 +57,7 @@ function TypePage() {
   }
 
   const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
-  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage, deck.definitionLanguage);
   const current = queue[idx];
   const finished = !current;
   const total = queue.length;

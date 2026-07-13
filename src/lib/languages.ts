@@ -43,8 +43,31 @@ export function getLearningLanguageOption(value?: string | null): LearningLangua
   return languageMap.get(normalizeLearningLanguage(value)) ?? LEARNING_LANGUAGE_OPTIONS[0];
 }
 
-export function getDefinitionLanguageFor(learningLanguage: LearningLanguage) {
+export function getDefaultDefinitionLanguageFor(learningLanguage: LearningLanguage) {
   return learningLanguage === "en"
     ? getLearningLanguageOption("ru")
     : getLearningLanguageOption("en");
+}
+
+export function normalizeDefinitionLanguage(
+  value: string | null | undefined,
+  learningLanguage: LearningLanguage,
+): LearningLanguage {
+  const normalized = normalizeLearningLanguage(value);
+  return normalized === learningLanguage
+    ? getDefaultDefinitionLanguageFor(learningLanguage).code
+    : normalized;
+}
+
+export function getDefinitionLanguageFor(
+  learningLanguage: LearningLanguage,
+  definitionLanguage?: string | null,
+) {
+  if (definitionLanguage) {
+    return getLearningLanguageOption(
+      normalizeDefinitionLanguage(definitionLanguage, learningLanguage),
+    );
+  }
+
+  return getDefaultDefinitionLanguageFor(learningLanguage);
 }

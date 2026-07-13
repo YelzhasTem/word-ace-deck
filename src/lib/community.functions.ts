@@ -36,6 +36,7 @@ type CommunityDeckRow = {
   copy_count: number;
   published_at: string | null;
   target_language?: string | null;
+  definition_language?: string | null;
 };
 
 type ProfileRow = {
@@ -268,7 +269,7 @@ export const searchPublicDecks = createServerFn({ method: "GET" })
     let query = (supabase as any)
       .from("decks")
       .select(
-        "id, user_id, name, description, target_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
+        "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
       )
       .eq("visibility", "public")
       .is("hidden_at", null)
@@ -384,7 +385,7 @@ export const getCommunityHome = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
     const baseSelect =
-      "id, user_id, name, description, target_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at";
+      "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at";
 
     async function section(order: "trending" | "popular" | "new" | "rated") {
       let q = (supabase as any)
@@ -426,7 +427,7 @@ export const getPublicDeckDetails = createServerFn({ method: "GET" })
     const { data: deck, error } = await (supabase as any)
       .from("decks")
       .select(
-        "id, user_id, name, description, target_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
+        "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
       )
       .eq("id", data.deckId)
       .in("visibility", ["public", "unlisted"])
@@ -618,7 +619,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
     const { data: deck, error } = await (supabase as any)
       .from("decks")
       .select(
-        "id, name, description, target_language, category, keywords, copy_count, learner_count",
+        "id, name, description, target_language, definition_language, category, keywords, copy_count, learner_count",
       )
       .eq("id", data.deckId)
       .in("visibility", ["public", "unlisted"])
@@ -631,6 +632,9 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
       .eq("deck_id", deck.id)
       .order("position", { ascending: true });
     if (cardsError) throw new Error(cardsError.message);
+    const copiedTargetLanguage = deck.target_language ?? "en";
+    const copiedDefinitionLanguage =
+      deck.definition_language ?? (copiedTargetLanguage === "en" ? "ru" : "en");
     const { data: newDeck, error: createError } = await (supabase as any)
       .from("decks")
       .insert({
@@ -639,7 +643,8 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
         description: deck.description ?? "",
         category: deck.category,
         keywords: deck.keywords ?? [],
-        target_language: deck.target_language ?? "en",
+        target_language: copiedTargetLanguage,
+        definition_language: copiedDefinitionLanguage,
         source_deck_id: deck.id,
         visibility: "private",
       })
@@ -697,7 +702,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
       ? await (supabase as any)
           .from("decks")
           .select(
-            "id, name, description, target_language, category, keywords, copy_count, learner_count",
+            "id, name, description, target_language, definition_language, category, keywords, copy_count, learner_count",
           )
           .in("id", sourceDeckIds)
       : { data: [], error: null };
@@ -736,6 +741,9 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
         .eq("deck_id", deck.id)
         .order("position", { ascending: true });
       if (cardsError) throw new Error(cardsError.message);
+      const copiedTargetLanguage = deck.target_language ?? "en";
+      const copiedDefinitionLanguage =
+        deck.definition_language ?? (copiedTargetLanguage === "en" ? "ru" : "en");
 
       const { data: newDeck, error: createDeckError } = await (supabase as any)
         .from("decks")
@@ -745,7 +753,8 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
           description: deck.description ?? "",
           category: deck.category,
           keywords: deck.keywords ?? [],
-          target_language: deck.target_language ?? "en",
+          target_language: copiedTargetLanguage,
+          definition_language: copiedDefinitionLanguage,
           source_deck_id: deck.id,
           visibility: "private",
         })
@@ -820,7 +829,7 @@ export const getCreatorProfile = createServerFn({ method: "GET" })
     const { data: decks, error: decksError } = await (supabase as any)
       .from("decks")
       .select(
-        "id, user_id, name, description, target_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
+        "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
       )
       .eq("user_id", data.userId)
       .eq("visibility", "public")

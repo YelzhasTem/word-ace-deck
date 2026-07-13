@@ -217,6 +217,7 @@ function DeckPage() {
           deckName: deck.name,
           seed: nextSeed,
           targetLanguage: deck.targetLanguage,
+          definitionLanguage: deck.definitionLanguage,
         },
       });
       setAiText(text);
@@ -282,7 +283,7 @@ function DeckPage() {
   }
 
   const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
-  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage, deck.definitionLanguage);
 
   const handleAdd = (e?: React.FormEvent) => {
     e?.preventDefault();

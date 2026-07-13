@@ -82,6 +82,7 @@ function AssocPage() {
           term: current.term,
           definition: current.definition,
           targetLanguage: deck.targetLanguage,
+          definitionLanguage: deck.definitionLanguage,
         },
       });
       addAssoc(current.id, {

@@ -88,6 +88,7 @@ function BlankPage() {
           term: card.term,
           definition: card.definition,
           targetLanguage: deck?.targetLanguage ?? "en",
+          definitionLanguage: deck?.definitionLanguage,
         },
       });
       setSentence(r.sentence);

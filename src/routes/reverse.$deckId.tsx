@@ -100,7 +100,7 @@ function ReversePage() {
   }
 
   const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
-  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage);
+  const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage, deck.definitionLanguage);
   const forwardLabel = `${learningLanguage.label} → ${definitionLanguage.label}`;
   const reverseLabel = `${definitionLanguage.label} → ${learningLanguage.label}`;
 

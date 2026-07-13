@@ -125,6 +125,7 @@ export type Database = {
         Row: {
           cover_color: string | null;
           created_at: string;
+          definition_language: string;
           description: string;
           id: string;
           name: string;
@@ -135,6 +136,7 @@ export type Database = {
         Insert: {
           cover_color?: string | null;
           created_at?: string;
+          definition_language?: string;
           description?: string;
           id?: string;
           name: string;
@@ -145,6 +147,7 @@ export type Database = {
         Update: {
           cover_color?: string | null;
           created_at?: string;
+          definition_language?: string;
           description?: string;
           id?: string;
           name?: string;

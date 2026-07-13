@@ -24,6 +24,7 @@ const MAX_MANUAL_IMPORT_TEXT = 6000;
 const MAX_IMAGE_BASE64_LENGTH = 9_500_000;
 const SUPPORTED_IMPORT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 const LearningLanguageInput = z.enum(LEARNING_LANGUAGE_CODES).default("en");
+const OptionalLearningLanguageInput = z.enum(LEARNING_LANGUAGE_CODES).optional();
 
 function cleanText(value: unknown, maxLength: number) {
   if (typeof value !== "string") return "";
@@ -228,9 +229,9 @@ function uniqueTranslations(values: string[]) {
     .slice(0, MAX_TRANSLATION_OPTIONS);
 }
 
-function getLanguagePair(targetLanguage?: string | null) {
+function getLanguagePair(targetLanguage?: string | null, definitionLanguage?: string | null) {
   const learning = getLearningLanguageOption(normalizeLearningLanguage(targetLanguage));
-  const definition = getDefinitionLanguageFor(learning.code);
+  const definition = getDefinitionLanguageFor(learning.code, definitionLanguage);
   return { learning, definition };
 }
 
@@ -246,20 +247,23 @@ function languageLabelFor(
   return code;
 }
 
-function getDefaultTranslationDirection(word: string, learningLanguage: LearningLanguage) {
-  if (learningLanguage !== "en") {
-    const { learning, definition } = getLanguagePair(learningLanguage);
-    return {
-      source: learning.code,
-      target: definition.code,
-      label: `${learning.label} to ${definition.label}`,
-    };
-  }
+function getDefaultTranslationDirection(
+  word: string,
+  learningLanguage: LearningLanguage,
+  definitionLanguage?: LearningLanguage,
+) {
+  const { learning, definition } = getLanguagePair(learningLanguage, definitionLanguage);
 
   const hasCyrillic = /[\u0400-\u04ff]/.test(word);
-  return hasCyrillic
-    ? { source: "ru", target: "en", label: "Russian to English" }
-    : { source: "en", target: "ru", label: "English to Russian" };
+  if (learning.code === "en" && definition.code === "ru" && hasCyrillic) {
+    return { source: "ru", target: "en", label: "Russian to English" };
+  }
+
+  return {
+    source: learning.code,
+    target: definition.code,
+    label: `${learning.label} to ${definition.label}`,
+  };
 }
 
 function normalizeLookupWord(word: string) {
@@ -306,10 +310,11 @@ export const generateStudyText = createServerFn({ method: "POST" })
       deckName: z.string().max(120).optional(),
       seed: z.number().optional(),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
-    const { learning } = getLanguagePair(data.targetLanguage);
+    const { learning } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
     const variations = [
       "a short story",
       "a dialogue between two friends",
@@ -343,10 +348,11 @@ export const generateDeckWithAI = createServerFn({ method: "POST" })
       level: z.enum(["A1", "A2", "B1", "B2", "C1", "C2"]),
       count: z.number().int().min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
-    const { learning, definition } = getLanguagePair(data.targetLanguage);
+    const { learning, definition } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
     const system =
       `You are a lexicographer creating vocabulary flashcards for ${learning.label} learners. Return only valid JSON without Markdown. Format: ` +
       `{"name":"English deck name","cards":[{"term":"${learning.label} word or phrase","definition":"one ${definition.label} translation"}]}. ` +
@@ -372,12 +378,17 @@ export const getTranslations = createServerFn({ method: "POST" })
     z.object({
       word: z.string().min(1).max(80),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
     const inputWord = cleanText(data.word, 80);
-    const { learning, definition } = getLanguagePair(data.targetLanguage);
-    const defaultDirection = getDefaultTranslationDirection(inputWord, learning.code);
+    const { learning, definition } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
+    const defaultDirection = getDefaultTranslationDirection(
+      inputWord,
+      learning.code,
+      definition.code,
+    );
     let correctedWord = "";
     let aiTranslations: string[] = [];
     let aiDirection = "";
@@ -433,17 +444,17 @@ export const getTranslations = createServerFn({ method: "POST" })
     }
 
     const lookupWord = correctedWord || inputWord;
-    const fallbackDirections =
-      learning.code === "en"
-        ? [getDefaultTranslationDirection(lookupWord, learning.code)]
-        : [
-            aiLanguageDirection ?? defaultDirection,
-            {
-              source: definition.code,
-              target: learning.code,
-              label: `${definition.label} to ${learning.label}`,
-            },
-          ];
+    const reverseDirection = {
+      source: definition.code,
+      target: learning.code,
+      label: `${definition.label} to ${learning.label}`,
+    };
+    const fallbackDirections = [aiLanguageDirection ?? defaultDirection, reverseDirection].filter(
+      (direction, index, directions) =>
+        directions.findIndex(
+          (item) => item.source === direction.source && item.target === direction.target,
+        ) === index,
+    );
 
     let translatorOptions: string[] = [];
     let direction = fallbackDirections[0];
@@ -486,11 +497,12 @@ export const importManualCardsFromText = createServerFn({ method: "POST" })
     z.object({
       text: z.string().min(1).max(MAX_MANUAL_IMPORT_TEXT),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
     const sourceText = cleanText(data.text, MAX_MANUAL_IMPORT_TEXT);
-    const { learning, definition } = getLanguagePair(data.targetLanguage);
+    const { learning, definition } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
 
     const system =
       `You prepare ${learning.label} vocabulary flashcards. Return only valid JSON without Markdown. Format: ` +
@@ -524,11 +536,12 @@ export const importManualCardsFromImage = createServerFn({ method: "POST" })
       imageBase64: z.string().min(1).max(MAX_IMAGE_BASE64_LENGTH),
       mimeType: z.enum(SUPPORTED_IMPORT_IMAGE_TYPES),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
     const imageBase64 = data.imageBase64.replace(/^data:image\/[a-z0-9.+-]+;base64,/i, "").trim();
-    const { learning, definition } = getLanguagePair(data.targetLanguage);
+    const { learning, definition } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
 
     const system =
       `You are an OCR and vocabulary extraction assistant for ${learning.label} learners. Return only valid JSON without Markdown. Format: ` +
@@ -588,10 +601,11 @@ export const generateDeckFromUrl = createServerFn({ method: "POST" })
       url: z.string().url().max(2000),
       count: z.number().int().min(MIN_DECK_CARDS).max(MAX_DECK_CARDS),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
-    const { learning, definition } = getLanguagePair(data.targetLanguage);
+    const { learning, definition } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
     let pageRes: Response;
     try {
       pageRes = await fetch(data.url, {
@@ -652,10 +666,11 @@ export const generateClozeSentence = createServerFn({ method: "POST" })
       term: z.string().min(1).max(80),
       definition: z.string().min(1).max(200),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
-    const { learning, definition } = getLanguagePair(data.targetLanguage);
+    const { learning, definition } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
     const system =
       `You help learners practice ${learning.label} vocabulary. Return only JSON without Markdown. Format: ` +
       `{"sentence":"...","explanation":"..."}. sentence is a short natural ${learning.label} sentence at about B1 level, 8-16 words when possible, and it must include the given word in its base or a natural inflected form. explanation is a short English note explaining why the word fits.`;
@@ -677,10 +692,11 @@ export const generateAssociation = createServerFn({ method: "POST" })
       term: z.string().min(1).max(80),
       definition: z.string().min(1).max(200),
       targetLanguage: LearningLanguageInput,
+      definitionLanguage: OptionalLearningLanguageInput,
     }),
   )
   .handler(async ({ data }) => {
-    const { learning, definition } = getLanguagePair(data.targetLanguage);
+    const { learning, definition } = getLanguagePair(data.targetLanguage, data.definitionLanguage);
     const system =
       `You create vivid mnemonic associations in English to help remember ${learning.label} words. Return only JSON without Markdown. Format: ` +
       '{"association":"...","story":"..."}. association is 1-2 sentences about sound, shape, or imagery. story is a short 2-3 sentence mnemonic linking the image to the meaning.';

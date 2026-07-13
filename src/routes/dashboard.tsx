@@ -113,14 +113,40 @@ function isSupportedImportImageType(type: string): type is ImportImageMimeType {
   return SUPPORTED_IMPORT_IMAGE_TYPES.includes(type as ImportImageMimeType);
 }
 
+function CompactLanguageSelect({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: LearningLanguage;
+  onChange: (value: LearningLanguage) => void;
+  ariaLabel: string;
+}) {
+  return (
+    <Select value={value} onValueChange={(next) => onChange(next as LearningLanguage)}>
+      <SelectTrigger aria-label={ariaLabel} className="h-10 w-[118px] shrink-0 px-2 text-xs">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {LEARNING_LANGUAGE_OPTIONS.map((language) => (
+          <SelectItem key={language.code} value={language.code}>
+            {language.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function Home() {
   const { decks, createDeckWithCards, deleteDeck } = useDecks();
   const navigate = useNavigate();
   const { collections } = useCollections();
   const [collectionId, setCollectionId] = useState<string>("__default__");
   const [targetLanguage, setTargetLanguage] = useState<LearningLanguage>("en");
+  const [definitionLanguageCode, setDefinitionLanguageCode] = useState<LearningLanguage>("ru");
   const learningLanguage = getLearningLanguageOption(targetLanguage);
-  const definitionLanguage = getDefinitionLanguageFor(targetLanguage);
+  const definitionLanguage = getLearningLanguageOption(definitionLanguageCode);
   const selectedCollectionId = collectionId === "__default__" ? null : collectionId;
   const COLLECTIONS_PAGE_SIZE = 3;
   const [collectionPage, setCollectionPage] = useState(0);
@@ -196,6 +222,20 @@ function Home() {
   const [urlError, setUrlError] = useState("");
   const genDeckFromUrl = useServerFn(generateDeckFromUrl);
 
+  const handleTargetLanguageChange = (value: LearningLanguage) => {
+    setTargetLanguage(value);
+    if (value === definitionLanguageCode) {
+      setDefinitionLanguageCode(getDefinitionLanguageFor(value).code);
+    }
+  };
+
+  const handleDefinitionLanguageChange = (value: LearningLanguage) => {
+    setDefinitionLanguageCode(value);
+    if (value === targetLanguage) {
+      setTargetLanguage(getDefinitionLanguageFor(value).code);
+    }
+  };
+
   const handleUrlGenerate = async () => {
     if (!urlInput.trim()) return;
     if (!isOnline) {
@@ -209,7 +249,12 @@ function Home() {
     let result: Awaited<ReturnType<typeof genDeckFromUrl>>;
     try {
       result = await genDeckFromUrl({
-        data: { url: urlInput.trim(), count: safeCount, targetLanguage },
+        data: {
+          url: urlInput.trim(),
+          count: safeCount,
+          targetLanguage,
+          definitionLanguage: definitionLanguage.code,
+        },
       });
     } catch (err) {
       setUrlError(`AI: ${errorMessage(err, "Could not extract words")}`);
@@ -225,6 +270,7 @@ function Home() {
         selectedCollectionId,
         deckColor,
         targetLanguage,
+        definitionLanguage.code,
       );
       setUrlInput("");
       setUrlDesc("");
@@ -272,6 +318,7 @@ function Home() {
         selectedCollectionId,
         deckColor,
         targetLanguage,
+        definitionLanguage.code,
       );
       resetManual();
       setDeckColor(null);
@@ -323,7 +370,9 @@ function Home() {
     setImportMode("text");
     setImportError("");
     try {
-      const result = await importCardsFromText({ data: { text, targetLanguage } });
+      const result = await importCardsFromText({
+        data: { text, targetLanguage, definitionLanguage: definitionLanguage.code },
+      });
       const added = appendImportedCards(result.cards);
       if (added > 0) {
         setImportText("");
@@ -363,7 +412,12 @@ function Home() {
       const dataUrl = await readFileAsDataUrl(file);
       const imageBase64 = dataUrl.split(",")[1] ?? dataUrl;
       const result = await importCardsFromImage({
-        data: { imageBase64, mimeType: file.type, targetLanguage },
+        data: {
+          imageBase64,
+          mimeType: file.type,
+          targetLanguage,
+          definitionLanguage: definitionLanguage.code,
+        },
       });
       const added = appendImportedCards(result.cards);
       if (added === 0) setImportError("No new words were added.");
@@ -408,7 +462,9 @@ function Home() {
       setTrInputIsDefinition(false);
       setTrWord(w);
       try {
-        const res = await fetchTranslations({ data: { word: w, targetLanguage } });
+        const res = await fetchTranslations({
+          data: { word: w, targetLanguage, definitionLanguage: definitionLanguage.code },
+        });
         const correctedWord = res.correctedWord?.trim() ?? "";
         if (correctedWord) {
           setTrWord(correctedWord);
@@ -480,6 +536,7 @@ function Home() {
           level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
           count: safeCount,
           targetLanguage,
+          definitionLanguage: definitionLanguage.code,
         },
       });
     } catch (err) {
@@ -496,6 +553,7 @@ function Home() {
         selectedCollectionId,
         deckColor,
         targetLanguage,
+        definitionLanguage.code,
       );
       setAiName("");
       setAiTopic("");
@@ -609,24 +667,50 @@ function Home() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Language to learn</label>
-                    <Select
-                      value={targetLanguage}
-                      onValueChange={(value) => setTargetLanguage(value as LearningLanguage)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {LEARNING_LANGUAGE_OPTIONS.map((language) => (
-                          <SelectItem key={language.code} value={language.code}>
-                            {language.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Word language</label>
+                        <Select
+                          value={targetLanguage}
+                          onValueChange={(value) =>
+                            handleTargetLanguageChange(value as LearningLanguage)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LEARNING_LANGUAGE_OPTIONS.map((language) => (
+                              <SelectItem key={language.code} value={language.code}>
+                                {language.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium">Translation language</label>
+                        <Select
+                          value={definitionLanguage.code}
+                          onValueChange={(value) =>
+                            handleDefinitionLanguageChange(value as LearningLanguage)
+                          }
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {LEARNING_LANGUAGE_OPTIONS.map((language) => (
+                              <SelectItem key={language.code} value={language.code}>
+                                {language.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <p className="text-xs text-muted-foreground">
-                      Card terms will be in {learningLanguage.label}; definitions will be in{" "}
+                      Words are saved in {learningLanguage.label}; translations are saved in{" "}
                       {definitionLanguage.label}.
                     </p>
                   </div>
@@ -743,40 +827,56 @@ function Home() {
                         <label className="text-sm font-medium">{t("create.addWord")}</label>
                         {!trWord ? (
                           <div className="space-y-2">
-                            <Input
-                              placeholder={`Type a ${learningLanguage.label} word`}
-                              value={wordInput}
-                              onChange={(e) => setWordInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (
-                                  e.key === "Enter" &&
-                                  wordInput.trim() &&
-                                  !trLoading &&
-                                  manualCards.length < MAX_DECK_CARDS
-                                ) {
-                                  e.preventDefault();
-                                  void handleLookup(wordInput);
-                                }
-                              }}
-                              disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
-                            />
-                            <Input
-                              placeholder={`Type a ${definitionLanguage.label} translation`}
-                              value={definitionInput}
-                              onChange={(e) => setDefinitionInput(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (
-                                  e.key === "Enter" &&
-                                  wordInput.trim() &&
-                                  definitionInput.trim() &&
-                                  manualCards.length < MAX_DECK_CARDS
-                                ) {
-                                  e.preventDefault();
-                                  handleAddManualCard();
-                                }
-                              }}
-                              disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
-                            />
+                            <div className="flex gap-2">
+                              <Input
+                                className="min-w-0 flex-1"
+                                placeholder={`Type a ${learningLanguage.label} word`}
+                                value={wordInput}
+                                onChange={(e) => setWordInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    wordInput.trim() &&
+                                    !trLoading &&
+                                    manualCards.length < MAX_DECK_CARDS
+                                  ) {
+                                    e.preventDefault();
+                                    void handleLookup(wordInput);
+                                  }
+                                }}
+                                disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
+                              />
+                              <CompactLanguageSelect
+                                value={targetLanguage}
+                                onChange={handleTargetLanguageChange}
+                                ariaLabel="Word language"
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <Input
+                                className="min-w-0 flex-1"
+                                placeholder={`Type a ${definitionLanguage.label} translation`}
+                                value={definitionInput}
+                                onChange={(e) => setDefinitionInput(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (
+                                    e.key === "Enter" &&
+                                    wordInput.trim() &&
+                                    definitionInput.trim() &&
+                                    manualCards.length < MAX_DECK_CARDS
+                                  ) {
+                                    e.preventDefault();
+                                    handleAddManualCard();
+                                  }
+                                }}
+                                disabled={trLoading || manualCards.length >= MAX_DECK_CARDS}
+                              />
+                              <CompactLanguageSelect
+                                value={definitionLanguage.code}
+                                onChange={handleDefinitionLanguageChange}
+                                ariaLabel="Translation language"
+                              />
+                            </div>
                             <div className="flex flex-col gap-2 sm:flex-row">
                               <Button
                                 type="button"
