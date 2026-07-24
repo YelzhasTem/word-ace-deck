@@ -1,1 +1,18 @@
 project_id = "monfppjrvkyepjkfexqm"
+
+[auth]
+site_url = "https://word-ace-deck.vercel.app/"
+additional_redirect_urls = ["https://word-ace-deck.vercel.app/", "http://localhost:8080"]
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.email.template.confirmation]
+subject = "Confirm your Memora account"
+content_path = "./supabase/templates/confirmation.html"
