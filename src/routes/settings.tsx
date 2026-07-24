@@ -174,7 +174,7 @@ function SettingsPage() {
 
         <section className="mb-6 rounded-3xl border border-border bg-card p-6">
           <h2 className="font-display text-xl flex items-center gap-2">
-            <UserRound className="h-5 w-5 text-accent" /> Profile
+            <UserRound className="h-5 w-5 text-accent" /> Account
           </h2>
           <p className="mt-2 text-sm text-muted-foreground max-w-xl">
             Your username is public on community decks and your creator page.
@@ -211,7 +211,7 @@ function SettingsPage() {
               </p>
               {loadingProfile ? (
                 <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading profile...
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading account...
                 </p>
               ) : profile?.username ? (
                 <p className="text-xs text-muted-foreground">

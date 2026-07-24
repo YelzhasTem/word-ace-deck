@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpenCheck, LogOut, Menu, Moon, Settings as SettingsIcon, User } from "lucide-react";
+import { BookOpenCheck, LogOut, Moon, Settings as SettingsIcon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -123,8 +123,11 @@ export function SiteHeader() {
     navigate({ to: "/auth", search: { mode: "login" } });
   };
 
-  const accountLabel = username ? `@${username}` : displayName || "Signed in";
-  const avatarFallback = (username || displayName || "ME").slice(0, 2).toUpperCase();
+  const accountName =
+    displayName || username || session?.user.email?.split("@")[0] || "Memora account";
+  const accountUsername = username ? `@${username}` : null;
+  const accountEmail = session?.user.email ?? "";
+  const avatarFallback = (displayName || username || "ME").slice(0, 2).toUpperCase();
   const isSignedIn = Boolean(session);
   const isSignedOut = authReady && !session;
 
@@ -219,16 +222,6 @@ export function SiteHeader() {
               >
                 Community
               </Link>
-              <Link
-                to="/friends"
-                className="hidden px-2.5 py-2 rounded-full hover:bg-secondary transition-colors sm:px-3 md:inline-flex"
-                activeProps={{
-                  className:
-                    "hidden px-2.5 py-2 rounded-full bg-secondary text-primary sm:px-3 md:inline-flex",
-                }}
-              >
-                {t("nav.friends")}
-              </Link>
               <button
                 onClick={toggleDark}
                 aria-label={t("nav.theme")}
@@ -238,12 +231,17 @@ export function SiteHeader() {
               </button>
               <DropdownMenu>
                 <DropdownMenuTrigger
-                  aria-label="Open menu"
-                  className="h-9 w-9 inline-flex items-center justify-center rounded-full hover:bg-secondary text-muted-foreground transition-colors"
+                  aria-label="Open account menu"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full outline-none ring-offset-background transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <Menu className="h-4 w-4" />
+                  <Avatar className="h-9 w-9 border border-border">
+                    <AvatarImage src={avatarUrl ?? undefined} alt={accountName} />
+                    <AvatarFallback className="text-xs font-semibold">
+                      {avatarFallback}
+                    </AvatarFallback>
+                  </Avatar>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-[min(19rem,calc(100vw-2rem))] p-2">
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link to="/decks">{t("nav.decks")}</Link>
                   </DropdownMenuItem>
@@ -253,31 +251,36 @@ export function SiteHeader() {
                   <DropdownMenuItem asChild className="md:hidden">
                     <Link to="/community">Community</Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem asChild className="md:hidden">
-                    <Link to="/friends">{t("nav.friends")}</Link>
-                  </DropdownMenuItem>
                   <DropdownMenuSeparator className="md:hidden" />
-                  <DropdownMenuLabel className="flex items-center gap-2 text-xs font-normal text-muted-foreground">
-                    <Avatar className="h-7 w-7">
-                      <AvatarImage src={avatarUrl ?? undefined} alt="" />
-                      <AvatarFallback className="text-[10px]">{avatarFallback}</AvatarFallback>
+                  <DropdownMenuLabel className="flex flex-col items-center px-4 py-4 text-center font-normal">
+                    <Avatar className="mb-3 h-16 w-16 border border-border">
+                      <AvatarImage src={avatarUrl ?? undefined} alt={accountName} />
+                      <AvatarFallback className="text-lg font-semibold">
+                        {avatarFallback}
+                      </AvatarFallback>
                     </Avatar>
-                    <span className="truncate">{accountLabel}</span>
+                    <span className="max-w-full truncate text-base font-semibold text-foreground">
+                      {accountName}
+                    </span>
+                    {accountEmail ? (
+                      <span className="mt-0.5 max-w-full truncate text-xs text-muted-foreground">
+                        {accountEmail}
+                      </span>
+                    ) : null}
+                    {accountUsername ? (
+                      <span className="mt-1 max-w-full truncate text-xs text-muted-foreground">
+                        {accountUsername}
+                      </span>
+                    ) : null}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem asChild>
-                    <Link to="/profile">
-                      <User className="h-4 w-4" />
-                      {t("nav.profile")}
-                    </Link>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem asChild>
+                  <DropdownMenuItem asChild className="px-3 py-2.5">
                     <Link to="/settings">
                       <SettingsIcon className="h-4 w-4" />
                       {t("nav.settings")}
                     </Link>
                   </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={handleLogout}>
+                  <DropdownMenuItem onSelect={handleLogout} className="px-3 py-2.5">
                     <LogOut className="h-4 w-4" />
                     {t("nav.logout")}
                   </DropdownMenuItem>
