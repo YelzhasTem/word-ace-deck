@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "test:security:profiles": "node scripts/verify-profile-email-privacy.mjs"
+    "test:security:profiles": "node scripts/verify-profile-email-privacy.mjs",
+    "test:security:profiles:fixture": "node scripts/run-profile-email-privacy-fixture.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

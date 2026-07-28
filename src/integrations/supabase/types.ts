@@ -826,36 +826,6 @@ export type Database = {
           },
         ];
       };
-      profiles: {
-        Row: {
-          avatar_url: string | null;
-          created_at: string;
-          display_name: string | null;
-          id: string;
-          updated_at: string;
-          user_id: string;
-          username: string;
-        };
-        Insert: {
-          avatar_url?: string | null;
-          created_at?: string;
-          display_name?: string | null;
-          id?: string;
-          updated_at?: string;
-          user_id: string;
-          username: string;
-        };
-        Update: {
-          avatar_url?: string | null;
-          created_at?: string;
-          display_name?: string | null;
-          id?: string;
-          updated_at?: string;
-          user_id?: string;
-          username?: string;
-        };
-        Relationships: [];
-      };
       profile_private: {
         Row: {
           created_at: string;
@@ -886,6 +856,36 @@ export type Database = {
           total_xp?: number;
           updated_at?: string;
           user_id?: string;
+        };
+        Relationships: [];
+      };
+      profiles: {
+        Row: {
+          avatar_url: string | null;
+          created_at: string;
+          display_name: string | null;
+          id: string;
+          updated_at: string;
+          user_id: string;
+          username: string;
+        };
+        Insert: {
+          avatar_url?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          id?: string;
+          updated_at?: string;
+          user_id: string;
+          username: string;
+        };
+        Update: {
+          avatar_url?: string | null;
+          created_at?: string;
+          display_name?: string | null;
+          id?: string;
+          updated_at?: string;
+          user_id?: string;
+          username?: string;
         };
         Relationships: [];
       };
@@ -1035,8 +1035,8 @@ export type Database = {
         };
         Returns: boolean;
       };
-      is_username_available: { Args: { _username: string }; Returns: boolean };
       is_public_profile: { Args: { _user_id: string }; Returns: boolean };
+      is_username_available: { Args: { _username: string }; Returns: boolean };
       list_friendships: {
         Args: never;
         Returns: {

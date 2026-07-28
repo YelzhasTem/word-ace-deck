@@ -54,59 +54,138 @@ function assertSafeProfile(row, label) {
   }
 }
 
+async function verifyAnonRestApi() {
+  const headers = {
+    apikey: publishableKey,
+    Authorization: `Bearer ${publishableKey}`,
+  };
+  const profileResponse = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?select=*&user_id=eq.${encodeURIComponent(userBId)}`,
+    { headers },
+  );
+  assert.equal(profileResponse.status, 200, "anon REST could not read a public profile");
+  const profiles = await profileResponse.json();
+  assert.equal(profiles.length, 1, "anon REST returned an unexpected public profile count");
+  assertSafeProfile(profiles[0], "anon REST");
+
+  const emailResponse = await fetch(
+    `${supabaseUrl}/rest/v1/profiles?select=email&user_id=eq.${encodeURIComponent(userBId)}`,
+    { headers },
+  );
+  assert.notEqual(emailResponse.status, 200, "anon REST explicitly selected profiles.email");
+
+  const privateResponse = await fetch(`${supabaseUrl}/rest/v1/profile_private?select=user_id`, {
+    headers,
+  });
+  assert.notEqual(privateResponse.status, 200, "anon REST accessed profile_private");
+}
+
 async function assertEmailCannotBeSelected(client, label, userId) {
   const { error } = await client.from("profiles").select("email").eq("user_id", userId);
   assert.ok(error, `${label} explicitly selected profiles.email`);
 }
 
-async function readPublicProfile(client, label) {
-  const { data, error } = await client.from("profiles").select("*").eq("user_id", userBId).single();
+async function readPublicProfile(client, label, userId) {
+  const { data, error } = await client.from("profiles").select("*").eq("user_id", userId).single();
   assert.ifError(error);
   assertSafeProfile(data, label);
-  await assertEmailCannotBeSelected(client, label, userBId);
+  await assertEmailCannotBeSelected(client, label, userId);
   return data;
 }
 
-await readPublicProfile(anon, "anon");
+async function readAndUpdateOwnPrivateData(client, label, userId) {
+  const { data, error } = await client
+    .from("profile_private")
+    .select("user_id, native_language")
+    .eq("user_id", userId)
+    .single();
+  assert.ifError(error);
+
+  const { error: updateError } = await client
+    .from("profile_private")
+    .update({ native_language: data.native_language })
+    .eq("user_id", userId);
+  assert.ifError(updateError);
+  assert.equal(data.user_id, userId, `${label} read another user's private row`);
+}
+
+async function updateOwnPublicProfile(client, label, userId) {
+  const { data, error } = await client
+    .from("profiles")
+    .select("display_name")
+    .eq("user_id", userId)
+    .single();
+  assert.ifError(error);
+
+  const { error: updateError } = await client
+    .from("profiles")
+    .update({ display_name: data.display_name })
+    .eq("user_id", userId);
+  assert.ifError(updateError);
+  assert.ok(data, `${label} could not read its own public profile`);
+}
+
+async function assertCannotReadPrivateData(client, label, otherUserId) {
+  const { data, error } = await client
+    .from("profile_private")
+    .select("user_id")
+    .eq("user_id", otherUserId);
+  assert.ifError(error);
+  assert.deepEqual(data, [], `${label} read another user's private data`);
+}
+
+async function assertCannotUpdateOtherProfile(client, label, otherUserId, displayName) {
+  const { data, error } = await client
+    .from("profiles")
+    .update({ display_name: displayName })
+    .eq("user_id", otherUserId)
+    .select("user_id");
+  assert.ifError(error);
+  assert.deepEqual(data, [], `${label} updated another user's profile`);
+}
+
+async function assertCannotUpdateOtherPrivateData(client, label, otherUserId) {
+  const { data, error } = await client
+    .from("profile_private")
+    .update({ native_language: "en" })
+    .eq("user_id", otherUserId)
+    .select("user_id");
+  assert.ifError(error);
+  assert.deepEqual(data, [], `${label} updated another user's private data`);
+}
+
+async function assertCannotUpdateSystemProfileField(client, label, userId) {
+  const { error } = await client
+    .from("profiles")
+    .update({ created_at: new Date().toISOString() })
+    .eq("user_id", userId);
+  assert.ok(error, `${label} updated a system-managed profile field`);
+}
+
+async function assertPublicDeckVisible(client, label, ownerId) {
+  const { data, error } = await client
+    .from("decks")
+    .select("id, user_id, name, visibility")
+    .eq("user_id", ownerId)
+    .eq("visibility", "public")
+    .limit(1);
+  assert.ifError(error);
+  assert.ok(data.length > 0, `${label} could not read the expected public marketplace deck`);
+}
+
+await verifyAnonRestApi();
+await readPublicProfile(anon, "anon Supabase JS", userBId);
 const { error: anonPrivateError } = await anon.from("profile_private").select("user_id").limit(1);
 assert.ok(anonPrivateError, "anon accessed profile_private");
+await assertPublicDeckVisible(anon, "anon", userBId);
 
-const userBPublicProfile = await readPublicProfile(userA, "user A");
-const { data: userBPrivateForA, error: userBPrivateForAError } = await userA
-  .from("profile_private")
-  .select("user_id")
-  .eq("user_id", userBId);
-assert.ifError(userBPrivateForAError);
-assert.deepEqual(userBPrivateForA, [], "user A read user B private data");
-
-const { data: userAPrivate, error: userAPrivateError } = await userA
-  .from("profile_private")
-  .select("user_id, native_language")
-  .eq("user_id", userAId)
-  .single();
-assert.ifError(userAPrivateError);
-
-const { error: ownPrivateUpdateError } = await userA
-  .from("profile_private")
-  .update({ native_language: userAPrivate.native_language })
-  .eq("user_id", userAId);
-assert.ifError(ownPrivateUpdateError);
-
-const { data: forbiddenProfileUpdate, error: forbiddenProfileUpdateError } = await userA
-  .from("profiles")
-  .update({ display_name: userBPublicProfile.display_name })
-  .eq("user_id", userBId)
-  .select("user_id");
-assert.ifError(forbiddenProfileUpdateError);
-assert.deepEqual(forbiddenProfileUpdate, [], "user A updated user B profile");
-
-const { data: forbiddenPrivateUpdate, error: forbiddenPrivateUpdateError } = await userA
-  .from("profile_private")
-  .update({ native_language: userAPrivate.native_language })
-  .eq("user_id", userBId)
-  .select("user_id");
-assert.ifError(forbiddenPrivateUpdateError);
-assert.deepEqual(forbiddenPrivateUpdate, [], "user A updated user B private data");
+const userBPublicProfile = await readPublicProfile(userA, "user A", userBId);
+await updateOwnPublicProfile(userA, "user A", userAId);
+await readAndUpdateOwnPrivateData(userA, "user A", userAId);
+await assertCannotReadPrivateData(userA, "user A", userBId);
+await assertCannotUpdateOtherProfile(userA, "user A", userBId, userBPublicProfile.display_name);
+await assertCannotUpdateOtherPrivateData(userA, "user A", userBId);
+await assertCannotUpdateSystemProfileField(userA, "user A", userAId);
 
 const usernamePrefix = userBPublicProfile.username.slice(0, 2);
 const { data: friendSearch, error: friendSearchError } = await userA.rpc("search_friend_profiles", {
@@ -118,21 +197,15 @@ for (const row of friendSearch ?? []) {
   assert.equal("email" in row, false, "friend search returned email");
 }
 
-const { data: publicDecks, error: publicDecksError } = await userA
-  .from("decks")
-  .select("id, user_id, name, visibility")
-  .eq("user_id", userBId)
-  .eq("visibility", "public")
-  .limit(1);
-assert.ifError(publicDecksError);
-assert.ok(publicDecks.length > 0, "user B must own a public deck for this verification");
+await assertPublicDeckVisible(userA, "user A", userBId);
 
-await readPublicProfile(userB, "user B");
-const { data: userAPrivateForB, error: userAPrivateForBError } = await userB
-  .from("profile_private")
-  .select("user_id")
-  .eq("user_id", userAId);
-assert.ifError(userAPrivateForBError);
-assert.deepEqual(userAPrivateForB, [], "user B read user A private data");
+const userAPublicProfile = await readPublicProfile(userB, "user B", userAId);
+await updateOwnPublicProfile(userB, "user B", userBId);
+await readAndUpdateOwnPrivateData(userB, "user B", userBId);
+await assertCannotReadPrivateData(userB, "user B", userAId);
+await assertCannotUpdateOtherProfile(userB, "user B", userAId, userAPublicProfile.display_name);
+await assertCannotUpdateOtherPrivateData(userB, "user B", userAId);
+await assertCannotUpdateSystemProfileField(userB, "user B", userBId);
+await assertPublicDeckVisible(userB, "user B", userAId);
 
 console.log("Profile email privacy verification passed.");
