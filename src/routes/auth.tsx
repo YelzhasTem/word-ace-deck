@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import type { AuthError, Session } from "@supabase/supabase-js";
+import type { Session } from "@supabase/supabase-js";
 import { Loader2 } from "lucide-react";
 import { type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (search: Record<string, unknown>): { mode: "login" | "signup" } => ({
     mode: search.mode === "signup" ? "signup" : "login",
   }),
   component: AuthPage,
@@ -17,33 +17,22 @@ export const Route = createFileRoute("/auth")({
 
 const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 
-type UsernameAvailabilityClient = {
-  rpc(
-    fn: "is_username_available",
-    args: { _username: string },
-  ): Promise<{ data: boolean | null; error: { message: string } | null }>;
-};
-
 function getAuthErrorMessage(err: unknown) {
-  const authError = err as Partial<AuthError> & { status?: number };
-  const msg = String(authError?.message ?? "");
+  const message = typeof err === "object" && err !== null ? Reflect.get(err, "message") : "";
+  const code = typeof err === "object" && err !== null ? Reflect.get(err, "code") : undefined;
+  const status = typeof err === "object" && err !== null ? Reflect.get(err, "status") : undefined;
+  const msg = typeof message === "string" ? message : "";
   const lowerMsg = msg.toLowerCase();
 
-  console.error("[Auth]", {
-    code: authError?.code,
-    status: authError?.status,
-    message: msg,
-  });
-
-  if (authError?.status === 429 || lowerMsg.includes("too many requests")) {
+  if (status === 429 || lowerMsg.includes("too many requests")) {
     return "Too many attempts. Wait a few minutes and try again.";
   }
 
-  if (authError?.code === "weak_password" || lowerMsg.includes("weak")) {
+  if (code === "weak_password" || lowerMsg.includes("weak")) {
     return "The password is too weak. Use a stronger password.";
   }
 
-  if (authError?.code === "invalid_credentials" || lowerMsg.includes("invalid login")) {
+  if (code === "invalid_credentials" || lowerMsg.includes("invalid login")) {
     return "Invalid email or password. Check your details or create an account.";
   }
 
@@ -51,7 +40,7 @@ function getAuthErrorMessage(err: unknown) {
     return "Email login is disabled in Supabase. Enable the Email provider in Authentication -> Providers.";
   }
 
-  if (authError?.code === "user_already_exists" || lowerMsg.includes("already")) {
+  if (code === "user_already_exists" || lowerMsg.includes("already")) {
     return "This email is already registered. Try signing in.";
   }
 
@@ -59,11 +48,11 @@ function getAuthErrorMessage(err: unknown) {
     return "This username is already taken. Try another one.";
   }
 
-  if (authError?.code === "email_not_confirmed" || lowerMsg.includes("not confirmed")) {
+  if (code === "email_not_confirmed" || lowerMsg.includes("not confirmed")) {
     return "Email is not confirmed yet. Check your inbox and open the confirmation link.";
   }
 
-  if (authError?.status === 400) {
+  if (status === 400) {
     return "Supabase rejected the request. Check your details and Auth provider settings.";
   }
 
@@ -130,11 +119,10 @@ function AuthPage() {
           return;
         }
 
-        const { data: usernameAvailable, error: usernameCheckError } = await (
-          supabase as unknown as UsernameAvailabilityClient
-        ).rpc("is_username_available", {
-          _username: normalizedUsername,
-        });
+        const { data: usernameAvailable, error: usernameCheckError } = await supabase.rpc(
+          "is_username_available",
+          { _username: normalizedUsername },
+        );
 
         if (usernameCheckError) throw usernameCheckError;
         if (!usernameAvailable) {

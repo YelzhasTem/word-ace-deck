@@ -6,8 +6,143 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5";
   };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
+      card_associations: {
+        Row: {
+          card_id: string;
+          created_at: string;
+          favorite: boolean;
+          id: string;
+          source: string;
+          text: string;
+          user_id: string;
+        };
+        Insert: {
+          card_id: string;
+          created_at?: string;
+          favorite?: boolean;
+          id?: string;
+          source?: string;
+          text: string;
+          user_id: string;
+        };
+        Update: {
+          card_id?: string;
+          created_at?: string;
+          favorite?: boolean;
+          id?: string;
+          source?: string;
+          text?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "card_associations_card_id_fkey";
+            columns: ["card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      card_progress: {
+        Row: {
+          avg_ms: number | null;
+          card_id: string | null;
+          card_key: string;
+          correct_count: number;
+          deck_id: string;
+          due_at: string | null;
+          id: string;
+          last_seen_at: string | null;
+          mastery: number;
+          samples: number | null;
+          slow_misses: number;
+          stage: number;
+          total_ms: number | null;
+          updated_at: string;
+          user_id: string;
+          wrong_count: number;
+        };
+        Insert: {
+          avg_ms?: number | null;
+          card_id?: string | null;
+          card_key: string;
+          correct_count?: number;
+          deck_id: string;
+          due_at?: string | null;
+          id?: string;
+          last_seen_at?: string | null;
+          mastery?: number;
+          samples?: number | null;
+          slow_misses?: number;
+          stage?: number;
+          total_ms?: number | null;
+          updated_at?: string;
+          user_id: string;
+          wrong_count?: number;
+        };
+        Update: {
+          avg_ms?: number | null;
+          card_id?: string | null;
+          card_key?: string;
+          correct_count?: number;
+          deck_id?: string;
+          due_at?: string | null;
+          id?: string;
+          last_seen_at?: string | null;
+          mastery?: number;
+          samples?: number | null;
+          slow_misses?: number;
+          stage?: number;
+          total_ms?: number | null;
+          updated_at?: string;
+          user_id?: string;
+          wrong_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "card_progress_card_id_fkey";
+            columns: ["card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "card_progress_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       cards: {
         Row: {
           created_at: string;
@@ -94,81 +229,609 @@ export type Database = {
           },
         ];
       };
+      collection_likes: {
+        Row: {
+          collection_id: string;
+          created_at: string;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          collection_id: string;
+          created_at?: string;
+          id?: string;
+          user_id: string;
+        };
+        Update: {
+          collection_id?: string;
+          created_at?: string;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "collection_likes_collection_id_fkey";
+            columns: ["collection_id"];
+            isOneToOne: false;
+            referencedRelation: "collections";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      collection_ratings: {
+        Row: {
+          collection_id: string;
+          created_at: string;
+          id: string;
+          rating: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          collection_id: string;
+          created_at?: string;
+          id?: string;
+          rating: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          collection_id?: string;
+          created_at?: string;
+          id?: string;
+          rating?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "collection_ratings_collection_id_fkey";
+            columns: ["collection_id"];
+            isOneToOne: false;
+            referencedRelation: "collections";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      collection_reports: {
+        Row: {
+          collection_id: string;
+          created_at: string;
+          id: string;
+          reason: string;
+          reporter_id: string;
+          reviewed_at: string | null;
+          status: Database["public"]["Enums"]["report_status"];
+        };
+        Insert: {
+          collection_id: string;
+          created_at?: string;
+          id?: string;
+          reason?: string;
+          reporter_id: string;
+          reviewed_at?: string | null;
+          status?: Database["public"]["Enums"]["report_status"];
+        };
+        Update: {
+          collection_id?: string;
+          created_at?: string;
+          id?: string;
+          reason?: string;
+          reporter_id?: string;
+          reviewed_at?: string | null;
+          status?: Database["public"]["Enums"]["report_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "collection_reports_collection_id_fkey";
+            columns: ["collection_id"];
+            isOneToOne: false;
+            referencedRelation: "collections";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      collection_saves: {
+        Row: {
+          collection_id: string;
+          created_at: string;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          collection_id: string;
+          created_at?: string;
+          id?: string;
+          user_id: string;
+        };
+        Update: {
+          collection_id?: string;
+          created_at?: string;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "collection_saves_collection_id_fkey";
+            columns: ["collection_id"];
+            isOneToOne: false;
+            referencedRelation: "collections";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       collections: {
         Row: {
+          copy_count: number;
           created_at: string;
           description: string;
+          hidden_at: string | null;
           id: string;
+          keywords: string[];
+          learner_count: number;
+          like_count: number;
           name: string;
+          published_at: string | null;
+          rating_count: number;
+          rating_sum: number;
+          source_collection_id: string | null;
+          updated_at: string;
+          user_id: string;
+          view_count: number;
+          visibility: Database["public"]["Enums"]["deck_visibility"];
+        };
+        Insert: {
+          copy_count?: number;
+          created_at?: string;
+          description?: string;
+          hidden_at?: string | null;
+          id?: string;
+          keywords?: string[];
+          learner_count?: number;
+          like_count?: number;
+          name: string;
+          published_at?: string | null;
+          rating_count?: number;
+          rating_sum?: number;
+          source_collection_id?: string | null;
+          updated_at?: string;
+          user_id: string;
+          view_count?: number;
+          visibility?: Database["public"]["Enums"]["deck_visibility"];
+        };
+        Update: {
+          copy_count?: number;
+          created_at?: string;
+          description?: string;
+          hidden_at?: string | null;
+          id?: string;
+          keywords?: string[];
+          learner_count?: number;
+          like_count?: number;
+          name?: string;
+          published_at?: string | null;
+          rating_count?: number;
+          rating_sum?: number;
+          source_collection_id?: string | null;
+          updated_at?: string;
+          user_id?: string;
+          view_count?: number;
+          visibility?: Database["public"]["Enums"]["deck_visibility"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "collections_source_collection_id_fkey";
+            columns: ["source_collection_id"];
+            isOneToOne: false;
+            referencedRelation: "collections";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      creator_follows: {
+        Row: {
+          created_at: string;
+          creator_id: string;
+          follower_id: string;
+          id: string;
+        };
+        Insert: {
+          created_at?: string;
+          creator_id: string;
+          follower_id: string;
+          id?: string;
+        };
+        Update: {
+          created_at?: string;
+          creator_id?: string;
+          follower_id?: string;
+          id?: string;
+        };
+        Relationships: [];
+      };
+      deck_learning_settings: {
+        Row: {
+          deck_id: string;
+          delayed_recall_enabled: boolean;
+          id: string;
+          shuffle_enabled: boolean;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          deck_id: string;
+          delayed_recall_enabled?: boolean;
+          id?: string;
+          shuffle_enabled?: boolean;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          deck_id?: string;
+          delayed_recall_enabled?: boolean;
+          id?: string;
+          shuffle_enabled?: boolean;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deck_learning_settings_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      deck_likes: {
+        Row: {
+          created_at: string;
+          deck_id: string;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          deck_id: string;
+          id?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          deck_id?: string;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deck_likes_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      deck_ratings: {
+        Row: {
+          created_at: string;
+          deck_id: string;
+          id: string;
+          rating: number;
           updated_at: string;
           user_id: string;
         };
         Insert: {
           created_at?: string;
-          description?: string;
+          deck_id: string;
           id?: string;
-          name: string;
+          rating: number;
           updated_at?: string;
           user_id: string;
         };
         Update: {
           created_at?: string;
-          description?: string;
+          deck_id?: string;
           id?: string;
-          name?: string;
+          rating?: number;
           updated_at?: string;
           user_id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "deck_ratings_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      deck_reports: {
+        Row: {
+          created_at: string;
+          deck_id: string;
+          id: string;
+          reason: string;
+          reporter_id: string;
+          reviewed_at: string | null;
+          status: Database["public"]["Enums"]["report_status"];
+        };
+        Insert: {
+          created_at?: string;
+          deck_id: string;
+          id?: string;
+          reason?: string;
+          reporter_id: string;
+          reviewed_at?: string | null;
+          status?: Database["public"]["Enums"]["report_status"];
+        };
+        Update: {
+          created_at?: string;
+          deck_id?: string;
+          id?: string;
+          reason?: string;
+          reporter_id?: string;
+          reviewed_at?: string | null;
+          status?: Database["public"]["Enums"]["report_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deck_reports_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      deck_saves: {
+        Row: {
+          created_at: string;
+          deck_id: string;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          deck_id: string;
+          id?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          deck_id?: string;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "deck_saves_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       decks: {
         Row: {
+          category: Database["public"]["Enums"]["deck_category"];
+          copy_count: number;
           cover_color: string | null;
           created_at: string;
           definition_language: string;
           description: string;
+          hidden_at: string | null;
           id: string;
+          keywords: string[];
+          learner_count: number;
+          like_count: number;
           name: string;
+          published_at: string | null;
+          rating_count: number;
+          rating_sum: number;
+          source_deck_id: string | null;
           target_language: string;
           updated_at: string;
           user_id: string;
+          view_count: number;
+          visibility: Database["public"]["Enums"]["deck_visibility"];
         };
         Insert: {
+          category?: Database["public"]["Enums"]["deck_category"];
+          copy_count?: number;
           cover_color?: string | null;
           created_at?: string;
           definition_language?: string;
           description?: string;
+          hidden_at?: string | null;
           id?: string;
+          keywords?: string[];
+          learner_count?: number;
+          like_count?: number;
           name: string;
+          published_at?: string | null;
+          rating_count?: number;
+          rating_sum?: number;
+          source_deck_id?: string | null;
           target_language?: string;
           updated_at?: string;
           user_id: string;
+          view_count?: number;
+          visibility?: Database["public"]["Enums"]["deck_visibility"];
         };
         Update: {
+          category?: Database["public"]["Enums"]["deck_category"];
+          copy_count?: number;
           cover_color?: string | null;
           created_at?: string;
           definition_language?: string;
           description?: string;
+          hidden_at?: string | null;
           id?: string;
+          keywords?: string[];
+          learner_count?: number;
+          like_count?: number;
           name?: string;
+          published_at?: string | null;
+          rating_count?: number;
+          rating_sum?: number;
+          source_deck_id?: string | null;
           target_language?: string;
           updated_at?: string;
           user_id?: string;
+          view_count?: number;
+          visibility?: Database["public"]["Enums"]["deck_visibility"];
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "decks_source_deck_id_fkey";
+            columns: ["source_deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      delayed_recall_entries: {
+        Row: {
+          card_id: string;
+          correct_count: number;
+          created_at: string;
+          deck_id: string;
+          due_at: string;
+          id: string;
+          interval_idx: number;
+          last_review_at: string | null;
+          score: number;
+          stage_idx: number;
+          user_id: string;
+          wrong_count: number;
+        };
+        Insert: {
+          card_id: string;
+          correct_count?: number;
+          created_at?: string;
+          deck_id: string;
+          due_at: string;
+          id?: string;
+          interval_idx?: number;
+          last_review_at?: string | null;
+          score?: number;
+          stage_idx?: number;
+          user_id: string;
+          wrong_count?: number;
+        };
+        Update: {
+          card_id?: string;
+          correct_count?: number;
+          created_at?: string;
+          deck_id?: string;
+          due_at?: string;
+          id?: string;
+          interval_idx?: number;
+          last_review_at?: string | null;
+          score?: number;
+          stage_idx?: number;
+          user_id?: string;
+          wrong_count?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "delayed_recall_entries_card_id_fkey";
+            columns: ["card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "delayed_recall_entries_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      friendships: {
+        Row: {
+          addressee_id: string;
+          created_at: string;
+          id: string;
+          requester_id: string;
+          status: string;
+          updated_at: string;
+        };
+        Insert: {
+          addressee_id: string;
+          created_at?: string;
+          id?: string;
+          requester_id: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Update: {
+          addressee_id?: string;
+          created_at?: string;
+          id?: string;
+          requester_id?: string;
+          status?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "friendships_addressee_id_fkey";
+            columns: ["addressee_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "friendships_requester_id_fkey";
+            columns: ["requester_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["user_id"];
+          },
+        ];
+      };
+      last_studied_decks: {
+        Row: {
+          deck_id: string;
+          id: string;
+          last_studied_at: string;
+          user_id: string;
+        };
+        Insert: {
+          deck_id: string;
+          id?: string;
+          last_studied_at?: string;
+          user_id: string;
+        };
+        Update: {
+          deck_id?: string;
+          id?: string;
+          last_studied_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "last_studied_decks_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       profiles: {
         Row: {
           avatar_url: string | null;
           created_at: string;
           display_name: string | null;
-          email: string | null;
           id: string;
-          last_active_date: string | null;
-          native_language: string | null;
-          streak_days: number;
-          target_language: string | null;
-          total_xp: number;
           updated_at: string;
           user_id: string;
           username: string;
@@ -177,13 +840,7 @@ export type Database = {
           avatar_url?: string | null;
           created_at?: string;
           display_name?: string | null;
-          email?: string | null;
           id?: string;
-          last_active_date?: string | null;
-          native_language?: string | null;
-          streak_days?: number;
-          target_language?: string | null;
-          total_xp?: number;
           updated_at?: string;
           user_id: string;
           username: string;
@@ -192,18 +849,158 @@ export type Database = {
           avatar_url?: string | null;
           created_at?: string;
           display_name?: string | null;
-          email?: string | null;
           id?: string;
-          last_active_date?: string | null;
-          native_language?: string | null;
-          streak_days?: number;
-          target_language?: string | null;
-          total_xp?: number;
           updated_at?: string;
           user_id?: string;
           username?: string;
         };
         Relationships: [];
+      };
+      profile_private: {
+        Row: {
+          created_at: string;
+          last_active_date: string | null;
+          native_language: string;
+          streak_days: number;
+          target_language: string;
+          total_xp: number;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          last_active_date?: string | null;
+          native_language?: string;
+          streak_days?: number;
+          target_language?: string;
+          total_xp?: number;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          last_active_date?: string | null;
+          native_language?: string;
+          streak_days?: number;
+          target_language?: string;
+          total_xp?: number;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      speed_runs: {
+        Row: {
+          accuracy: number;
+          created_at: string;
+          deck_id: string;
+          duration: number;
+          id: string;
+          max_combo: number | null;
+          score: number;
+          user_id: string;
+        };
+        Insert: {
+          accuracy: number;
+          created_at?: string;
+          deck_id: string;
+          duration: number;
+          id?: string;
+          max_combo?: number | null;
+          score: number;
+          user_id: string;
+        };
+        Update: {
+          accuracy?: number;
+          created_at?: string;
+          deck_id?: string;
+          duration?: number;
+          id?: string;
+          max_combo?: number | null;
+          score?: number;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "speed_runs_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      streak_days: {
+        Row: {
+          created_at: string;
+          day: string;
+          id: string;
+          user_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          day: string;
+          id?: string;
+          user_id: string;
+        };
+        Update: {
+          created_at?: string;
+          day?: string;
+          id?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      study_events: {
+        Row: {
+          answered_at: string;
+          card_id: string | null;
+          card_key: string;
+          correct: boolean;
+          deck_id: string;
+          id: string;
+          mode: string;
+          response_ms: number | null;
+          user_id: string;
+        };
+        Insert: {
+          answered_at?: string;
+          card_id?: string | null;
+          card_key: string;
+          correct: boolean;
+          deck_id: string;
+          id?: string;
+          mode?: string;
+          response_ms?: number | null;
+          user_id: string;
+        };
+        Update: {
+          answered_at?: string;
+          card_id?: string | null;
+          card_key?: string;
+          correct?: boolean;
+          deck_id?: string;
+          id?: string;
+          mode?: string;
+          response_ms?: number | null;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "study_events_card_id_fkey";
+            columns: ["card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_events_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+        ];
       };
       user_roles: {
         Row: {
@@ -238,9 +1035,58 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_username_available: { Args: { _username: string }; Returns: boolean };
+      is_public_profile: { Args: { _user_id: string }; Returns: boolean };
+      list_friendships: {
+        Args: never;
+        Returns: {
+          avatar_url: string;
+          created_at: string;
+          display_name: string;
+          friendship_id: string;
+          relationship: string;
+          status: string;
+          updated_at: string;
+          user_id: string;
+          username: string;
+        }[];
+      };
+      make_unique_username: {
+        Args: { _base: string; _user_id?: string };
+        Returns: string;
+      };
+      normalize_username: {
+        Args: { _fallback?: string; _value: string };
+        Returns: string;
+      };
+      search_friend_profiles: {
+        Args: { _limit?: number; _query: string };
+        Returns: {
+          avatar_url: string;
+          display_name: string;
+          friendship_id: string;
+          relationship: string;
+          status: string;
+          user_id: string;
+          username: string;
+        }[];
+      };
     };
     Enums: {
       app_role: "admin" | "user";
+      deck_category:
+        | "General English"
+        | "Travel"
+        | "Business"
+        | "Academic"
+        | "IELTS"
+        | "TOEFL"
+        | "Technology"
+        | "Programming"
+        | "Medical"
+        | "Custom";
+      deck_visibility: "private" | "unlisted" | "public";
+      report_status: "pending" | "reviewed" | "dismissed" | "hidden";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -256,12 +1102,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -281,13 +1127,12 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -306,13 +1151,12 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    | keyof DefaultSchema["Tables"]
-    | { schema: keyof DatabaseWithoutInternals },
-  TableName extends DefaultSchemaTableNameOrOptions extends {
+    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
+  TableName extends (DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -331,13 +1175,12 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    | keyof DefaultSchema["Enums"]
-    | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never = never,
+    : never) = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -348,13 +1191,12 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never = never,
+    : never) = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -364,9 +1206,26 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      deck_category: [
+        "General English",
+        "Travel",
+        "Business",
+        "Academic",
+        "IELTS",
+        "TOEFL",
+        "Technology",
+        "Programming",
+        "Medical",
+        "Custom",
+      ],
+      deck_visibility: ["private", "unlisted", "public"],
+      report_status: ["pending", "reviewed", "dismissed", "hidden"],
     },
   },
 } as const;

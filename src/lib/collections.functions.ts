@@ -8,21 +8,13 @@ export const getMyCollections = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
-    let colRes = await supabase
+    const colRes = await supabase
       .from("collections")
       .select(
         "id, name, description, created_at, updated_at, visibility, keywords, learner_count, like_count, rating_sum, rating_count, published_at, copy_count",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-
-    if (colRes.error?.code === "42703") {
-      colRes = await supabase
-        .from("collections")
-        .select("id, name, description, created_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-    }
 
     const linkRes = await supabase
       .from("collection_decks")

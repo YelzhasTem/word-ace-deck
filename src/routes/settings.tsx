@@ -24,7 +24,6 @@ const USERNAME_RE = /^[a-z0-9_]{3,24}$/;
 type ProfileSettings = {
   username: string;
   display_name: string | null;
-  email: string | null;
 };
 
 function getProfileErrorMessage(error: unknown) {
@@ -61,7 +60,7 @@ function SettingsPage() {
       setUserId(session.user.id);
       const { data, error } = await supabase
         .from("profiles")
-        .select("username, display_name, email")
+        .select("username, display_name")
         .eq("user_id", session.user.id)
         .maybeSingle();
 
@@ -74,7 +73,6 @@ function SettingsPage() {
         ? {
             username: data.username,
             display_name: data.display_name,
-            email: data.email,
           }
         : null;
 
@@ -113,26 +111,24 @@ function SettingsPage() {
         .from("profiles")
         .update({ username: normalizedUsername })
         .eq("user_id", userId)
-        .select("username, display_name, email")
+        .select("username, display_name")
         .maybeSingle();
 
       if (updateError) throw updateError;
 
       let savedProfile = updatedProfile;
       if (!savedProfile) {
-        const { data: sessionData } = await supabase.auth.getSession();
         const { data: insertedProfile, error: insertError } = await supabase
           .from("profiles")
           .upsert(
             {
               user_id: userId,
               username: normalizedUsername,
-              email: sessionData.session?.user.email ?? null,
               display_name: profile?.display_name ?? normalizedUsername,
             },
             { onConflict: "user_id" },
           )
-          .select("username, display_name, email")
+          .select("username, display_name")
           .single();
 
         if (insertError) throw insertError;
@@ -142,7 +138,6 @@ function SettingsPage() {
       setProfile({
         username: savedProfile.username,
         display_name: savedProfile.display_name,
-        email: savedProfile.email,
       });
       setUsername(savedProfile.username);
       window.dispatchEvent(

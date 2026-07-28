@@ -27,10 +27,7 @@ export async function hydrateDeckShuffleSettings() {
     }
 
     const { data, error } = await accountLearningDb()
-      .from<{
-        deck_id: string;
-        shuffle_enabled: boolean;
-      }>("deck_learning_settings")
+      .from("deck_learning_settings")
       .select("deck_id, shuffle_enabled")
       .eq("user_id", userId)
       .eq("shuffle_enabled", true);

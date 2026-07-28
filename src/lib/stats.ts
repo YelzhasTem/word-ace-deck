@@ -594,14 +594,12 @@ export async function hydrateAssocs(cardId: string) {
   }
   assocCache = {
     ...assocCache,
-    [cardId]: (data ?? []).map(
-      (row: { text: string; source: "ai" | "user"; favorite?: boolean; created_at: string }) => ({
-        text: row.text,
-        source: row.source,
-        favorite: row.favorite,
-        at: new Date(row.created_at).getTime(),
-      }),
-    ),
+    [cardId]: (data ?? []).map((row) => ({
+      text: row.text,
+      source: row.source === "ai" ? "ai" : "user",
+      favorite: row.favorite,
+      at: new Date(row.created_at).getTime(),
+    })),
   };
   dispatch("assoc:changed");
 }

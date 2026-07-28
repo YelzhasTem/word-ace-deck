@@ -43,14 +43,6 @@ type ProfileRow = {
   username: string;
   display_name: string | null;
   avatar_url: string | null;
-  email: string | null;
-};
-
-type UsernameAvailabilityClient = {
-  rpc(
-    fn: "is_username_available",
-    args: { _username: string },
-  ): Promise<{ data: boolean | null; error: { message: string } | null }>;
 };
 
 function ProfileRoute() {
@@ -116,7 +108,7 @@ function ProfilePage() {
 
         const { data, error } = await supabase
           .from("profiles")
-          .select("username, display_name, avatar_url, email")
+          .select("username, display_name, avatar_url")
           .eq("user_id", nextSession.user.id)
           .maybeSingle();
 
@@ -132,7 +124,6 @@ function ProfilePage() {
           username: data?.username ?? fallbackUsername,
           display_name: data?.display_name ?? null,
           avatar_url: data?.avatar_url ?? null,
-          email: data?.email ?? nextSession.user.email ?? null,
         };
 
         if (!mounted) return;
@@ -204,11 +195,10 @@ function ProfilePage() {
 
     try {
       if (normalizedUsername !== initialProfile?.username) {
-        const { data: usernameAvailable, error: usernameCheckError } = await (
-          supabase as unknown as UsernameAvailabilityClient
-        ).rpc("is_username_available", {
-          _username: normalizedUsername,
-        });
+        const { data: usernameAvailable, error: usernameCheckError } = await supabase.rpc(
+          "is_username_available",
+          { _username: normalizedUsername },
+        );
 
         if (usernameCheckError) throw usernameCheckError;
         if (!usernameAvailable) {
@@ -220,7 +210,6 @@ function ProfilePage() {
       const nextAvatarUrl = await uploadAvatar(session.user.id);
       const nextProfile = {
         user_id: session.user.id,
-        email: session.user.email ?? initialProfile?.email ?? null,
         username: normalizedUsername,
         display_name: cleanDisplayName || null,
         avatar_url: nextAvatarUrl,
@@ -229,7 +218,6 @@ function ProfilePage() {
       const { data: updatedProfile, error } = await supabase
         .from("profiles")
         .update({
-          email: nextProfile.email,
           username: nextProfile.username,
           display_name: nextProfile.display_name,
           avatar_url: nextProfile.avatar_url,
@@ -259,7 +247,6 @@ function ProfilePage() {
         username: normalizedUsername,
         display_name: cleanDisplayName || null,
         avatar_url: nextAvatarUrl,
-        email: nextProfile.email,
       });
       setUsername(normalizedUsername);
       setAvatarUrl(nextAvatarUrl);

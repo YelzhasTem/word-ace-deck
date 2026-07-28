@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { Database } from "@/integrations/supabase/types";
 
 export const DECK_CATEGORIES = [
   "General English",
@@ -43,7 +45,6 @@ type ProfileRow = {
   user_id: string;
   username: string | null;
   display_name: string | null;
-  email: string | null;
   avatar_url?: string | null;
 };
 
@@ -70,9 +71,7 @@ function ratingFor(deck: Pick<CommunityDeckRow, "rating_sum" | "rating_count">) 
 }
 
 function authorName(profile?: ProfileRow) {
-  return (
-    profile?.username || profile?.display_name || profile?.email?.split("@")[0] || "Memora creator"
-  );
+  return profile?.username || profile?.display_name || "Memora creator";
 }
 
 function ratingForCollection(
@@ -83,7 +82,11 @@ function ratingForCollection(
     : 0;
 }
 
-async function attachCommunityMeta(supabase: any, decks: CommunityDeckRow[], userId: string) {
+async function attachCommunityMeta(
+  supabase: SupabaseClient<Database>,
+  decks: CommunityDeckRow[],
+  userId: string,
+) {
   if (decks.length === 0) return [];
   const deckIds = decks.map((deck) => deck.id);
   const authorIds = Array.from(new Set(decks.map((deck) => deck.user_id)));
@@ -91,7 +94,7 @@ async function attachCommunityMeta(supabase: any, decks: CommunityDeckRow[], use
   const [profilesRes, cardsRes, likesRes, savesRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("user_id, username, display_name, email, avatar_url")
+      .select("user_id, username, display_name, avatar_url")
       .in("user_id", authorIds),
     supabase.from("cards").select("deck_id").in("deck_id", deckIds),
     supabase.from("deck_likes").select("deck_id").eq("user_id", userId).in("deck_id", deckIds),
@@ -142,7 +145,7 @@ async function attachCommunityMeta(supabase: any, decks: CommunityDeckRow[], use
 }
 
 async function attachCollectionMeta(
-  supabase: any,
+  supabase: SupabaseClient<Database>,
   collections: CommunityCollectionRow[],
   userId: string,
 ) {
@@ -153,7 +156,7 @@ async function attachCollectionMeta(
   const [profilesRes, linksRes, likesRes, savesRes] = await Promise.all([
     supabase
       .from("profiles")
-      .select("user_id, username, display_name, email, avatar_url")
+      .select("user_id, username, display_name, avatar_url")
       .in("user_id", authorIds),
     supabase
       .from("collection_decks")
@@ -235,7 +238,7 @@ export const searchPublicDecks = createServerFn({ method: "GET" })
 
     let deckIdsFilter: string[] | null = null;
     if (data.savedOnly) {
-      const { data: saves, error } = await (supabase as any)
+      const { data: saves, error } = await supabase
         .from("deck_saves")
         .select("deck_id")
         .eq("user_id", userId);
@@ -245,14 +248,14 @@ export const searchPublicDecks = createServerFn({ method: "GET" })
     }
 
     if (data.followingOnly) {
-      const { data: follows, error } = await (supabase as any)
+      const { data: follows, error } = await supabase
         .from("creator_follows")
         .select("creator_id")
         .eq("follower_id", userId);
       if (error) throw new Error(error.message);
       const creatorIds = (follows ?? []).map((row: { creator_id: string }) => row.creator_id);
       if (creatorIds.length === 0) return { decks: [] };
-      const { data: followedDecks, error: deckErr } = await (supabase as any)
+      const { data: followedDecks, error: deckErr } = await supabase
         .from("decks")
         .select("id")
         .in("user_id", creatorIds)
@@ -266,7 +269,7 @@ export const searchPublicDecks = createServerFn({ method: "GET" })
       if (deckIdsFilter.length === 0) return { decks: [] };
     }
 
-    let query = (supabase as any)
+    let query = supabase
       .from("decks")
       .select(
         "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
@@ -286,12 +289,11 @@ export const searchPublicDecks = createServerFn({ method: "GET" })
     }
 
     if (data.author.trim()) {
-      const { data: profiles, error } = await (supabase as any)
+      const safeAuthor = data.author.trim().replace(/[%_,]/g, " ");
+      const { data: profiles, error } = await supabase
         .from("profiles")
         .select("user_id")
-        .or(
-          `username.ilike.%${data.author.trim()}%,display_name.ilike.%${data.author.trim()}%,email.ilike.%${data.author.trim()}%`,
-        );
+        .or(`username.ilike.%${safeAuthor}%,display_name.ilike.%${safeAuthor}%`);
       if (error) throw new Error(error.message);
       const ids = (profiles ?? []).map((p: { user_id: string }) => p.user_id);
       if (ids.length === 0) return { decks: [] };
@@ -334,7 +336,7 @@ export const searchPublicCollections = createServerFn({ method: "GET" })
 
     let collectionIdsFilter: string[] | null = null;
     if (data.savedOnly) {
-      const { data: saves, error } = await (supabase as any)
+      const { data: saves, error } = await supabase
         .from("collection_saves")
         .select("collection_id")
         .eq("user_id", userId);
@@ -345,7 +347,7 @@ export const searchPublicCollections = createServerFn({ method: "GET" })
       if (collectionIdsFilter.length === 0) return { collections: [] };
     }
 
-    let query = (supabase as any)
+    let query = supabase
       .from("collections")
       .select(
         "id, user_id, name, description, created_at, updated_at, visibility, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
@@ -388,7 +390,7 @@ export const getCommunityHome = createServerFn({ method: "GET" })
       "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at";
 
     async function section(order: "trending" | "popular" | "new" | "rated") {
-      let q = (supabase as any)
+      let q = supabase
         .from("decks")
         .select(baseSelect)
         .eq("visibility", "public")
@@ -424,7 +426,7 @@ export const getPublicDeckDetails = createServerFn({ method: "GET" })
   .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: deck, error } = await (supabase as any)
+    const { data: deck, error } = await supabase
       .from("decks")
       .select(
         "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
@@ -435,13 +437,13 @@ export const getPublicDeckDetails = createServerFn({ method: "GET" })
       .single();
     if (error || !deck) throw new Error(error?.message ?? "Deck not found");
 
-    await (supabase as any)
+    await supabase
       .from("decks")
       .update({ view_count: (deck.view_count ?? 0) + 1 })
       .eq("id", deck.id);
 
     const [meta] = await attachCommunityMeta(supabase, [deck], userId);
-    const { data: cards, error: cardsError } = await (supabase as any)
+    const { data: cards, error: cardsError } = await supabase
       .from("cards")
       .select("id, term, definition, position")
       .eq("deck_id", deck.id)
@@ -471,7 +473,7 @@ export const updateDeckPublishing = createServerFn({ method: "POST" })
       keywords: data.keywords.map((word) => word.trim()).filter(Boolean),
       published_at: data.visibility === "public" ? new Date().toISOString() : null,
     };
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("decks")
       .update(update)
       .eq("id", data.deckId)
@@ -485,26 +487,26 @@ export const toggleDeckLike = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: existing } = await (supabase as any)
+    const { data: existing } = await supabase
       .from("deck_likes")
       .select("id")
       .eq("deck_id", data.deckId)
       .eq("user_id", userId)
       .maybeSingle();
     if (existing?.id) {
-      const { error } = await (supabase as any).from("deck_likes").delete().eq("id", existing.id);
+      const { error } = await supabase.from("deck_likes").delete().eq("id", existing.id);
       if (error) throw new Error(error.message);
     } else {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("deck_likes")
         .insert({ deck_id: data.deckId, user_id: userId });
       if (error) throw new Error(error.message);
     }
-    const { count } = await (supabase as any)
+    const { count } = await supabase
       .from("deck_likes")
       .select("id", { count: "exact", head: true })
       .eq("deck_id", data.deckId);
-    await (supabase as any)
+    await supabase
       .from("decks")
       .update({ like_count: count ?? 0 })
       .eq("id", data.deckId);
@@ -516,17 +518,17 @@ export const toggleDeckSave = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: existing } = await (supabase as any)
+    const { data: existing } = await supabase
       .from("deck_saves")
       .select("id")
       .eq("deck_id", data.deckId)
       .eq("user_id", userId)
       .maybeSingle();
     if (existing?.id) {
-      const { error } = await (supabase as any).from("deck_saves").delete().eq("id", existing.id);
+      const { error } = await supabase.from("deck_saves").delete().eq("id", existing.id);
       if (error) throw new Error(error.message);
     } else {
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from("deck_saves")
         .insert({ deck_id: data.deckId, user_id: userId });
       if (error) throw new Error(error.message);
@@ -541,14 +543,14 @@ export const rateDeck = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("deck_ratings")
       .upsert(
         { deck_id: data.deckId, user_id: userId, rating: data.rating },
         { onConflict: "deck_id,user_id" },
       );
     if (error) throw new Error(error.message);
-    const { data: ratings, error: ratingsError } = await (supabase as any)
+    const { data: ratings, error: ratingsError } = await supabase
       .from("deck_ratings")
       .select("rating")
       .eq("deck_id", data.deckId);
@@ -558,10 +560,7 @@ export const rateDeck = createServerFn({ method: "POST" })
       0,
     );
     const rating_count = ratings?.length ?? 0;
-    await (supabase as any)
-      .from("decks")
-      .update({ rating_sum, rating_count })
-      .eq("id", data.deckId);
+    await supabase.from("decks").update({ rating_sum, rating_count }).eq("id", data.deckId);
     return { rating: rating_count ? rating_sum / rating_count : 0, ratingCount: rating_count };
   });
 
@@ -574,14 +573,14 @@ export const rateCollection = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await (supabase as any)
+    const { error } = await supabase
       .from("collection_ratings")
       .upsert(
         { collection_id: data.collectionId, user_id: userId, rating: data.rating },
         { onConflict: "collection_id,user_id" },
       );
     if (error) throw new Error(error.message);
-    const { data: ratings, error: ratingsError } = await (supabase as any)
+    const { data: ratings, error: ratingsError } = await supabase
       .from("collection_ratings")
       .select("rating")
       .eq("collection_id", data.collectionId);
@@ -591,7 +590,7 @@ export const rateCollection = createServerFn({ method: "POST" })
       0,
     );
     const rating_count = ratings?.length ?? 0;
-    await (supabase as any)
+    await supabase
       .from("collections")
       .update({ rating_sum, rating_count })
       .eq("id", data.collectionId);
@@ -604,7 +603,7 @@ export const reportDeck = createServerFn({ method: "POST" })
     z.object({ deckId: z.string().uuid(), reason: z.string().min(3).max(400) }).parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { error } = await (context.supabase as any)
+    const { error } = await context.supabase
       .from("deck_reports")
       .insert({ deck_id: data.deckId, reporter_id: context.userId, reason: data.reason });
     if (error) throw new Error(error.message);
@@ -616,7 +615,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: deck, error } = await (supabase as any)
+    const { data: deck, error } = await supabase
       .from("decks")
       .select(
         "id, name, description, target_language, definition_language, category, keywords, copy_count, learner_count",
@@ -626,7 +625,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
       .is("hidden_at", null)
       .single();
     if (error || !deck) throw new Error(error?.message ?? "Deck not found");
-    const { data: cards, error: cardsError } = await (supabase as any)
+    const { data: cards, error: cardsError } = await supabase
       .from("cards")
       .select("term, definition, position")
       .eq("deck_id", deck.id)
@@ -635,7 +634,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
     const copiedTargetLanguage = deck.target_language ?? "en";
     const copiedDefinitionLanguage =
       deck.definition_language ?? (copiedTargetLanguage === "en" ? "ru" : "en");
-    const { data: newDeck, error: createError } = await (supabase as any)
+    const { data: newDeck, error: createError } = await supabase
       .from("decks")
       .insert({
         user_id: userId,
@@ -653,7 +652,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
     if (createError || !newDeck)
       throw new Error(createError?.message ?? "Failed to duplicate deck");
     if ((cards ?? []).length > 0) {
-      const { error: insertCardsError } = await (supabase as any).from("cards").insert(
+      const { error: insertCardsError } = await supabase.from("cards").insert(
         cards.map(
           (card: { term: string; definition: string; position: number }, position: number) => ({
             deck_id: newDeck.id,
@@ -666,7 +665,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
       );
       if (insertCardsError) throw new Error(insertCardsError.message);
     }
-    await (supabase as any)
+    await supabase
       .from("decks")
       .update({
         copy_count: (deck.copy_count ?? 0) + 1,
@@ -681,7 +680,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ collectionId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: collection, error } = await (supabase as any)
+    const { data: collection, error } = await supabase
       .from("collections")
       .select("id, name, description, keywords, copy_count, learner_count")
       .eq("id", data.collectionId)
@@ -690,7 +689,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
       .single();
     if (error || !collection) throw new Error(error?.message ?? "Collection not found");
 
-    const { data: links, error: linksError } = await (supabase as any)
+    const { data: links, error: linksError } = await supabase
       .from("collection_decks")
       .select("deck_id, position")
       .eq("collection_id", collection.id)
@@ -699,7 +698,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
 
     const sourceDeckIds = (links ?? []).map((link: { deck_id: string }) => link.deck_id);
     const { data: sourceDecks, error: deckError } = sourceDeckIds.length
-      ? await (supabase as any)
+      ? await supabase
           .from("decks")
           .select(
             "id, name, description, target_language, definition_language, category, keywords, copy_count, learner_count",
@@ -708,7 +707,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
       : { data: [], error: null };
     if (deckError) throw new Error(deckError.message);
 
-    const { data: newCollection, error: createCollectionError } = await (supabase as any)
+    const { data: newCollection, error: createCollectionError } = await supabase
       .from("collections")
       .insert({
         user_id: userId,
@@ -724,7 +723,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
       throw new Error(createCollectionError?.message ?? "Failed to duplicate collection");
     }
 
-    const decksById = new Map((sourceDecks ?? []).map((deck: any) => [deck.id, deck]));
+    const decksById = new Map((sourceDecks ?? []).map((deck) => [deck.id, deck]));
     const newLinks: {
       collection_id: string;
       deck_id: string;
@@ -735,7 +734,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
     for (const [position, sourceDeckId] of sourceDeckIds.entries()) {
       const deck = decksById.get(sourceDeckId);
       if (!deck) continue;
-      const { data: cards, error: cardsError } = await (supabase as any)
+      const { data: cards, error: cardsError } = await supabase
         .from("cards")
         .select("term, definition, position")
         .eq("deck_id", deck.id)
@@ -745,7 +744,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
       const copiedDefinitionLanguage =
         deck.definition_language ?? (copiedTargetLanguage === "en" ? "ru" : "en");
 
-      const { data: newDeck, error: createDeckError } = await (supabase as any)
+      const { data: newDeck, error: createDeckError } = await supabase
         .from("decks")
         .insert({
           user_id: userId,
@@ -764,7 +763,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
         throw new Error(createDeckError?.message ?? "Failed to duplicate deck");
 
       if ((cards ?? []).length > 0) {
-        const { error: insertCardsError } = await (supabase as any).from("cards").insert(
+        const { error: insertCardsError } = await supabase.from("cards").insert(
           cards.map(
             (
               card: { term: string; definition: string; position: number },
@@ -781,7 +780,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
         if (insertCardsError) throw new Error(insertCardsError.message);
       }
 
-      await (supabase as any)
+      await supabase
         .from("decks")
         .update({
           copy_count: (deck.copy_count ?? 0) + 1,
@@ -797,13 +796,11 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
     }
 
     if (newLinks.length > 0) {
-      const { error: linkError } = await (supabase as any)
-        .from("collection_decks")
-        .insert(newLinks);
+      const { error: linkError } = await supabase.from("collection_decks").insert(newLinks);
       if (linkError) throw new Error(linkError.message);
     }
 
-    await (supabase as any)
+    await supabase
       .from("collections")
       .update({
         copy_count: (collection.copy_count ?? 0) + 1,
@@ -819,14 +816,14 @@ export const getCreatorProfile = createServerFn({ method: "GET" })
   .inputValidator((input) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: profile, error: profileError } = await (supabase as any)
+    const { data: profile, error: profileError } = await supabase
       .from("profiles")
-      .select("user_id, username, display_name, email, avatar_url")
+      .select("user_id, username, display_name, avatar_url")
       .eq("user_id", data.userId)
       .single();
     if (profileError) throw new Error(profileError.message);
 
-    const { data: decks, error: decksError } = await (supabase as any)
+    const { data: decks, error: decksError } = await supabase
       .from("decks")
       .select(
         "id, user_id, name, description, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, view_count, copy_count, published_at",
@@ -837,11 +834,11 @@ export const getCreatorProfile = createServerFn({ method: "GET" })
       .order("published_at", { ascending: false });
     if (decksError) throw new Error(decksError.message);
 
-    const { count: followers } = await (supabase as any)
+    const { count: followers } = await supabase
       .from("creator_follows")
       .select("id", { count: "exact", head: true })
       .eq("creator_id", data.userId);
-    const { data: followed } = await (supabase as any)
+    const { data: followed } = await supabase
       .from("creator_follows")
       .select("id")
       .eq("creator_id", data.userId)
@@ -868,21 +865,21 @@ export const toggleCreatorFollow = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ creatorId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     if (data.creatorId === context.userId) return { followed: false };
-    const { data: existing } = await (context.supabase as any)
+    const { data: existing } = await context.supabase
       .from("creator_follows")
       .select("id")
       .eq("creator_id", data.creatorId)
       .eq("follower_id", context.userId)
       .maybeSingle();
     if (existing?.id) {
-      const { error } = await (context.supabase as any)
+      const { error } = await context.supabase
         .from("creator_follows")
         .delete()
         .eq("id", existing.id);
       if (error) throw new Error(error.message);
       return { followed: false };
     }
-    const { error } = await (context.supabase as any)
+    const { error } = await context.supabase
       .from("creator_follows")
       .insert({ creator_id: data.creatorId, follower_id: context.userId });
     if (error) throw new Error(error.message);
@@ -892,7 +889,7 @@ export const toggleCreatorFollow = createServerFn({ method: "POST" })
 export const getModerationQueue = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data, error } = await (context.supabase as any)
+    const { data, error } = await context.supabase
       .from("deck_reports")
       .select("id, deck_id, reporter_id, reason, status, created_at")
       .eq("status", "pending")
@@ -915,13 +912,13 @@ export const reviewDeckReport = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     if (data.action === "hide") {
-      const { error: deckError } = await (context.supabase as any)
+      const { error: deckError } = await context.supabase
         .from("decks")
         .update({ hidden_at: new Date().toISOString() })
         .eq("id", data.deckId);
       if (deckError) throw new Error(deckError.message);
     }
-    const { error } = await (context.supabase as any)
+    const { error } = await context.supabase
       .from("deck_reports")
       .update({
         status: data.action === "hide" ? "hidden" : "dismissed",

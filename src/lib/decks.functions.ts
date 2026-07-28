@@ -122,21 +122,13 @@ export const getMyDecks = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { supabase, userId } = context;
 
-    let decksRes = await supabase
+    const decksRes = await supabase
       .from("decks")
       .select(
         "id, name, description, cover_color, target_language, definition_language, created_at, updated_at, visibility, category, keywords, learner_count, like_count, rating_sum, rating_count, published_at, source_deck_id",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
-
-    if (decksRes.error?.code === "42703") {
-      decksRes = await supabase
-        .from("decks")
-        .select("id, name, description, created_at, updated_at")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-    }
 
     const cardsRes = await supabase
       .from("cards")
