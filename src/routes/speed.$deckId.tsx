@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { recordStreakToday } from "@/lib/streak";
 import { recordAnswer, recordSpeedRun, useSpeedRecords } from "@/lib/stats";
+import { beginStudySession } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -72,8 +73,7 @@ function SpeedPage() {
   const finished = !running && left === 0 && right + wrong > 0;
   useEffect(() => {
     if (finished) {
-      const acc = right + wrong > 0 ? Math.round((right / (right + wrong)) * 100) : 0;
-      recordSpeedRun({ deckId, duration, score, accuracy: acc, at: Date.now() });
+      recordSpeedRun(deckId);
       recordStreakToday();
     }
     // eslint-disable-next-line
@@ -97,6 +97,9 @@ function SpeedPage() {
 
   const start = (d: Duration) => {
     if (!canPlay) return;
+    void beginStudySession(deckId, "speed", d).catch((error: unknown) =>
+      console.warn("[Learning] Could not start speed session:", error),
+    );
     setDuration(d);
     setLeft(d);
     setScore(0);
@@ -147,7 +150,10 @@ function SpeedPage() {
     const ok = i === cur.correct;
     if (ok) playCorrectSound();
     else playWrongSound();
-    recordAnswer(deck.id, cur.card.id, ok);
+    recordAnswer(deck.id, cur.card.id, ok, undefined, {
+      mode: "speed",
+      durationSeconds: duration,
+    });
     if (ok) {
       const newCombo = combo + 1;
       const mult = 1 + Math.min(newCombo, 10) * 0.1;

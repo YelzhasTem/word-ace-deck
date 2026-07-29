@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { accountLearningDb } from "@/lib/account-learning-db";
+import { completeStudySession, submitStudyAnswer, type StudyMode } from "@/lib/study-session";
 
 export type CardStat = {
   correct: number;
@@ -17,12 +18,8 @@ export type CardStat = {
 
 export type DeckStats = Record<string, CardStat>;
 
-const LEGACY_STATS_KEY = "lingocards.stats.v1";
-const LEGACY_SESSION_KEY = "lingocards.session.v1";
-const LEGACY_SPEED_KEY = "lingocards.speed.v1";
 const LEGACY_ASSOC_KEY = "lingocards.assoc.v1";
 const MIGRATION_KEY = "lingocards.accountLearningMigrated.v1";
-const SLOW_MS = 8000;
 
 const statsCache: Record<string, DeckStats> = {};
 let sessionCache: SessionAnswer[] = [];
@@ -31,30 +28,9 @@ let assocCache: AssocMap = {};
 let migrationStarted = false;
 
 export const STAGE_NAMES = ["New", "Learning", "Reviewing", "Confident", "Mastered"] as const;
-const STAGE_INTERVALS = [
-  1000 * 60 * 10,
-  1000 * 60 * 60 * 8,
-  1000 * 60 * 60 * 24 * 2,
-  1000 * 60 * 60 * 24 * 7,
-  1000 * 60 * 60 * 24 * 21,
-];
-
-function stageFromMastery(m: number): number {
-  if (m >= 0.95) return 4;
-  if (m >= 0.75) return 3;
-  if (m >= 0.45) return 2;
-  if (m > 0) return 1;
-  return 0;
-}
 
 function dispatch(name: "stats:changed" | "speed:changed" | "assoc:changed" | "session:changed") {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(name));
-}
-
-function isoFromMs(ms?: number) {
-  return typeof ms === "number" && Number.isFinite(ms) && ms > 0
-    ? new Date(ms).toISOString()
-    : null;
 }
 
 function msFromIso(value?: string | null) {
@@ -105,83 +81,14 @@ function rowToStat(row: {
   };
 }
 
-function statToRow(userId: string, deckId: string, cardKey: string, stat: CardStat) {
-  const mastery = Number.isFinite(Number(stat.mastery)) ? Number(stat.mastery) : 0;
-  return {
-    user_id: userId,
-    deck_id: deckId,
-    card_key: cardKey,
-    card_id: isUuid(cardKey) ? cardKey : null,
-    correct_count: stat.correct ?? 0,
-    wrong_count: stat.wrong ?? 0,
-    mastery,
-    stage: stat.stage ?? stageFromMastery(mastery),
-    due_at: isoFromMs(stat.due),
-    avg_ms: stat.avgMs ?? null,
-    total_ms: stat.totalMs ?? null,
-    samples: stat.samples ?? null,
-    slow_misses: stat.slowMisses ?? 0,
-    last_seen_at: isoFromMs(stat.lastSeen),
-    updated_at: new Date().toISOString(),
-  };
-}
-
 async function migrateLegacyLearningData(userId: string) {
   if (typeof window === "undefined" || migrationStarted) return;
   if (localStorage.getItem(MIGRATION_KEY) === userId) return;
   migrationStarted = true;
 
   try {
-    const legacyStats = safeJson<Record<string, DeckStats>>(LEGACY_STATS_KEY, {});
-    const progressRows = Object.entries(legacyStats)
-      .filter(([deckId]) => isUuid(deckId))
-      .flatMap(([deckId, deckStats]) =>
-        Object.entries(deckStats).map(([cardKey, stat]) =>
-          statToRow(userId, deckId, cardKey, stat),
-        ),
-      );
-    if (progressRows.length > 0) {
-      const { error } = await accountLearningDb()
-        .from("card_progress")
-        .upsert(progressRows, { onConflict: "user_id,deck_id,card_key" });
-      if (error) throw new Error(error.message);
-    }
-
-    const legacySessions = safeJson<SessionAnswer[]>(LEGACY_SESSION_KEY, []);
-    const sessionRows = legacySessions
-      .filter((event) => isUuid(event.deckId))
-      .slice(-500)
-      .map((event) => ({
-        user_id: userId,
-        deck_id: event.deckId,
-        card_key: event.cardId,
-        card_id: isUuid(event.cardId) ? event.cardId : null,
-        correct: event.correct,
-        response_ms: event.ms ?? null,
-        answered_at: new Date(event.at).toISOString(),
-      }));
-    if (sessionRows.length > 0) {
-      const { error } = await accountLearningDb().from("study_events").insert(sessionRows);
-      if (error) throw new Error(error.message);
-    }
-
-    const legacySpeed = safeJson<SpeedRecord[]>(LEGACY_SPEED_KEY, []);
-    const speedRows = legacySpeed
-      .filter((run) => isUuid(run.deckId))
-      .slice(-50)
-      .map((run) => ({
-        user_id: userId,
-        deck_id: run.deckId,
-        duration: run.duration,
-        score: run.score,
-        accuracy: run.accuracy,
-        created_at: new Date(run.at).toISOString(),
-      }));
-    if (speedRows.length > 0) {
-      const { error } = await accountLearningDb().from("speed_runs").insert(speedRows);
-      if (error) throw new Error(error.message);
-    }
-
+    // Trusted progress can no longer be reconstructed from mutable browser data.
+    // User-authored associations remain safe to import because they are subjective content.
     const legacyAssocs = safeJson<AssocMap>(LEGACY_ASSOC_KEY, {});
     const assocRows = Object.entries(legacyAssocs).flatMap(([cardId, list]) =>
       isUuid(cardId)
@@ -247,61 +154,56 @@ export function recordAnswer(
   cardId: string,
   correct: boolean,
   responseMs?: number,
+  options: {
+    mode?: StudyMode;
+    progressKey?: string;
+    durationSeconds?: 30 | 60 | 120;
+    idempotencyKey?: string;
+  } = {},
 ) {
   if (typeof window === "undefined") return;
-  const deck = statsCache[deckId] ?? {};
-  const s: CardStat = deck[cardId] ?? { correct: 0, wrong: 0, lastSeen: 0, mastery: 0 };
-  const slow = typeof responseMs === "number" && responseMs > SLOW_MS;
-
-  if (correct) {
-    s.correct += 1;
-    s.mastery = Math.min(1, s.mastery + (slow ? 0.12 : 0.25));
-  } else {
-    s.wrong += 1;
-    s.mastery = Math.max(0, s.mastery - 0.2);
-    s.slowMisses = (s.slowMisses ?? 0) + 1;
-  }
-  if (slow && correct) s.slowMisses = (s.slowMisses ?? 0) + 1;
-
-  if (typeof responseMs === "number" && responseMs > 0) {
-    const prev = s.avgMs ?? responseMs;
-    s.avgMs = Math.round(prev * 0.7 + responseMs * 0.3);
-    s.totalMs = (s.totalMs ?? 0) + responseMs;
-    s.samples = (s.samples ?? 0) + 1;
-  }
-
-  s.stage = stageFromMastery(s.mastery);
-  s.due = Date.now() + (correct ? STAGE_INTERVALS[s.stage] : STAGE_INTERVALS[0]);
-  s.lastSeen = Date.now();
-  deck[cardId] = s;
-  statsCache[deckId] = deck;
-
-  const event: SessionAnswer = { deckId, cardId, correct, ms: responseMs, at: Date.now() };
+  const progressKey = options.progressKey ?? cardId;
+  const event: SessionAnswer = {
+    deckId,
+    cardId: progressKey,
+    correct,
+    ms: responseMs,
+    at: Date.now(),
+  };
   sessionCache = [...sessionCache, event].slice(-500);
-  dispatch("stats:changed");
   dispatch("session:changed");
 
-  void (async () => {
-    const userId = await ensureMigrated();
-    if (!userId) return;
-    const { error: progressError } = await accountLearningDb()
-      .from("card_progress")
-      .upsert(statToRow(userId, deckId, cardId, s), { onConflict: "user_id,deck_id,card_key" });
-    if (progressError) console.warn("[Learning] Could not save progress:", progressError.message);
-
-    const { error: eventError } = await accountLearningDb()
-      .from("study_events")
-      .insert({
-        user_id: userId,
-        deck_id: deckId,
-        card_key: cardId,
-        card_id: isUuid(cardId) ? cardId : null,
-        correct,
-        response_ms: responseMs ?? null,
-        answered_at: new Date(event.at).toISOString(),
-      });
-    if (eventError) console.warn("[Learning] Could not save study event:", eventError.message);
-  })();
+  void submitStudyAnswer({
+    deckId,
+    cardId,
+    mode: options.mode ?? "study",
+    result: correct,
+    responseMs,
+    progressKey,
+    durationSeconds: options.durationSeconds,
+    idempotencyKey: options.idempotencyKey,
+  })
+    .then((result) => {
+      const deck = statsCache[deckId] ?? {};
+      deck[progressKey] = {
+        correct: result.correct_count,
+        wrong: result.wrong_count,
+        lastSeen: event.at,
+        mastery: Number(result.mastery),
+        stage: result.stage,
+        due: msFromIso(result.due_at),
+        avgMs: result.avg_ms ?? undefined,
+        totalMs: result.total_ms ?? undefined,
+        samples: result.samples ?? undefined,
+        slowMisses: result.slow_misses,
+      };
+      statsCache[deckId] = deck;
+      dispatch("stats:changed");
+    })
+    .catch((error: unknown) => {
+      console.warn("[Learning] Could not save trusted answer:", error);
+      void hydrateDeckStats(deckId);
+    });
 }
 
 export function getDeckStats(deckId: string): DeckStats {
@@ -487,26 +389,11 @@ export type SpeedRecord = {
   at: number;
 };
 
-export function recordSpeedRun(rec: SpeedRecord) {
+export function recordSpeedRun(deckId: string) {
   if (typeof window === "undefined") return;
-  speedCache = [...speedCache, rec].sort((a, b) => b.score - a.score).slice(0, 50);
-  dispatch("speed:changed");
-
-  void (async () => {
-    const userId = await ensureMigrated();
-    if (!userId) return;
-    const { error } = await accountLearningDb()
-      .from("speed_runs")
-      .insert({
-        user_id: userId,
-        deck_id: rec.deckId,
-        duration: rec.duration,
-        score: rec.score,
-        accuracy: rec.accuracy,
-        created_at: new Date(rec.at).toISOString(),
-      });
-    if (error) console.warn("[Learning] Could not save speed run:", error.message);
-  })();
+  void completeStudySession(deckId, "speed")
+    .then(() => hydrateSpeedRecords(deckId))
+    .catch((error: unknown) => console.warn("[Learning] Could not complete speed run:", error));
 }
 
 export async function hydrateSpeedRecords(deckId?: string) {

@@ -305,10 +305,10 @@ export const markCardRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ id: z.string().uuid(), known: z.boolean() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("cards")
-      .update({ known: data.known })
-      .eq("id", data.id);
+    const { error } = await context.supabase.rpc("set_card_known", {
+      p_card_id: data.id,
+      p_known: data.known,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });
@@ -317,10 +317,9 @@ export const resetDeckProgressRecord = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("cards")
-      .update({ known: false })
-      .eq("deck_id", data.deckId);
+    const { error } = await context.supabase.rpc("reset_deck_known", {
+      p_deck_id: data.deckId,
+    });
     if (error) throw new Error(error.message);
     return { ok: true };
   });

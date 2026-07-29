@@ -171,7 +171,7 @@ function AssocPage() {
   const mark = (helped: boolean) => {
     if (helped) playCorrectSound();
     else playWrongSound();
-    recordAnswer(deck.id, current.id, helped);
+    recordAnswer(deck.id, current.id, helped, undefined, { mode: "assoc" });
     if (helped) recordStreakToday();
     go(1);
   };

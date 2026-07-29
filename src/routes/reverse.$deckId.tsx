@@ -124,7 +124,10 @@ function ReversePage() {
     if (correct) playCorrectSound();
     else playWrongSound();
     const ms = Date.now() - startedAt;
-    recordAnswer(deck.id, statKey(current.cardId, current.dir), correct, ms);
+    recordAnswer(deck.id, current.cardId, correct, ms, {
+      mode: "reverse",
+      progressKey: statKey(current.cardId, current.dir),
+    });
     recordStreakToday();
     // Re-insert incorrect near the end for quick re-test
     if (!correct) {

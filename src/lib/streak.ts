@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { accountLearningDb } from "@/lib/account-learning-db";
 
-const LEGACY_STORAGE_KEY = "lingocards.streak.v1";
 const MIGRATION_KEY = "lingocards.accountStreakMigrated.v1";
 
 type StreakData = {
@@ -26,18 +25,6 @@ function todayKey(d = new Date()): string {
   return `${y}-${m}-${day}`;
 }
 
-function loadLegacy(): StreakData {
-  if (typeof window === "undefined") return { days: [] };
-  try {
-    const raw = localStorage.getItem(LEGACY_STORAGE_KEY);
-    if (!raw) return { days: [] };
-    const parsed = JSON.parse(raw) as StreakData;
-    return { days: Array.isArray(parsed.days) ? parsed.days : [] };
-  } catch {
-    return { days: [] };
-  }
-}
-
 function normalizeDays(days: string[]) {
   return Array.from(new Set(days.filter((day) => /^\d{4}-\d{2}-\d{2}$/.test(day)))).sort();
 }
@@ -53,13 +40,8 @@ async function migrateLegacyStreak(userId: string) {
   migrationStarted = true;
 
   try {
-    const rows = normalizeDays(loadLegacy().days).map((day) => ({ user_id: userId, day }));
-    if (rows.length > 0) {
-      const { error } = await accountLearningDb()
-        .from("streak_days")
-        .upsert(rows, { onConflict: "user_id,day" });
-      if (error) throw new Error(error.message);
-    }
+    // Activity days are server-generated from accepted study events. Mutable
+    // legacy browser dates are intentionally not imported into trusted streaks.
     localStorage.setItem(MIGRATION_KEY, userId);
   } finally {
     migrationStarted = false;
@@ -108,21 +90,6 @@ async function hydrateStreakDays() {
   );
   hydrated = true;
   hydrationStarted = false;
-  dispatchChanged();
-}
-
-async function saveAccountDay(day: string) {
-  const userId = await ensureMigrated();
-  if (!userId) return;
-
-  const { error } = await accountLearningDb()
-    .from("streak_days")
-    .upsert({ user_id: userId, day }, { onConflict: "user_id,day" });
-
-  if (error) {
-    console.warn("[Streak] Could not save account streak day:", error.message);
-    return;
-  }
   dispatchChanged();
 }
 
@@ -234,7 +201,6 @@ export function useStreak() {
       daysCache = normalizeDays([...daysCache, today]);
       dispatchChanged();
     }
-    void saveAccountDay(today);
   }, []);
 
   return {
@@ -254,5 +220,4 @@ export function recordStreakToday() {
     daysCache = normalizeDays([...daysCache, today]);
     dispatchChanged();
   }
-  void saveAccountDay(today);
 }

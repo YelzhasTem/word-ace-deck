@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { accountLearningDb } from "@/lib/account-learning-db";
+import { submitStudyAnswer } from "@/lib/study-session";
 
 // ===== Deck-level settings =====
 const LEGACY_ENABLED_DECKS_KEY = "lingocards.delayedRecall.enabledDecks.v1";
-const LEGACY_STATE_KEY = "lingocards.delayedRecall.state.v1";
 const MIGRATION_KEY = "lingocards.accountDelayedRecallMigrated.v1";
 
 const enabledDeckIds = new Set<string>();
@@ -15,12 +15,6 @@ let migrationStarted = false;
 
 function dispatchChanged() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event("delayedRecall:changed"));
-}
-
-function isoFromMs(ms?: number) {
-  return typeof ms === "number" && Number.isFinite(ms) && ms > 0
-    ? new Date(ms).toISOString()
-    : null;
 }
 
 function msFromIso(value?: string | null) {
@@ -67,18 +61,6 @@ async function migrateLegacyRecallData(userId: string) {
         .upsert(settingsRows, {
           onConflict: "user_id,deck_id",
         });
-      if (error) throw new Error(error.message);
-    }
-
-    const legacyState = safeJson<State>(LEGACY_STATE_KEY, {});
-    const entryRows = Object.values(legacyState)
-      .filter((entry) => isUuid(entry.deckId) && isUuid(entry.cardId))
-      .map((entry) => entryToRow(userId, entry));
-
-    if (entryRows.length > 0) {
-      const { error } = await accountLearningDb().from("delayed_recall_entries").upsert(entryRows, {
-        onConflict: "user_id,deck_id,card_id",
-      });
       if (error) throw new Error(error.message);
     }
 
@@ -233,22 +215,6 @@ function stageFromScore(score: number): RecallStageIdx {
   return 0;
 }
 
-function entryToRow(userId: string, entry: RecallEntry) {
-  return {
-    user_id: userId,
-    deck_id: entry.deckId,
-    card_id: entry.cardId,
-    score: entry.score,
-    stage_idx: entry.stageIdx,
-    interval_idx: entry.intervalIdx,
-    due_at: isoFromMs(entry.due) ?? new Date().toISOString(),
-    correct_count: entry.correct,
-    wrong_count: entry.wrong,
-    created_at: isoFromMs(entry.createdAt) ?? new Date().toISOString(),
-    last_review_at: isoFromMs(entry.lastReview),
-  };
-}
-
 function rowToEntry(row: {
   deck_id: string;
   card_id: string;
@@ -280,69 +246,52 @@ export function scheduleNewCard(deckId: string, cardId: string) {
   if (!isDeckDelayedRecallEnabled(deckId) || !isUuid(cardId)) return;
   const key = k(deckId, cardId);
   if (recallState[key]) return;
-  const now = Date.now();
-  const entry: RecallEntry = {
-    cardId,
-    deckId,
-    score: 0,
-    stageIdx: 0,
-    intervalIdx: 0,
-    due: now + RECALL_INTERVALS[0],
-    correct: 0,
-    wrong: 0,
-    createdAt: now,
-  };
-  recallState[key] = entry;
-  dispatchChanged();
-
   void (async () => {
-    const userId = await ensureMigrated();
-    if (!userId) return;
-    const { error } = await accountLearningDb()
-      .from("delayed_recall_entries")
-      .upsert(entryToRow(userId, entry), { onConflict: "user_id,deck_id,card_id" });
-    if (error) console.warn("[Delayed Recall] Could not schedule card:", error.message);
+    try {
+      const { error } = await supabase.rpc("schedule_recall_card", { p_card_id: cardId });
+      if (error) throw new Error(error.message);
+      await hydrateDelayedRecallState();
+    } catch (error) {
+      console.warn("[Delayed Recall] Could not schedule card:", error);
+    }
   })();
 }
 
 export function recordRecallAnswer(deckId: string, cardId: string, correct: boolean) {
   if (!isDeckDelayedRecallEnabled(deckId) || !isUuid(cardId)) return;
   const key = k(deckId, cardId);
-  const now = Date.now();
-  const entry: RecallEntry = recallState[key] ?? {
-    cardId,
-    deckId,
-    score: 0,
-    stageIdx: 0,
-    intervalIdx: 0,
-    due: now,
-    correct: 0,
-    wrong: 0,
-    createdAt: now,
-  };
-  if (correct) {
-    entry.correct += 1;
-    entry.score = Math.min(100, entry.score + 15);
-    entry.intervalIdx = Math.min(RECALL_INTERVALS.length - 1, entry.intervalIdx + 1);
-  } else {
-    entry.wrong += 1;
-    entry.score = Math.max(0, entry.score - 20);
-    entry.intervalIdx = 0; // earlier review
-  }
-  entry.stageIdx = stageFromScore(entry.score);
-  entry.lastReview = now;
-  entry.due = now + RECALL_INTERVALS[entry.intervalIdx];
-  recallState[key] = entry;
-  dispatchChanged();
-
-  void (async () => {
-    const userId = await ensureMigrated();
-    if (!userId) return;
-    const { error } = await accountLearningDb()
-      .from("delayed_recall_entries")
-      .upsert(entryToRow(userId, entry), { onConflict: "user_id,deck_id,card_id" });
-    if (error) console.warn("[Delayed Recall] Could not save answer:", error.message);
-  })();
+  void submitStudyAnswer({ deckId, cardId, mode: "recall", result: correct })
+    .then((result) => {
+      if (
+        result.recall_score === null ||
+        result.recall_stage_idx === null ||
+        result.recall_interval_idx === null ||
+        result.recall_due_at === null ||
+        result.recall_correct_count === null ||
+        result.recall_wrong_count === null
+      ) {
+        throw new Error("Trusted recall result was incomplete");
+      }
+      const previous = recallState[key];
+      const now = Date.now();
+      recallState[key] = {
+        cardId,
+        deckId,
+        score: result.recall_score,
+        stageIdx: result.recall_stage_idx as RecallStageIdx,
+        intervalIdx: result.recall_interval_idx,
+        due: new Date(result.recall_due_at).getTime(),
+        correct: result.recall_correct_count,
+        wrong: result.recall_wrong_count,
+        createdAt: previous?.createdAt ?? now,
+        lastReview: now,
+      };
+      dispatchChanged();
+    })
+    .catch((error: unknown) => {
+      console.warn("[Delayed Recall] Could not save trusted answer:", error);
+      void hydrateDelayedRecallState();
+    });
 }
 
 export function getDeckRecall(deckId: string): RecallEntry[] {

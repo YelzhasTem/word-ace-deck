@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { accountLearningDb } from "@/lib/account-learning-db";
 
-const LEGACY_KEY = "lingocards.lastStudied.v1";
 const MIGRATION_KEY = "lingocards.accountLastStudiedMigrated.v1";
 
 type LastStudiedMap = Record<string, number>;
@@ -16,12 +15,6 @@ function dispatchChanged() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event("lastStudied:changed"));
 }
 
-function isoFromMs(ms?: number) {
-  return typeof ms === "number" && Number.isFinite(ms) && ms > 0
-    ? new Date(ms).toISOString()
-    : null;
-}
-
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
 }
@@ -31,37 +24,14 @@ async function getUserId() {
   return data.session?.user.id ?? null;
 }
 
-function loadLegacy(): LastStudiedMap {
-  if (typeof window === "undefined") return {};
-  try {
-    const parsed = JSON.parse(localStorage.getItem(LEGACY_KEY) ?? "{}") as LastStudiedMap;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
 async function migrateLegacyLastStudied(userId: string) {
   if (typeof window === "undefined" || migrationStarted) return;
   if (localStorage.getItem(MIGRATION_KEY) === userId) return;
   migrationStarted = true;
 
   try {
-    const rows = Object.entries(loadLegacy())
-      .filter(([deckId, at]) => isUuid(deckId) && typeof at === "number")
-      .map(([deckId, at]) => ({
-        user_id: userId,
-        deck_id: deckId,
-        last_studied_at: isoFromMs(at) ?? new Date().toISOString(),
-      }));
-
-    if (rows.length > 0) {
-      const { error } = await accountLearningDb().from("last_studied_decks").upsert(rows, {
-        onConflict: "user_id,deck_id",
-      });
-      if (error) throw new Error(error.message);
-    }
-
+    // Server timestamps are authoritative; mutable legacy browser timestamps
+    // are not imported into trusted account state.
     localStorage.setItem(MIGRATION_KEY, userId);
   } finally {
     migrationStarted = false;
@@ -119,19 +89,12 @@ export function markDeckStudied(deckId: string) {
   dispatchChanged();
 
   void (async () => {
-    const userId = await ensureMigrated();
-    if (!userId) return;
-    const { error } = await accountLearningDb()
-      .from("last_studied_decks")
-      .upsert(
-        {
-          user_id: userId,
-          deck_id: deckId,
-          last_studied_at: new Date(at).toISOString(),
-        },
-        { onConflict: "user_id,deck_id" },
-      );
-    if (error) console.warn("[Last Studied] Could not save account data:", error.message);
+    try {
+      const { error } = await supabase.rpc("mark_deck_studied", { p_deck_id: deckId });
+      if (error) throw new Error(error.message);
+    } catch (error) {
+      console.warn("[Last Studied] Could not save trusted account data:", error);
+    }
   })();
 }
 
