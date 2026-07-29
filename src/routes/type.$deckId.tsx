@@ -3,7 +3,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { recordStreakToday } from "@/lib/streak";
-import { recordAnswer, isCloseMatch, prioritise, accuracyFor, useDeckStats } from "@/lib/stats";
+import { recordTextAnswer, prioritise, accuracyFor, useDeckStats } from "@/lib/stats";
+import { beginStudySession, prepareStudySession } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -46,6 +47,9 @@ function TypePage() {
   const [wrongIds, setWrongIds] = useState<string[]>([]);
   const [startedAt, setStartedAt] = useState<number>(() => Date.now());
   const [reverseSides, setReverseSides] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [serverExpected, setServerExpected] = useState("");
 
   useEffect(() => {
     setOrderIds(buildOrderIds(baseQueueIds()));
@@ -67,6 +71,13 @@ function TypePage() {
   useEffect(() => {
     setStartedAt(Date.now());
   }, [idx]);
+
+  useEffect(() => {
+    if (!deck) return;
+    void prepareStudySession(deck.id, "type").catch((error: unknown) =>
+      setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
+    );
+  }, [deck]);
 
   useEffect(() => {
     if (right > 0 || wrong > 0 || verdict) return;
@@ -105,26 +116,44 @@ function TypePage() {
   const reviewPrimary = (card: Card) => (reverseSides ? card.definition : card.term);
   const reviewSecondary = (card: Card) => (reverseSides ? card.term : card.definition);
 
-  const submit = (e?: React.FormEvent) => {
+  const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!current || verdict || !input.trim()) return;
+    if (!current || verdict || pending || !input.trim()) return;
     const elapsed = Date.now() - startedAt;
-    const ok = isCloseMatch(input, expectedAnswer);
-    if (ok) playCorrectSound();
-    else playWrongSound();
-    setVerdict(ok ? "ok" : "miss");
-    recordAnswer(deck.id, current.id, ok, elapsed, { mode: "type" });
-    if (ok) {
-      setRight((r) => r + 1);
-      recordStreakToday();
-    } else {
-      setWrong((w) => w + 1);
-      setWrongIds((ids) => [...ids, current.id]);
+    setPending(true);
+    setSaveError("");
+    try {
+      const result = await recordTextAnswer({
+        deckId: deck.id,
+        cardId: current.id,
+        mode: "type",
+        direction: reverseSides ? "definition_to_term" : "term_to_definition",
+        submittedAnswer: input,
+        responseMs: elapsed,
+      });
+      const ok = result.correct;
+      setServerExpected(result.expected_answer ?? expectedAnswer);
+      if (ok) playCorrectSound();
+      else playWrongSound();
+      setVerdict(ok ? "ok" : "miss");
+      if (ok) {
+        setRight((r) => r + 1);
+        recordStreakToday();
+      } else {
+        setWrong((w) => w + 1);
+        setWrongIds((ids) => [...ids, current.id]);
+      }
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not check this answer");
+    } finally {
+      setPending(false);
     }
   };
 
   const next = () => {
     setVerdict(null);
+    setServerExpected("");
+    setSaveError("");
     setInput("");
     setIdx((i) => i + 1);
   };
@@ -137,6 +166,11 @@ function TypePage() {
     setWrong(0);
     setWrongIds([]);
     setStartedAt(Date.now());
+    setServerExpected("");
+    setSaveError("");
+    void beginStudySession(deck.id, "type").catch((error: unknown) =>
+      setSaveError(error instanceof Error ? error.message : "Could not restart this study session"),
+    );
   };
   const shuffleRemaining = () => {
     const nextShuffleEnabled = !shuffleEnabled;
@@ -177,7 +211,7 @@ function TypePage() {
               size="sm"
               className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
               onClick={shuffleRemaining}
-              disabled={!!verdict}
+              disabled={!!verdict || pending}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>
@@ -191,7 +225,7 @@ function TypePage() {
                 setInput("");
                 setStartedAt(Date.now());
               }}
-              disabled={!!verdict}
+              disabled={!!verdict || pending}
             >
               <Repeat className="h-4 w-4" /> Reverse sides
             </Button>
@@ -276,24 +310,29 @@ function TypePage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={answerPlaceholder}
-                disabled={!!verdict}
+                disabled={!!verdict || pending}
                 className="h-14 text-lg rounded-2xl"
               />
               {verdict === "ok" && (
                 <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm flex items-center gap-2">
-                  <Check className="h-4 w-4" /> Correct! {expectedAnswer}
+                  <Check className="h-4 w-4" /> Correct! {serverExpected}
                 </div>
               )}
               {verdict === "miss" && (
                 <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-center gap-2">
                   <X className="h-4 w-4" /> Correct answer:{" "}
-                  <span className="font-semibold">{expectedAnswer}</span>
+                  <span className="font-semibold">{serverExpected}</span>
                 </div>
               )}
+              {saveError && <p className="text-sm text-destructive">{saveError}</p>}
               <div className="flex justify-end gap-2">
                 {!verdict ? (
-                  <Button type="submit" className="rounded-full" disabled={!input.trim()}>
-                    Check
+                  <Button
+                    type="submit"
+                    className="rounded-full"
+                    disabled={!input.trim() || pending}
+                  >
+                    {pending ? "Checking..." : "Check"}
                   </Button>
                 ) : (
                   <Button type="button" className="rounded-full" onClick={next}>

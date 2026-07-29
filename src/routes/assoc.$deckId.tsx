@@ -4,7 +4,14 @@ import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
 import { generateAssociation } from "@/lib/ai.functions";
 import { recordStreakToday } from "@/lib/streak";
-import { recordAnswer, useAssocs, addAssoc, toggleFavoriteAssoc, removeAssoc } from "@/lib/stats";
+import {
+  recordSelfReportedAnswer,
+  useAssocs,
+  addAssoc,
+  toggleFavoriteAssoc,
+  removeAssoc,
+} from "@/lib/stats";
+import { prepareStudySession } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { OFFLINE_AI_MESSAGE, useOnlineStatus } from "@/lib/online-status";
@@ -54,6 +61,7 @@ function AssocPage() {
   const [my, setMy] = useState("");
   const [orderIds, setOrderIds] = useState<string[]>([]);
   const [reverseSides, setReverseSides] = useState(false);
+  const [answerPending, setAnswerPending] = useState(false);
 
   const deckCardIds = deck?.cards.map((card) => card.id).join("|") ?? "";
   const buildOrderIds = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
@@ -64,6 +72,11 @@ function AssocPage() {
     setIdx(0);
     setRevealed(false);
     setMy("");
+    void prepareStudySession(deck.id, "assoc").catch((sessionError: unknown) =>
+      setError(
+        sessionError instanceof Error ? sessionError.message : "Could not start this session",
+      ),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck, deckCardIds]);
 
@@ -168,12 +181,27 @@ function AssocPage() {
     setRevealed(false);
   };
 
-  const mark = (helped: boolean) => {
-    if (helped) playCorrectSound();
-    else playWrongSound();
-    recordAnswer(deck.id, current.id, helped, undefined, { mode: "assoc" });
-    if (helped) recordStreakToday();
-    go(1);
+  const mark = async (helped: boolean) => {
+    if (answerPending) return;
+    setAnswerPending(true);
+    setError("");
+    try {
+      await recordSelfReportedAnswer({
+        deckId: deck.id,
+        cardId: current.id,
+        mode: "assoc",
+        direction: reverseSides ? "definition_to_term" : "term_to_definition",
+        selfReportedResult: helped,
+      });
+      if (helped) playCorrectSound();
+      else playWrongSound();
+      if (helped) recordStreakToday();
+      go(1);
+    } catch (answerError) {
+      setError(answerError instanceof Error ? answerError.message : "Could not save this answer");
+    } finally {
+      setAnswerPending(false);
+    }
   };
 
   const frontLabel = reverseSides ? "Translation" : "Word";
@@ -339,12 +367,18 @@ function AssocPage() {
         </section>
 
         <div className="flex justify-between gap-3">
-          <Button variant="outline" className="rounded-full" onClick={() => mark(false)}>
+          <Button
+            variant="outline"
+            className="rounded-full"
+            onClick={() => mark(false)}
+            disabled={answerPending}
+          >
             <X className="h-4 w-4" /> Did not help
           </Button>
           <Button
             className="rounded-full bg-success text-white hover:bg-success/90"
             onClick={() => mark(true)}
+            disabled={answerPending}
           >
             <Check className="h-4 w-4" /> Helped me remember
           </Button>

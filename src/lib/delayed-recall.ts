@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { accountLearningDb } from "@/lib/account-learning-db";
-import { submitStudyAnswer } from "@/lib/study-session";
+import { submitTextStudyAnswer, type StudyDirection } from "@/lib/study-session";
 
 // ===== Deck-level settings =====
 const LEGACY_ENABLED_DECKS_KEY = "lingocards.delayedRecall.enabledDecks.v1";
@@ -257,41 +257,54 @@ export function scheduleNewCard(deckId: string, cardId: string) {
   })();
 }
 
-export function recordRecallAnswer(deckId: string, cardId: string, correct: boolean) {
-  if (!isDeckDelayedRecallEnabled(deckId) || !isUuid(cardId)) return;
+export async function recordRecallAnswer(
+  deckId: string,
+  cardId: string,
+  submittedAnswer: string,
+  direction: StudyDirection,
+) {
+  if (!isDeckDelayedRecallEnabled(deckId) || !isUuid(cardId)) {
+    throw new Error("Delayed Recall is not available for this card");
+  }
   const key = k(deckId, cardId);
-  void submitStudyAnswer({ deckId, cardId, mode: "recall", result: correct })
-    .then((result) => {
-      if (
-        result.recall_score === null ||
-        result.recall_stage_idx === null ||
-        result.recall_interval_idx === null ||
-        result.recall_due_at === null ||
-        result.recall_correct_count === null ||
-        result.recall_wrong_count === null
-      ) {
-        throw new Error("Trusted recall result was incomplete");
-      }
-      const previous = recallState[key];
-      const now = Date.now();
-      recallState[key] = {
-        cardId,
-        deckId,
-        score: result.recall_score,
-        stageIdx: result.recall_stage_idx as RecallStageIdx,
-        intervalIdx: result.recall_interval_idx,
-        due: new Date(result.recall_due_at).getTime(),
-        correct: result.recall_correct_count,
-        wrong: result.recall_wrong_count,
-        createdAt: previous?.createdAt ?? now,
-        lastReview: now,
-      };
-      dispatchChanged();
-    })
-    .catch((error: unknown) => {
-      console.warn("[Delayed Recall] Could not save trusted answer:", error);
-      void hydrateDelayedRecallState();
+  try {
+    const result = await submitTextStudyAnswer({
+      deckId,
+      cardId,
+      mode: "recall",
+      direction,
+      submittedAnswer,
     });
+    if (
+      result.recall_score === null ||
+      result.recall_stage_idx === null ||
+      result.recall_interval_idx === null ||
+      result.recall_due_at === null ||
+      result.recall_correct_count === null ||
+      result.recall_wrong_count === null
+    ) {
+      throw new Error("Trusted recall result was incomplete");
+    }
+    const previous = recallState[key];
+    const now = Date.now();
+    recallState[key] = {
+      cardId,
+      deckId,
+      score: result.recall_score,
+      stageIdx: Math.min(4, Math.max(0, result.recall_stage_idx)) as RecallStageIdx,
+      intervalIdx: result.recall_interval_idx,
+      due: new Date(result.recall_due_at).getTime(),
+      correct: result.recall_correct_count,
+      wrong: result.recall_wrong_count,
+      createdAt: previous?.createdAt ?? now,
+      lastReview: now,
+    };
+    dispatchChanged();
+    return result;
+  } catch (error) {
+    void hydrateDelayedRecallState();
+    throw error;
+  }
 }
 
 export function getDeckRecall(deckId: string): RecallEntry[] {

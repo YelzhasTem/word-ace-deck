@@ -66,20 +66,22 @@ async function createDeck(userId, visibility, label) {
   return data.id;
 }
 
-async function createCard(userId, deckId, label) {
+async function createCard(userId, deckId, label, position = 0) {
+  const term = `temporary-${label}`;
+  const definition = `temporary definition ${label}`;
   const { data, error } = await admin
     .from("cards")
     .insert({
       user_id: userId,
       deck_id: deckId,
-      term: `temporary-${label}`,
-      definition: `temporary definition ${label}`,
-      position: 0,
+      term,
+      definition,
+      position,
     })
     .select("id")
     .single();
   if (error) throw new Error(`Could not create fixture card ${label}`);
-  return data.id;
+  return { id: data.id, term, definition };
 }
 
 async function verifyDatabaseConstraints(userAId, deckAId, cardAId, userBId, deckBId) {
@@ -129,12 +131,22 @@ try {
   const userA = await createFixtureUser("a");
   const userB = await createFixtureUser("b");
   const deckAId = await createDeck(userA.id, "private", "a-private");
-  const cardAId = await createCard(userA.id, deckAId, "a-private");
+  const cardsA = await Promise.all(
+    Array.from({ length: 4 }, (_, index) =>
+      createCard(userA.id, deckAId, `a-private-${index}`, index),
+    ),
+  );
+  cardsA[3].definition = "primary answer, alternate answer";
+  const { error: alternativeAnswerError } = await admin
+    .from("cards")
+    .update({ definition: cardsA[3].definition })
+    .eq("id", cardsA[3].id);
+  if (alternativeAnswerError) throw new Error("Could not prepare alternative-answer fixture");
   const privateDeckBId = await createDeck(userB.id, "private", "b-private");
-  const privateCardBId = await createCard(userB.id, privateDeckBId, "b-private");
+  const privateCardB = await createCard(userB.id, privateDeckBId, "b-private");
   const publicDeckBId = await createDeck(userB.id, "public", "b-public");
-  const publicCardBId = await createCard(userB.id, publicDeckBId, "b-public");
-  await verifyDatabaseConstraints(userA.id, deckAId, cardAId, userB.id, privateDeckBId);
+  const publicCardB = await createCard(userB.id, publicDeckBId, "b-public");
+  await verifyDatabaseConstraints(userA.id, deckAId, cardsA[0].id, userB.id, privateDeckBId);
 
   const childEnvironment = {
     PATH: process.env.PATH,
@@ -143,16 +155,21 @@ try {
     SUPABASE_PUBLISHABLE_KEY: publishableKey,
     STUDY_TEST_EXPECT_DIRECT_WRITES_BLOCKED:
       process.env.STUDY_TEST_EXPECT_DIRECT_WRITES_BLOCKED ?? "true",
+    STUDY_TEST_EXPECT_LEGACY_BOOLEAN_BLOCKED:
+      process.env.STUDY_TEST_EXPECT_LEGACY_BOOLEAN_BLOCKED ?? "true",
     STUDY_TEST_USER_A_ACCESS_TOKEN: userA.accessToken,
     STUDY_TEST_USER_A_ID: userA.id,
     STUDY_TEST_USER_B_ACCESS_TOKEN: userB.accessToken,
     STUDY_TEST_USER_B_ID: userB.id,
     STUDY_TEST_DECK_A_ID: deckAId,
-    STUDY_TEST_CARD_A_ID: cardAId,
+    STUDY_TEST_CARD_A_ID: cardsA[0].id,
+    STUDY_TEST_CARDS_A_JSON: JSON.stringify(cardsA),
     STUDY_TEST_PRIVATE_DECK_B_ID: privateDeckBId,
-    STUDY_TEST_PRIVATE_CARD_B_ID: privateCardBId,
+    STUDY_TEST_PRIVATE_CARD_B_ID: privateCardB.id,
     STUDY_TEST_PUBLIC_DECK_B_ID: publicDeckBId,
-    STUDY_TEST_PUBLIC_CARD_B_ID: publicCardBId,
+    STUDY_TEST_PUBLIC_CARD_B_ID: publicCardB.id,
+    STUDY_TEST_PUBLIC_CARD_B_TERM: publicCardB.term,
+    STUDY_TEST_PUBLIC_CARD_B_DEFINITION: publicCardB.definition,
   };
   const result = spawnSync(process.execPath, ["scripts/verify-study-data-integrity.mjs"], {
     cwd: process.cwd(),

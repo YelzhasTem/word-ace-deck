@@ -1,7 +1,18 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { accountLearningDb } from "@/lib/account-learning-db";
-import { completeStudySession, submitStudyAnswer, type StudyMode } from "@/lib/study-session";
+import {
+  completeStudySession,
+  submitMultipleChoiceStudyAnswer,
+  submitSelfReportedStudyAnswer,
+  submitTextStudyAnswer,
+  type IssuedStudyQuestion,
+  type MultipleChoiceStudyMode,
+  type SelfReportedStudyMode,
+  type StudyAnswerResult,
+  type StudyDirection,
+  type TextStudyMode,
+} from "@/lib/study-session";
 
 export type CardStat = {
   correct: number;
@@ -149,61 +160,80 @@ export async function hydrateDeckStats(deckId: string) {
   dispatch("stats:changed");
 }
 
-export function recordAnswer(
+function applyStudyAnswer(
   deckId: string,
-  cardId: string,
-  correct: boolean,
+  progressKey: string,
   responseMs?: number,
-  options: {
-    mode?: StudyMode;
-    progressKey?: string;
-    durationSeconds?: 30 | 60 | 120;
-    idempotencyKey?: string;
-  } = {},
+  result?: StudyAnswerResult,
 ) {
-  if (typeof window === "undefined") return;
-  const progressKey = options.progressKey ?? cardId;
+  if (!result) throw new Error("The server returned no study result");
   const event: SessionAnswer = {
     deckId,
     cardId: progressKey,
-    correct,
+    correct: result.correct,
     ms: responseMs,
     at: Date.now(),
   };
   sessionCache = [...sessionCache, event].slice(-500);
   dispatch("session:changed");
 
-  void submitStudyAnswer({
-    deckId,
-    cardId,
-    mode: options.mode ?? "study",
-    result: correct,
-    responseMs,
-    progressKey,
-    durationSeconds: options.durationSeconds,
-    idempotencyKey: options.idempotencyKey,
-  })
-    .then((result) => {
-      const deck = statsCache[deckId] ?? {};
-      deck[progressKey] = {
-        correct: result.correct_count,
-        wrong: result.wrong_count,
-        lastSeen: event.at,
-        mastery: Number(result.mastery),
-        stage: result.stage,
-        due: msFromIso(result.due_at),
-        avgMs: result.avg_ms ?? undefined,
-        totalMs: result.total_ms ?? undefined,
-        samples: result.samples ?? undefined,
-        slowMisses: result.slow_misses,
-      };
-      statsCache[deckId] = deck;
-      dispatch("stats:changed");
-    })
-    .catch((error: unknown) => {
-      console.warn("[Learning] Could not save trusted answer:", error);
-      void hydrateDeckStats(deckId);
-    });
+  const deck = statsCache[deckId] ?? {};
+  deck[progressKey] = {
+    correct: result.correct_count,
+    wrong: result.wrong_count,
+    lastSeen: event.at,
+    mastery: Number(result.mastery),
+    stage: result.stage,
+    due: msFromIso(result.due_at),
+    avgMs: result.avg_ms ?? undefined,
+    totalMs: result.total_ms ?? undefined,
+    samples: result.samples ?? undefined,
+    slowMisses: result.slow_misses,
+  };
+  statsCache[deckId] = deck;
+  dispatch("stats:changed");
+}
+
+export async function recordTextAnswer(input: {
+  deckId: string;
+  cardId: string;
+  mode: TextStudyMode;
+  direction: StudyDirection;
+  submittedAnswer: string;
+  responseMs?: number;
+}) {
+  const result = await submitTextStudyAnswer(input);
+  applyStudyAnswer(input.deckId, input.cardId, input.responseMs, result);
+  return result;
+}
+
+export async function recordMultipleChoiceAnswer(input: {
+  deckId: string;
+  mode: MultipleChoiceStudyMode;
+  question: IssuedStudyQuestion;
+  selectedOptionId: string;
+  responseMs?: number;
+}) {
+  const result = await submitMultipleChoiceStudyAnswer(input);
+  applyStudyAnswer(input.deckId, input.question.cardId, input.responseMs, result);
+  return result;
+}
+
+export async function recordSelfReportedAnswer(input: {
+  deckId: string;
+  cardId: string;
+  mode: SelfReportedStudyMode;
+  direction: StudyDirection;
+  selfReportedResult: boolean;
+  responseMs?: number;
+}) {
+  const result = await submitSelfReportedStudyAnswer(input);
+  const progressKey =
+    input.mode === "reverse" && input.direction === "definition_to_term"
+      ? `${input.cardId}:rev`
+      : input.cardId;
+  applyStudyAnswer(input.deckId, progressKey, input.responseMs, result);
+  return result;
 }
 
 export function getDeckStats(deckId: string): DeckStats {
@@ -264,50 +294,6 @@ export function prioritise<T extends { id: string }>(deckId: string, cards: T[])
     const mb = stats[b.id]?.mastery ?? 0.5;
     return ma - mb;
   });
-}
-
-export function normalise(s: string) {
-  return s
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[.,!?;:"'`()[\]]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-export function levenshtein(a: string, b: string): number {
-  const m = a.length;
-  const n = b.length;
-  if (!m) return n;
-  if (!n) return m;
-  const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
-  for (let i = 0; i <= m; i++) dp[i][0] = i;
-  for (let j = 0; j <= n; j++) dp[0][j] = j;
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      dp[i][j] =
-        a[i - 1] === b[j - 1]
-          ? dp[i - 1][j - 1]
-          : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
-    }
-  }
-  return dp[m][n];
-}
-
-export function isCloseMatch(input: string, expected: string) {
-  const got = normalise(input);
-  if (!got) return false;
-  const variants = expected
-    .split(/[,/;]/)
-    .map((v) => normalise(v))
-    .filter(Boolean);
-  for (const v of variants) {
-    if (v === got) return true;
-    const tol = v.length <= 4 ? 1 : v.length <= 8 ? 2 : 3;
-    if (levenshtein(v, got) <= tol) return true;
-  }
-  return false;
 }
 
 export type SessionAnswer = {

@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDeck } from "@/lib/decks";
 import { useServerFn } from "@tanstack/react-start";
 import { recordStreakToday } from "@/lib/streak";
-import { recordAnswer } from "@/lib/stats";
+import { recordSelfReportedAnswer } from "@/lib/stats";
+import { prepareStudySession } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -37,6 +38,8 @@ function StudyPage() {
   const [rated, setRated] = useState(false);
   const [sessionCorrect, setSessionCorrect] = useState(0);
   const [sessionWrong, setSessionWrong] = useState(0);
+  const [pending, setPending] = useState(false);
+  const [saveError, setSaveError] = useState("");
   const autoResetDeckRef = useRef<string | null>(null);
 
   const queueSource = useMemo(
@@ -56,6 +59,13 @@ function StudyPage() {
     setSessionWrong(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deckId, deckCardsKey]);
+
+  useEffect(() => {
+    if (!deck) return;
+    void prepareStudySession(deck.id, "study").catch((error: unknown) =>
+      setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
+    );
+  }, [deck]);
 
   useEffect(() => {
     setOrder((prev) => {
@@ -133,34 +143,61 @@ function StudyPage() {
   const frontText = current ? (reverseSides ? current.definition : current.term) : "";
   const backText = current ? (reverseSides ? current.term : current.definition) : "";
 
-  const handleKnown = () => {
-    if (!current) return;
-    playCorrectSound();
-    setFlipped(false);
-    recordAnswer(deck.id, current.id, true);
-    setSessionCorrect((count) => count + 1);
-    markCard(deck.id, current.id, true);
-    recordStreakToday();
-    // The card automatically leaves the queue through queueSource,
-    // the next card takes the current index, so no separate advance is needed.
+  const handleKnown = async () => {
+    if (!current || pending) return;
+    setPending(true);
+    setSaveError("");
+    try {
+      await recordSelfReportedAnswer({
+        deckId: deck.id,
+        cardId: current.id,
+        mode: "study",
+        direction: reverseSides ? "definition_to_term" : "term_to_definition",
+        selfReportedResult: true,
+      });
+      playCorrectSound();
+      setFlipped(false);
+      setSessionCorrect((count) => count + 1);
+      markCard(deck.id, current.id, true);
+      recordStreakToday();
+      // The card automatically leaves the queue through queueSource.
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save this answer");
+    } finally {
+      setPending(false);
+    }
   };
 
-  const handleAgain = () => {
-    if (!current) return;
-    playWrongSound();
-    setFlipped(false);
-    recordAnswer(deck.id, current.id, false);
-    setSessionWrong((count) => count + 1);
-    const currentIndex = order.indexOf(current.id);
-    setOrder((prev) => {
-      if (prev.length <= 1 || currentIndex === -1) return prev;
-      const next = [...prev];
-      const [cur] = next.splice(currentIndex, 1);
-      next.push(cur);
-      return next;
-    });
-    if (order.length > 1 && currentIndex !== -1) {
-      setIdx(currentIndex >= order.length - 1 ? 0 : currentIndex);
+  const handleAgain = async () => {
+    if (!current || pending) return;
+    setPending(true);
+    setSaveError("");
+    try {
+      await recordSelfReportedAnswer({
+        deckId: deck.id,
+        cardId: current.id,
+        mode: "study",
+        direction: reverseSides ? "definition_to_term" : "term_to_definition",
+        selfReportedResult: false,
+      });
+      playWrongSound();
+      setFlipped(false);
+      setSessionWrong((count) => count + 1);
+      const currentIndex = order.indexOf(current.id);
+      setOrder((prev) => {
+        if (prev.length <= 1 || currentIndex === -1) return prev;
+        const next = [...prev];
+        const [cur] = next.splice(currentIndex, 1);
+        next.push(cur);
+        return next;
+      });
+      if (order.length > 1 && currentIndex !== -1) {
+        setIdx(currentIndex >= order.length - 1 ? 0 : currentIndex);
+      }
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save this answer");
+    } finally {
+      setPending(false);
     }
   };
 
@@ -359,6 +396,7 @@ function StudyPage() {
                 size="lg"
                 className="rounded-full h-14 text-base border-border hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40"
                 onClick={handleAgain}
+                disabled={pending}
               >
                 <X className="h-5 w-5" /> Try again
               </Button>
@@ -366,10 +404,13 @@ function StudyPage() {
                 size="lg"
                 className="rounded-full h-14 text-base bg-success text-white hover:bg-success/90"
                 onClick={handleKnown}
+                disabled={pending}
               >
                 <Check className="h-5 w-5" /> Know it
               </Button>
             </div>
+
+            {saveError && <p className="mt-3 text-sm text-destructive">{saveError}</p>}
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
               <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> /{" "}
