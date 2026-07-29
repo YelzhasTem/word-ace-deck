@@ -96,14 +96,17 @@ async function readPublicProfile(client, label, userId) {
 async function readAndUpdateOwnPrivateData(client, label, userId) {
   const { data, error } = await client
     .from("profile_private")
-    .select("user_id, native_language")
+    .select("user_id, native_language, username_privacy_review_needed")
     .eq("user_id", userId)
     .single();
   assert.ifError(error);
 
   const { error: updateError } = await client
     .from("profile_private")
-    .update({ native_language: data.native_language })
+    .update({
+      native_language: data.native_language,
+      username_privacy_review_needed: data.username_privacy_review_needed,
+    })
     .eq("user_id", userId);
   assert.ifError(updateError);
   assert.equal(data.user_id, userId, `${label} read another user's private row`);

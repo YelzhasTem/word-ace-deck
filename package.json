@@ -10,6 +10,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "check:profile-privacy": "npm run test:security:profiles:static && npm run typecheck",
+    "test:security:profiles:static": "node scripts/check-profile-privacy-static.mjs",
     "test:security:profiles": "node scripts/verify-profile-email-privacy.mjs",
     "test:security:profiles:fixture": "node scripts/run-profile-email-privacy-fixture.mjs"
   },

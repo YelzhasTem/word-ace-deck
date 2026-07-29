@@ -836,6 +836,7 @@ export type Database = {
           total_xp: number;
           updated_at: string;
           user_id: string;
+          username_privacy_review_needed: boolean;
         };
         Insert: {
           created_at?: string;
@@ -846,6 +847,7 @@ export type Database = {
           total_xp?: number;
           updated_at?: string;
           user_id: string;
+          username_privacy_review_needed?: boolean;
         };
         Update: {
           created_at?: string;
@@ -856,6 +858,7 @@ export type Database = {
           total_xp?: number;
           updated_at?: string;
           user_id?: string;
+          username_privacy_review_needed?: boolean;
         };
         Relationships: [];
       };
