@@ -1397,69 +1397,39 @@ export type Database = {
         Args: { _fallback?: string; _value: string };
         Returns: string;
       };
-      record_study_answer:
-        | {
-            Args: {
-              p_idempotency_key: string;
-              p_question_id: string;
-              p_response_ms?: number;
-              p_selected_option_id?: string;
-              p_self_reported_result?: boolean;
-              p_submitted_answer?: string;
-            };
-            Returns: {
-              avg_ms: number;
-              correct: boolean;
-              correct_count: number;
-              correct_option_id: string;
-              due_at: string;
-              duplicate: boolean;
-              event_id: string;
-              expected_answer: string;
-              mastery: number;
-              recall_correct_count: number;
-              recall_due_at: string;
-              recall_interval_idx: number;
-              recall_score: number;
-              recall_stage_idx: number;
-              recall_wrong_count: number;
-              samples: number;
-              slow_misses: number;
-              stage: number;
-              total_ms: number;
-              verification_type: string;
-              wrong_count: number;
-            }[];
-          }
-        | {
-            Args: {
-              p_card_id: string;
-              p_idempotency_key: string;
-              p_progress_key?: string;
-              p_response_ms?: number;
-              p_result: boolean;
-              p_session_id: string;
-            };
-            Returns: {
-              avg_ms: number;
-              correct_count: number;
-              due_at: string;
-              duplicate: boolean;
-              event_id: string;
-              mastery: number;
-              recall_correct_count: number;
-              recall_due_at: string;
-              recall_interval_idx: number;
-              recall_score: number;
-              recall_stage_idx: number;
-              recall_wrong_count: number;
-              samples: number;
-              slow_misses: number;
-              stage: number;
-              total_ms: number;
-              wrong_count: number;
-            }[];
-          };
+      record_study_answer: {
+        Args: {
+          p_idempotency_key: string;
+          p_question_id: string;
+          p_response_ms?: number;
+          p_selected_option_id?: string;
+          p_self_reported_result?: boolean;
+          p_submitted_answer?: string;
+        };
+        Returns: {
+          avg_ms: number;
+          correct: boolean;
+          correct_count: number;
+          correct_option_id: string;
+          due_at: string;
+          duplicate: boolean;
+          event_id: string;
+          expected_answer: string;
+          mastery: number;
+          recall_correct_count: number;
+          recall_due_at: string;
+          recall_interval_idx: number;
+          recall_score: number;
+          recall_stage_idx: number;
+          recall_wrong_count: number;
+          samples: number;
+          slow_misses: number;
+          stage: number;
+          total_ms: number;
+          verification_type: string;
+          wrong_count: number;
+        }[];
+      };
       record_study_answer_v2: {
         Args: {
           p_idempotency_key: string;

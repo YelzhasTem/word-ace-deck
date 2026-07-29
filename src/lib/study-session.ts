@@ -28,7 +28,7 @@ export type IssuedStudyQuestion = {
 };
 
 export type StudyAnswerResult =
-  Database["public"]["Functions"]["record_study_answer_v2"]["Returns"][number];
+  Database["public"]["Functions"]["record_study_answer"]["Returns"][number];
 
 export type CompletedStudySession =
   Database["public"]["Functions"]["complete_study_session"]["Returns"][number];

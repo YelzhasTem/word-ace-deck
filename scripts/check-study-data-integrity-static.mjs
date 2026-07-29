@@ -143,6 +143,11 @@ for (const requiredType of [
 ]) {
   assert.match(typesSource, new RegExp(`\\b${requiredType}\\b`), `Missing ${requiredType} type`);
 }
+assert.doesNotMatch(
+  typesSource,
+  /p_result:\s*boolean/,
+  "Generated database types expose the removed trusted study result parameter",
+);
 for (const route of ["type", "recall", "speed", "deep"]) {
   const routeSource = fs.readFileSync(path.join(root, `src/routes/${route}.$deckId.tsx`), "utf8");
   for (const forbidden of ["isCloseMatch", "correctIndex", "recordAnswer("]) {
