@@ -16,6 +16,7 @@ on:
       - "src/lib/streak.ts"
       - "src/lib/study-session.ts"
       - "src/routes/assoc*"
+      - "src/routes/deep*"
       - "src/routes/recall*"
       - "src/routes/reverse*"
       - "src/routes/speed*"
@@ -38,6 +39,7 @@ on:
       - "src/lib/streak.ts"
       - "src/lib/study-session.ts"
       - "src/routes/assoc*"
+      - "src/routes/deep*"
       - "src/routes/recall*"
       - "src/routes/reverse*"
       - "src/routes/speed*"
@@ -76,10 +78,12 @@ jobs:
       - run: npm ci
       - uses: supabase/setup-cli@v2
         with:
-          version: 2.108.0
+          version: 2.110.0
           github-token: ${{ github.token }}
       - name: Start isolated Supabase
         run: supabase start
+      - name: Lint database functions and schema
+        run: supabase db lint --local --level warning
       - name: Export local test variables
         run: |
           supabase status -o env \

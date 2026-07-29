@@ -9,78 +9,33 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as ResetPasswordRouteImport } from './routes/reset-password'
-import { Route as PublishRouteImport } from './routes/publish'
-import { Route as ProfileRouteImport } from './routes/profile'
-import { Route as FriendsRouteImport } from './routes/friends'
-import { Route as DecksRouteImport } from './routes/decks'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as CommunityAdminRouteImport } from './routes/community-admin'
-import { Route as CommunityRouteImport } from './routes/community'
-import { Route as CollectionsRouteImport } from './routes/collections'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
-import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
-import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
-import { Route as ReverseDeckIdRouteImport } from './routes/reverse.$deckId'
-import { Route as RecallDeckIdRouteImport } from './routes/recall.$deckId'
-import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
-import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
-import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
-import { Route as CommunityDeckIdRouteImport } from './routes/community.$deckId'
-import { Route as CollectionsCollectionIdRouteImport } from './routes/collections_.$collectionId'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as CollectionsRouteImport } from './routes/collections'
+import { Route as CommunityRouteImport } from './routes/community'
+import { Route as CommunityAdminRouteImport } from './routes/community-admin'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as DecksRouteImport } from './routes/decks'
+import { Route as FriendsRouteImport } from './routes/friends'
+import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as PublishRouteImport } from './routes/publish'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
+import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
+import { Route as CollectionsCollectionIdRouteImport } from './routes/collections_.$collectionId'
+import { Route as CommunityDeckIdRouteImport } from './routes/community.$deckId'
+import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
+import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
+import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
+import { Route as RecallDeckIdRouteImport } from './routes/recall.$deckId'
+import { Route as ReverseDeckIdRouteImport } from './routes/reverse.$deckId'
+import { Route as SpeedDeckIdRouteImport } from './routes/speed.$deckId'
+import { Route as StudyDeckIdRouteImport } from './routes/study.$deckId'
+import { Route as TypeDeckIdRouteImport } from './routes/type.$deckId'
 
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ResetPasswordRoute = ResetPasswordRouteImport.update({
-  id: '/reset-password',
-  path: '/reset-password',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PublishRoute = PublishRouteImport.update({
-  id: '/publish',
-  path: '/publish',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProfileRoute = ProfileRouteImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const FriendsRoute = FriendsRouteImport.update({
-  id: '/friends',
-  path: '/friends',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DecksRoute = DecksRouteImport.update({
-  id: '/decks',
-  path: '/decks',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CommunityAdminRoute = CommunityAdminRouteImport.update({
-  id: '/community-admin',
-  path: '/community-admin',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CommunityRoute = CommunityRouteImport.update({
-  id: '/community',
-  path: '/community',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const CollectionsRoute = CollectionsRouteImport.update({
-  id: '/collections',
-  path: '/collections',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -88,49 +43,64 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const CollectionsRoute = CollectionsRouteImport.update({
+  id: '/collections',
+  path: '/collections',
   getParentRoute: () => rootRouteImport,
 } as any)
-const TypeDeckIdRoute = TypeDeckIdRouteImport.update({
-  id: '/type/$deckId',
-  path: '/type/$deckId',
+const CommunityRoute = CommunityRouteImport.update({
+  id: '/community',
+  path: '/community',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StudyDeckIdRoute = StudyDeckIdRouteImport.update({
-  id: '/study/$deckId',
-  path: '/study/$deckId',
+const CommunityAdminRoute = CommunityAdminRouteImport.update({
+  id: '/community-admin',
+  path: '/community-admin',
   getParentRoute: () => rootRouteImport,
 } as any)
-const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
-  id: '/speed/$deckId',
-  path: '/speed/$deckId',
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ReverseDeckIdRoute = ReverseDeckIdRouteImport.update({
-  id: '/reverse/$deckId',
-  path: '/reverse/$deckId',
+const DecksRoute = DecksRouteImport.update({
+  id: '/decks',
+  path: '/decks',
   getParentRoute: () => rootRouteImport,
 } as any)
-const RecallDeckIdRoute = RecallDeckIdRouteImport.update({
-  id: '/recall/$deckId',
-  path: '/recall/$deckId',
+const FriendsRoute = FriendsRouteImport.update({
+  id: '/friends',
+  path: '/friends',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DeepDeckIdRoute = DeepDeckIdRouteImport.update({
-  id: '/deep/$deckId',
-  path: '/deep/$deckId',
+const ProfileRoute = ProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DeckDeckIdRoute = DeckDeckIdRouteImport.update({
-  id: '/deck/$deckId',
-  path: '/deck/$deckId',
+const PublishRoute = PublishRouteImport.update({
+  id: '/publish',
+  path: '/publish',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CreatorUserIdRoute = CreatorUserIdRouteImport.update({
-  id: '/creator/$userId',
-  path: '/creator/$userId',
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SettingsRoute = SettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
+  id: '/assoc/$deckId',
+  path: '/assoc/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CollectionsCollectionIdRoute = CollectionsCollectionIdRouteImport.update({
+  id: '/collections_/$collectionId',
+  path: '/collections/$collectionId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityDeckIdRoute = CommunityDeckIdRouteImport.update({
@@ -138,14 +108,44 @@ const CommunityDeckIdRoute = CommunityDeckIdRouteImport.update({
   path: '/$deckId',
   getParentRoute: () => CommunityRoute,
 } as any)
-const CollectionsCollectionIdRoute = CollectionsCollectionIdRouteImport.update({
-  id: '/collections_/$collectionId',
-  path: '/collections/$collectionId',
+const CreatorUserIdRoute = CreatorUserIdRouteImport.update({
+  id: '/creator/$userId',
+  path: '/creator/$userId',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AssocDeckIdRoute = AssocDeckIdRouteImport.update({
-  id: '/assoc/$deckId',
-  path: '/assoc/$deckId',
+const DeckDeckIdRoute = DeckDeckIdRouteImport.update({
+  id: '/deck/$deckId',
+  path: '/deck/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DeepDeckIdRoute = DeepDeckIdRouteImport.update({
+  id: '/deep/$deckId',
+  path: '/deep/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecallDeckIdRoute = RecallDeckIdRouteImport.update({
+  id: '/recall/$deckId',
+  path: '/recall/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ReverseDeckIdRoute = ReverseDeckIdRouteImport.update({
+  id: '/reverse/$deckId',
+  path: '/reverse/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SpeedDeckIdRoute = SpeedDeckIdRouteImport.update({
+  id: '/speed/$deckId',
+  path: '/speed/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudyDeckIdRoute = StudyDeckIdRouteImport.update({
+  id: '/study/$deckId',
+  path: '/study/$deckId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TypeDeckIdRoute = TypeDeckIdRouteImport.update({
+  id: '/type/$deckId',
+  path: '/type/$deckId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
@@ -330,74 +330,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/reset-password': {
-      id: '/reset-password'
-      path: '/reset-password'
-      fullPath: '/reset-password'
-      preLoaderRoute: typeof ResetPasswordRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/publish': {
-      id: '/publish'
-      path: '/publish'
-      fullPath: '/publish'
-      preLoaderRoute: typeof PublishRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/friends': {
-      id: '/friends'
-      path: '/friends'
-      fullPath: '/friends'
-      preLoaderRoute: typeof FriendsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/decks': {
-      id: '/decks'
-      path: '/decks'
-      fullPath: '/decks'
-      preLoaderRoute: typeof DecksRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/community-admin': {
-      id: '/community-admin'
-      path: '/community-admin'
-      fullPath: '/community-admin'
-      preLoaderRoute: typeof CommunityAdminRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/community': {
-      id: '/community'
-      path: '/community'
-      fullPath: '/community'
-      preLoaderRoute: typeof CommunityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/collections': {
-      id: '/collections'
-      path: '/collections'
-      fullPath: '/collections'
-      preLoaderRoute: typeof CollectionsRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -407,67 +344,88 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/collections': {
+      id: '/collections'
+      path: '/collections'
+      fullPath: '/collections'
+      preLoaderRoute: typeof CollectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/type/$deckId': {
-      id: '/type/$deckId'
-      path: '/type/$deckId'
-      fullPath: '/type/$deckId'
-      preLoaderRoute: typeof TypeDeckIdRouteImport
+    '/community': {
+      id: '/community'
+      path: '/community'
+      fullPath: '/community'
+      preLoaderRoute: typeof CommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/study/$deckId': {
-      id: '/study/$deckId'
-      path: '/study/$deckId'
-      fullPath: '/study/$deckId'
-      preLoaderRoute: typeof StudyDeckIdRouteImport
+    '/community-admin': {
+      id: '/community-admin'
+      path: '/community-admin'
+      fullPath: '/community-admin'
+      preLoaderRoute: typeof CommunityAdminRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/speed/$deckId': {
-      id: '/speed/$deckId'
-      path: '/speed/$deckId'
-      fullPath: '/speed/$deckId'
-      preLoaderRoute: typeof SpeedDeckIdRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/reverse/$deckId': {
-      id: '/reverse/$deckId'
-      path: '/reverse/$deckId'
-      fullPath: '/reverse/$deckId'
-      preLoaderRoute: typeof ReverseDeckIdRouteImport
+    '/decks': {
+      id: '/decks'
+      path: '/decks'
+      fullPath: '/decks'
+      preLoaderRoute: typeof DecksRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/recall/$deckId': {
-      id: '/recall/$deckId'
-      path: '/recall/$deckId'
-      fullPath: '/recall/$deckId'
-      preLoaderRoute: typeof RecallDeckIdRouteImport
+    '/friends': {
+      id: '/friends'
+      path: '/friends'
+      fullPath: '/friends'
+      preLoaderRoute: typeof FriendsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/deep/$deckId': {
-      id: '/deep/$deckId'
-      path: '/deep/$deckId'
-      fullPath: '/deep/$deckId'
-      preLoaderRoute: typeof DeepDeckIdRouteImport
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/deck/$deckId': {
-      id: '/deck/$deckId'
-      path: '/deck/$deckId'
-      fullPath: '/deck/$deckId'
-      preLoaderRoute: typeof DeckDeckIdRouteImport
+    '/publish': {
+      id: '/publish'
+      path: '/publish'
+      fullPath: '/publish'
+      preLoaderRoute: typeof PublishRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/creator/$userId': {
-      id: '/creator/$userId'
-      path: '/creator/$userId'
-      fullPath: '/creator/$userId'
-      preLoaderRoute: typeof CreatorUserIdRouteImport
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/settings': {
+      id: '/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/assoc/$deckId': {
+      id: '/assoc/$deckId'
+      path: '/assoc/$deckId'
+      fullPath: '/assoc/$deckId'
+      preLoaderRoute: typeof AssocDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/collections_/$collectionId': {
+      id: '/collections_/$collectionId'
+      path: '/collections/$collectionId'
+      fullPath: '/collections/$collectionId'
+      preLoaderRoute: typeof CollectionsCollectionIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/community/$deckId': {
@@ -477,18 +435,60 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CommunityDeckIdRouteImport
       parentRoute: typeof CommunityRoute
     }
-    '/collections_/$collectionId': {
-      id: '/collections_/$collectionId'
-      path: '/collections/$collectionId'
-      fullPath: '/collections/$collectionId'
-      preLoaderRoute: typeof CollectionsCollectionIdRouteImport
+    '/creator/$userId': {
+      id: '/creator/$userId'
+      path: '/creator/$userId'
+      fullPath: '/creator/$userId'
+      preLoaderRoute: typeof CreatorUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/assoc/$deckId': {
-      id: '/assoc/$deckId'
-      path: '/assoc/$deckId'
-      fullPath: '/assoc/$deckId'
-      preLoaderRoute: typeof AssocDeckIdRouteImport
+    '/deck/$deckId': {
+      id: '/deck/$deckId'
+      path: '/deck/$deckId'
+      fullPath: '/deck/$deckId'
+      preLoaderRoute: typeof DeckDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deep/$deckId': {
+      id: '/deep/$deckId'
+      path: '/deep/$deckId'
+      fullPath: '/deep/$deckId'
+      preLoaderRoute: typeof DeepDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recall/$deckId': {
+      id: '/recall/$deckId'
+      path: '/recall/$deckId'
+      fullPath: '/recall/$deckId'
+      preLoaderRoute: typeof RecallDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reverse/$deckId': {
+      id: '/reverse/$deckId'
+      path: '/reverse/$deckId'
+      fullPath: '/reverse/$deckId'
+      preLoaderRoute: typeof ReverseDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/speed/$deckId': {
+      id: '/speed/$deckId'
+      path: '/speed/$deckId'
+      fullPath: '/speed/$deckId'
+      preLoaderRoute: typeof SpeedDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/study/$deckId': {
+      id: '/study/$deckId'
+      path: '/study/$deckId'
+      fullPath: '/study/$deckId'
+      preLoaderRoute: typeof StudyDeckIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/type/$deckId': {
+      id: '/type/$deckId'
+      path: '/type/$deckId'
+      fullPath: '/type/$deckId'
+      preLoaderRoute: typeof TypeDeckIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }

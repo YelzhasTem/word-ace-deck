@@ -2,7 +2,8 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { useDeck } from "@/lib/decks";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
-import { accuracyFor, recordAnswer, useDeckStats } from "@/lib/stats";
+import { accuracyFor, recordSelfReportedAnswer, useDeckStats } from "@/lib/stats";
+import { prepareStudySession } from "@/lib/study-session";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
@@ -41,6 +42,8 @@ function ReversePage() {
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [startedAt, setStartedAt] = useState<number>(Date.now());
+  const [pending, setPending] = useState(false);
+  const [saveError, setSaveError] = useState("");
 
   // Build weighted queue: weaker direction more likely; new directions on top.
   const buildQueue = useMemo(
@@ -86,6 +89,13 @@ function ReversePage() {
   }, [idx]);
 
   useEffect(() => {
+    if (!deck) return;
+    void prepareStudySession(deck.id, "reverse").catch((error: unknown) =>
+      setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
+    );
+  }, [deck]);
+
+  useEffect(() => {
     const h = (e: KeyboardEvent) => {
       if (!current) return;
       if (e.key === " " || e.key === "Shift") {
@@ -119,36 +129,48 @@ function ReversePage() {
   const forwardLabel = `${learningLanguage.label} → ${definitionLanguage.label}`;
   const reverseLabel = `${definitionLanguage.label} → ${learningLanguage.label}`;
 
-  const handle = (correct: boolean) => {
-    if (!current) return;
-    if (correct) playCorrectSound();
-    else playWrongSound();
+  const handle = async (correct: boolean) => {
+    if (!current || pending) return;
     const ms = Date.now() - startedAt;
-    recordAnswer(deck.id, current.cardId, correct, ms, {
-      mode: "reverse",
-      progressKey: statKey(current.cardId, current.dir),
-    });
-    recordStreakToday();
-    // Re-insert incorrect near the end for quick re-test
-    if (!correct) {
-      const currentIndex = queue.findIndex(
-        (item) => item.cardId === current.cardId && item.dir === current.dir,
-      );
-      setQueue((prev) => {
-        if (prev.length <= 1 || currentIndex === -1) return prev;
-        const next = [...prev];
-        const [cur] = next.splice(currentIndex, 1);
-        const insertAt = Math.min(next.length, currentIndex + 3);
-        next.splice(insertAt, 0, cur);
-        return next;
+    setPending(true);
+    setSaveError("");
+    try {
+      await recordSelfReportedAnswer({
+        deckId: deck.id,
+        cardId: current.cardId,
+        mode: "reverse",
+        direction: current.dir === "fwd" ? "term_to_definition" : "definition_to_term",
+        selfReportedResult: correct,
+        responseMs: ms,
       });
-      if (queue.length > 1 && currentIndex !== -1) {
-        setIdx(currentIndex >= queue.length - 1 ? 0 : currentIndex);
+      if (correct) playCorrectSound();
+      else playWrongSound();
+      recordStreakToday();
+      // Re-insert incorrect near the end for quick re-test.
+      if (!correct) {
+        const currentIndex = queue.findIndex(
+          (item) => item.cardId === current.cardId && item.dir === current.dir,
+        );
+        setQueue((prev) => {
+          if (prev.length <= 1 || currentIndex === -1) return prev;
+          const next = [...prev];
+          const [cur] = next.splice(currentIndex, 1);
+          const insertAt = Math.min(next.length, currentIndex + 3);
+          next.splice(insertAt, 0, cur);
+          return next;
+        });
+        if (queue.length > 1 && currentIndex !== -1) {
+          setIdx(currentIndex >= queue.length - 1 ? 0 : currentIndex);
+        }
+        setFlipped(false);
+      } else {
+        setFlipped(false);
+        setTimeout(() => setIdx((i) => i + 1), 150);
       }
-      setFlipped(false);
-    } else {
-      setFlipped(false);
-      setTimeout(() => setIdx((i) => i + 1), 150);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not save this answer");
+    } finally {
+      setPending(false);
     }
   };
 
@@ -354,6 +376,7 @@ function ReversePage() {
                 size="lg"
                 className="rounded-full h-14 text-base border-border hover:bg-destructive/5 hover:text-destructive hover:border-destructive/40"
                 onClick={() => handle(false)}
+                disabled={pending}
               >
                 <X className="h-5 w-5" /> Do not know
               </Button>
@@ -361,10 +384,13 @@ function ReversePage() {
                 size="lg"
                 className="rounded-full h-14 text-base bg-success text-white hover:bg-success/90"
                 onClick={() => handle(true)}
+                disabled={pending}
               >
                 <Check className="h-5 w-5" /> Know it
               </Button>
             </div>
+
+            {saveError && <p className="mt-3 text-sm text-destructive">{saveError}</p>}
 
             <p className="mt-6 text-center text-xs text-muted-foreground">
               <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> /{" "}

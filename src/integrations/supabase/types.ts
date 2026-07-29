@@ -6,6 +6,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5";
   };
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json;
+          operationName?: string;
+          query?: string;
+          variables?: Json;
+        };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       card_associations: {
@@ -970,9 +995,13 @@ export type Database = {
           id: string;
           idempotency_key: string | null;
           mode: string;
+          question_id: string | null;
           response_ms: number | null;
+          selected_option_id: string | null;
           session_id: string | null;
+          submitted_answer: string | null;
           user_id: string;
+          verification_type: string;
         };
         Insert: {
           answered_at?: string;
@@ -983,9 +1012,13 @@ export type Database = {
           id?: string;
           idempotency_key?: string | null;
           mode?: string;
+          question_id?: string | null;
           response_ms?: number | null;
+          selected_option_id?: string | null;
           session_id?: string | null;
+          submitted_answer?: string | null;
           user_id: string;
+          verification_type?: string;
         };
         Update: {
           answered_at?: string;
@@ -996,9 +1029,13 @@ export type Database = {
           id?: string;
           idempotency_key?: string | null;
           mode?: string;
+          question_id?: string | null;
           response_ms?: number | null;
+          selected_option_id?: string | null;
           session_id?: string | null;
+          submitted_answer?: string | null;
           user_id?: string;
+          verification_type?: string;
         };
         Relationships: [
           {
@@ -1023,7 +1060,187 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "study_events_question_card_fkey";
+            columns: ["question_id", "card_id"];
+            isOneToOne: false;
+            referencedRelation: "study_questions";
+            referencedColumns: ["id", "card_id"];
+          },
+          {
+            foreignKeyName: "study_events_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "study_questions";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_events_question_session_fkey";
+            columns: ["question_id", "session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_questions";
+            referencedColumns: ["id", "session_id"];
+          },
+          {
+            foreignKeyName: "study_events_selected_option_fkey";
+            columns: ["question_id", "selected_option_id"];
+            isOneToOne: false;
+            referencedRelation: "study_question_options";
+            referencedColumns: ["question_id", "id"];
+          },
+          {
             foreignKeyName: "study_events_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      study_question_options: {
+        Row: {
+          created_at: string;
+          id: string;
+          is_correct: boolean;
+          option_card_id: string;
+          option_text: string;
+          position: number;
+          question_id: string;
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          is_correct: boolean;
+          option_card_id: string;
+          option_text: string;
+          position: number;
+          question_id: string;
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          is_correct?: boolean;
+          option_card_id?: string;
+          option_text?: string;
+          position?: number;
+          question_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "study_question_options_question_id_fkey";
+            columns: ["question_id"];
+            isOneToOne: false;
+            referencedRelation: "study_questions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      study_questions: {
+        Row: {
+          answer_kind: string;
+          answered_at: string | null;
+          card_id: string;
+          card_updated_at: string;
+          client_question_key: string;
+          created_at: string;
+          direction: string;
+          expected_answer_snapshot: string;
+          id: string;
+          progress_key: string;
+          prompt_snapshot: string;
+          session_id: string;
+          user_id: string;
+          verification_type: string;
+        };
+        Insert: {
+          answer_kind: string;
+          answered_at?: string | null;
+          card_id: string;
+          card_updated_at: string;
+          client_question_key: string;
+          created_at?: string;
+          direction: string;
+          expected_answer_snapshot: string;
+          id?: string;
+          progress_key: string;
+          prompt_snapshot: string;
+          session_id: string;
+          user_id: string;
+          verification_type: string;
+        };
+        Update: {
+          answer_kind?: string;
+          answered_at?: string | null;
+          card_id?: string;
+          card_updated_at?: string;
+          client_question_key?: string;
+          created_at?: string;
+          direction?: string;
+          expected_answer_snapshot?: string;
+          id?: string;
+          progress_key?: string;
+          prompt_snapshot?: string;
+          session_id?: string;
+          user_id?: string;
+          verification_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "study_questions_session_card_fkey";
+            columns: ["session_id", "card_id"];
+            isOneToOne: false;
+            referencedRelation: "study_session_cards";
+            referencedColumns: ["session_id", "card_id"];
+          },
+          {
+            foreignKeyName: "study_questions_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      study_session_cards: {
+        Row: {
+          card_id: string;
+          card_updated_at: string;
+          created_at: string;
+          deck_id: string;
+          definition_snapshot: string;
+          session_id: string;
+          term_snapshot: string;
+          user_id: string;
+        };
+        Insert: {
+          card_id: string;
+          card_updated_at: string;
+          created_at?: string;
+          deck_id: string;
+          definition_snapshot: string;
+          session_id: string;
+          term_snapshot: string;
+          user_id: string;
+        };
+        Update: {
+          card_id?: string;
+          card_updated_at?: string;
+          created_at?: string;
+          deck_id?: string;
+          definition_snapshot?: string;
+          session_id?: string;
+          term_snapshot?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "study_session_cards_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_session_cards_session_id_fkey";
             columns: ["session_id"];
             isOneToOne: false;
             referencedRelation: "study_sessions";
@@ -1133,7 +1350,29 @@ export type Database = {
         Returns: boolean;
       };
       is_public_profile: { Args: { _user_id: string }; Returns: boolean };
+      is_study_answer_correct: {
+        Args: { _expected: string; _submitted: string };
+        Returns: boolean;
+      };
       is_username_available: { Args: { _username: string }; Returns: boolean };
+      issue_study_question: {
+        Args: {
+          p_card_id: string;
+          p_client_question_key: string;
+          p_direction: string;
+          p_session_id: string;
+        };
+        Returns: {
+          answer_kind: string;
+          card_version: string;
+          options: Json;
+          prompt_text: string;
+          question_card_id: string;
+          question_direction: string;
+          question_id: string;
+          verification_type: string;
+        }[];
+      };
       list_friendships: {
         Args: never;
         Returns: {
@@ -1153,25 +1392,92 @@ export type Database = {
         Returns: string;
       };
       mark_deck_studied: { Args: { p_deck_id: string }; Returns: string };
+      normalize_study_answer: { Args: { _value: string }; Returns: string };
       normalize_username: {
         Args: { _fallback?: string; _value: string };
         Returns: string;
       };
-      record_study_answer: {
+      record_study_answer:
+        | {
+            Args: {
+              p_idempotency_key: string;
+              p_question_id: string;
+              p_response_ms?: number;
+              p_selected_option_id?: string;
+              p_self_reported_result?: boolean;
+              p_submitted_answer?: string;
+            };
+            Returns: {
+              avg_ms: number;
+              correct: boolean;
+              correct_count: number;
+              correct_option_id: string;
+              due_at: string;
+              duplicate: boolean;
+              event_id: string;
+              expected_answer: string;
+              mastery: number;
+              recall_correct_count: number;
+              recall_due_at: string;
+              recall_interval_idx: number;
+              recall_score: number;
+              recall_stage_idx: number;
+              recall_wrong_count: number;
+              samples: number;
+              slow_misses: number;
+              stage: number;
+              total_ms: number;
+              verification_type: string;
+              wrong_count: number;
+            }[];
+          }
+        | {
+            Args: {
+              p_card_id: string;
+              p_idempotency_key: string;
+              p_progress_key?: string;
+              p_response_ms?: number;
+              p_result: boolean;
+              p_session_id: string;
+            };
+            Returns: {
+              avg_ms: number;
+              correct_count: number;
+              due_at: string;
+              duplicate: boolean;
+              event_id: string;
+              mastery: number;
+              recall_correct_count: number;
+              recall_due_at: string;
+              recall_interval_idx: number;
+              recall_score: number;
+              recall_stage_idx: number;
+              recall_wrong_count: number;
+              samples: number;
+              slow_misses: number;
+              stage: number;
+              total_ms: number;
+              wrong_count: number;
+            }[];
+          };
+      record_study_answer_v2: {
         Args: {
-          p_card_id: string;
           p_idempotency_key: string;
-          p_progress_key?: string;
+          p_question_id: string;
           p_response_ms?: number;
-          p_result: boolean;
-          p_session_id: string;
+          p_selected_option_id?: string;
+          p_self_reported_result?: boolean;
+          p_submitted_answer?: string;
         };
         Returns: {
           avg_ms: number;
+          correct: boolean;
           correct_count: number;
+          correct_option_id: string;
           due_at: string;
           duplicate: boolean;
           event_id: string;
+          expected_answer: string;
           mastery: number;
           recall_correct_count: number;
           recall_due_at: string;
@@ -1183,6 +1489,7 @@ export type Database = {
           slow_misses: number;
           stage: number;
           total_ms: number;
+          verification_type: string;
           wrong_count: number;
         }[];
       };
@@ -1352,6 +1659,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       app_role: ["admin", "user"],

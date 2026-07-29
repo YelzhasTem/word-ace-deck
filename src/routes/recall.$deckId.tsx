@@ -13,7 +13,7 @@ import {
   RECALL_STAGES,
   useDeckDelayedRecallEnabled,
 } from "@/lib/delayed-recall";
-import { isCloseMatch } from "@/lib/stats";
+import { prepareStudySession } from "@/lib/study-session";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
@@ -45,6 +45,9 @@ function RecallPage() {
   const [right, setRight] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [reverseSides, setReverseSides] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [serverExpected, setServerExpected] = useState("");
   const sessionStartedRef = useRef(false);
 
   useEffect(() => {
@@ -92,7 +95,16 @@ function RecallPage() {
   useEffect(() => {
     setInput("");
     setVerdict(null);
+    setServerExpected("");
+    setSaveError("");
   }, [idx]);
+
+  useEffect(() => {
+    if (!deck || !enabled) return;
+    void prepareStudySession(deck.id, "recall").catch((error: unknown) =>
+      setSaveError(error instanceof Error ? error.message : "Could not start this recall session"),
+    );
+  }, [deck, enabled]);
 
   useEffect(() => {
     if (!deck || !enabled || right > 0 || wrong > 0 || verdict) return;
@@ -155,19 +167,33 @@ function RecallPage() {
     ? `Type the ${definitionLanguage.label} translation that matches this word.`
     : `Type the ${learningLanguage.label} word that matches this definition.`;
 
-  const submit = (e?: React.FormEvent) => {
+  const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!current || verdict) return;
-    const ok = isCloseMatch(input, expectedAnswer);
-    if (ok) playCorrectSound();
-    else playWrongSound();
-    sessionStartedRef.current = true;
-    setVerdict(ok ? "ok" : "miss");
-    recordRecallAnswer(deck.id, current.id, ok);
-    if (ok) {
-      setRight((r) => r + 1);
-      recordStreakToday();
-    } else setWrong((w) => w + 1);
+    if (!current || verdict || pending) return;
+    setPending(true);
+    setSaveError("");
+    try {
+      const result = await recordRecallAnswer(
+        deck.id,
+        current.id,
+        input,
+        reverseSides ? "term_to_definition" : "definition_to_term",
+      );
+      const ok = result.correct;
+      setServerExpected(result.expected_answer ?? expectedAnswer);
+      if (ok) playCorrectSound();
+      else playWrongSound();
+      sessionStartedRef.current = true;
+      setVerdict(ok ? "ok" : "miss");
+      if (ok) {
+        setRight((r) => r + 1);
+        recordStreakToday();
+      } else setWrong((w) => w + 1);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Could not check this recall answer");
+    } finally {
+      setPending(false);
+    }
   };
   const next = () => setIdx((i) => i + 1);
   const toggleShuffle = () => {
@@ -211,7 +237,7 @@ function RecallPage() {
               size="sm"
               className={`rounded-full ${shuffleEnabled ? "border border-accent bg-accent/10 text-accent hover:bg-accent/15" : ""}`}
               onClick={toggleShuffle}
-              disabled={!!verdict}
+              disabled={!!verdict || pending}
             >
               <Shuffle className="h-4 w-4" /> Shuffle
             </Button>
@@ -221,7 +247,7 @@ function RecallPage() {
               size="sm"
               className="rounded-full"
               onClick={toggleReverseSides}
-              disabled={!!verdict}
+              disabled={!!verdict || pending}
             >
               <Repeat className="h-4 w-4" /> Reverse sides
             </Button>
@@ -316,24 +342,25 @@ function RecallPage() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={answerPlaceholder}
-                disabled={!!verdict}
+                disabled={!!verdict || pending}
                 className="h-14 text-lg rounded-2xl"
               />
               {verdict === "ok" && (
                 <div className="rounded-2xl bg-[color:var(--success)]/10 text-[color:var(--success)] px-4 py-3 text-sm flex items-center gap-2">
-                  <Check className="h-4 w-4" /> Correct! {expectedAnswer}
+                  <Check className="h-4 w-4" /> Correct! {serverExpected}
                 </div>
               )}
               {verdict === "miss" && (
                 <div className="rounded-2xl bg-destructive/10 text-destructive px-4 py-3 text-sm flex items-center gap-2">
                   <X className="h-4 w-4" /> Correct answer:{" "}
-                  <span className="font-semibold">{expectedAnswer}</span>
+                  <span className="font-semibold">{serverExpected}</span>
                 </div>
               )}
+              {saveError && <p className="text-sm text-destructive">{saveError}</p>}
               <div className="flex justify-end">
                 {!verdict ? (
-                  <Button type="submit" className="rounded-full">
-                    Check
+                  <Button type="submit" className="rounded-full" disabled={pending}>
+                    {pending ? "Checking..." : "Check"}
                   </Button>
                 ) : (
                   <Button type="button" className="rounded-full" onClick={next}>

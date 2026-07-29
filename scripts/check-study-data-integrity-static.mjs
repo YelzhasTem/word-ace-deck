@@ -11,7 +11,15 @@ const protectedTables = new Set([
   "speed_runs",
   "streak_days",
   "study_events",
+  "study_question_options",
+  "study_questions",
+  "study_session_cards",
   "study_sessions",
+]);
+const answerSnapshotTables = new Set([
+  "study_question_options",
+  "study_questions",
+  "study_session_cards",
 ]);
 const mutationMethods = new Set(["delete", "insert", "update", "upsert"]);
 const serverOwnedPrivateFields = new Set(["last_active_date", "streak_days", "total_xp"]);
@@ -55,6 +63,7 @@ function objectFieldNames(node) {
 }
 
 let auditedMutations = 0;
+let auditedAnswerRpcs = 0;
 for (const filePath of sourceFiles(path.join(root, "src"))) {
   const source = fs.readFileSync(filePath, "utf8");
   const sourceFile = ts.createSourceFile(
@@ -68,6 +77,26 @@ for (const filePath of sourceFiles(path.join(root, "src"))) {
   function visit(node) {
     if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
       const method = node.expression.name.text;
+      if (
+        method === "rpc" &&
+        node.arguments.length >= 2 &&
+        ts.isStringLiteralLike(node.arguments[0]) &&
+        node.arguments[0].text === "record_study_answer"
+      ) {
+        auditedAnswerRpcs += 1;
+        const fields = objectFieldNames(node.arguments[1]);
+        assert.ok(fields, `${path.relative(root, filePath)} uses dynamic study-answer RPC args`);
+        assert.equal(
+          fields.has("p_result"),
+          false,
+          `${path.relative(root, filePath)} sends trusted p_result to record_study_answer`,
+        );
+        assert.equal(
+          fields.has("p_question_id"),
+          true,
+          `${path.relative(root, filePath)} does not bind the answer to a server question`,
+        );
+      }
       if (mutationMethods.has(method)) {
         const table = fromTarget(node.expression.expression);
         if (table) {
@@ -104,11 +133,37 @@ for (const filePath of sourceFiles(path.join(root, "src"))) {
 const typesSource = fs.readFileSync(path.join(root, "src/integrations/supabase/types.ts"), "utf8");
 for (const requiredType of [
   "study_sessions",
+  "study_session_cards",
+  "study_questions",
+  "study_question_options",
   "start_study_session",
+  "issue_study_question",
   "record_study_answer",
   "complete_study_session",
 ]) {
   assert.match(typesSource, new RegExp(`\\b${requiredType}\\b`), `Missing ${requiredType} type`);
+}
+for (const route of ["type", "recall", "speed", "deep"]) {
+  const routeSource = fs.readFileSync(path.join(root, `src/routes/${route}.$deckId.tsx`), "utf8");
+  for (const forbidden of ["isCloseMatch", "correctIndex", "recordAnswer("]) {
+    assert.equal(
+      routeSource.includes(forbidden),
+      false,
+      `${route} mode still determines server-verifiable correctness with ${forbidden}`,
+    );
+  }
+}
+
+const studyClientSource = fs.readFileSync(path.join(root, "src/lib/study-session.ts"), "utf8");
+assert.doesNotMatch(studyClientSource, /\.rpc\("record_study_answer_v2"/);
+assert.doesNotMatch(studyClientSource, /p_result/);
+for (const required of [
+  "p_submitted_answer",
+  "p_selected_option_id",
+  "p_self_reported_result",
+  "p_question_id",
+]) {
+  assert.match(studyClientSource, new RegExp(required), `Study client is missing ${required}`);
 }
 
 const trustedMigration = fs.readFileSync(
@@ -132,6 +187,7 @@ const lockMigrationPath = path.join(
 if (fs.existsSync(lockMigrationPath)) {
   const lockMigration = fs.readFileSync(lockMigrationPath, "utf8");
   for (const table of protectedTables) {
+    if (answerSnapshotTables.has(table)) continue;
     assert.match(
       lockMigration,
       new RegExp(`REVOKE[^;]+${table}`, "i"),
@@ -140,5 +196,39 @@ if (fs.existsSync(lockMigrationPath)) {
   }
 }
 
+const verificationMigration = fs.readFileSync(
+  path.join(root, "supabase/migrations/20260729223000_add_server_verified_study_answers.sql"),
+  "utf8",
+);
+for (const fragment of [
+  "study_session_cards",
+  "study_questions",
+  "study_question_options",
+  "expected_answer_snapshot",
+  "verification_type",
+  "Selected option was not issued for this question",
+  "is_study_answer_correct",
+]) {
+  assert.match(
+    verificationMigration,
+    new RegExp(fragment),
+    `Server-verification migration is missing ${fragment}`,
+  );
+}
+
+const finalMigration = fs.readFileSync(
+  path.join(root, "supabase/migrations/20260729233000_remove_legacy_boolean_study_answer.sql"),
+  "utf8",
+);
+for (const fragment of [
+  "SET SCHEMA private",
+  "private.apply_study_answer_result",
+  "REVOKE ALL ON FUNCTION private.apply_study_answer_result",
+  "Legacy public boolean study-answer signature still exists",
+]) {
+  assert.match(finalMigration, new RegExp(fragment), `Final migration is missing ${fragment}`);
+}
+
 assert.ok(auditedMutations > 0, "No Supabase mutations were audited");
+assert.ok(auditedAnswerRpcs > 0, "No canonical study-answer RPC call was audited");
 console.log(`Study integrity static audit passed (${auditedMutations} mutations checked).`);
