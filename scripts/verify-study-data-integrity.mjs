@@ -179,6 +179,18 @@ await assertRpcDenied(
 const publicSession = await startSession(userA, fixture.publicDeckBId);
 const publicAnswer = await recordAnswer(userA, publicSession.session_id, fixture.publicCardBId);
 assert.equal(publicAnswer.correct_count, 1, "Public deck study did not update user A's progress");
+
+for (const mode of ["type", "assoc"]) {
+  const modeSession = await startSession(userA, fixture.deckAId, mode);
+  const modeAnswer = await recordAnswer(userA, modeSession.session_id, fixture.cardAId);
+  assert.equal(modeAnswer.duplicate, false, `${mode} mode did not record an answer`);
+}
+const reverseSession = await startSession(userA, fixture.deckAId, "reverse");
+const reverseAnswer = await recordAnswer(userA, reverseSession.session_id, fixture.cardAId, {
+  progressKey: `${fixture.cardAId}:rev`,
+});
+assert.equal(reverseAnswer.correct_count, 1, "Reverse mode did not keep separate progress");
+
 await assertRpcDenied(
   userB,
   "record_study_answer",
@@ -349,9 +361,28 @@ await assertMutationDenied(
 
 if (expectWritesBlocked) {
   await assertMutationDenied(
+    userA.from("card_progress").insert({
+      user_id: fixture.userAId,
+      deck_id: fixture.deckAId,
+      card_id: fixture.cardAId,
+      card_key: `${fixture.cardAId}:forged`,
+      mastery: 1,
+      stage: 4,
+      correct_count: 999999,
+      wrong_count: 0,
+      due_at: "2099-01-01T00:00:00Z",
+    }),
+    "Direct card_progress insert succeeded",
+  );
+  await assertMutationDenied(
     userA
       .from("card_progress")
-      .update({ mastery: 0.99, correct_count: 999999 })
+      .update({
+        mastery: 0.99,
+        stage: 4,
+        correct_count: 999999,
+        due_at: "2099-01-01T00:00:00Z",
+      })
       .eq("user_id", fixture.userAId),
     "Direct card_progress update succeeded",
   );
@@ -365,6 +396,17 @@ if (expectWritesBlocked) {
       mode: "study",
     }),
     "Direct study_events insert succeeded",
+  );
+  await assertMutationDenied(
+    userA
+      .from("study_events")
+      .update({ correct: false, response_ms: 999999 })
+      .eq("id", firstAnswer.event_id),
+    "Existing study event update succeeded",
+  );
+  await assertMutationDenied(
+    userA.from("study_events").delete().eq("id", firstAnswer.event_id),
+    "Existing study event delete succeeded",
   );
   await assertMutationDenied(
     userA.from("speed_runs").insert({
