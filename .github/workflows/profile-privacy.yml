@@ -1,0 +1,96 @@
+name: Profile privacy
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/profile-privacy.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "src/components/SiteHeader.tsx"
+      - "src/integrations/supabase/**"
+      - "src/lib/collections.functions.ts"
+      - "src/lib/community.functions.ts"
+      - "src/lib/decks.functions.ts"
+      - "src/lib/friends.functions.ts"
+      - "src/routes/auth.tsx"
+      - "src/routes/collections*"
+      - "src/routes/community*"
+      - "src/routes/creator*"
+      - "src/routes/decks*"
+      - "src/routes/friends.tsx"
+      - "src/routes/profile.tsx"
+      - "src/routes/publish.tsx"
+      - "src/routes/settings.tsx"
+      - "supabase/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/profile-privacy.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "src/components/SiteHeader.tsx"
+      - "src/integrations/supabase/**"
+      - "src/lib/collections.functions.ts"
+      - "src/lib/community.functions.ts"
+      - "src/lib/decks.functions.ts"
+      - "src/lib/friends.functions.ts"
+      - "src/routes/auth.tsx"
+      - "src/routes/collections*"
+      - "src/routes/community*"
+      - "src/routes/creator*"
+      - "src/routes/decks*"
+      - "src/routes/friends.tsx"
+      - "src/routes/profile.tsx"
+      - "src/routes/publish.tsx"
+      - "src/routes/settings.tsx"
+      - "supabase/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: profile-privacy-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:profile-privacy
+
+  supabase-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+      - name: Start isolated Supabase
+        run: supabase start
+      - name: Export local test variables
+        run: |
+          supabase status -o env \
+            --override-name api.url=SUPABASE_URL \
+            --override-name auth.anon_key=SUPABASE_PUBLISHABLE_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            > .env.security
+      - name: Test profile privacy through REST and Supabase JS
+        run: node --env-file=.env.security scripts/run-profile-email-privacy-fixture.mjs
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup
