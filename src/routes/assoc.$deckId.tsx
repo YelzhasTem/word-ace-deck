@@ -33,6 +33,7 @@ import {
   Repeat,
   Shuffle,
 } from "lucide-react";
+import { createAiIdempotencyKey, executeAiRequest } from "@/lib/ai-client";
 
 export const Route = createFileRoute("/assoc/$deckId")({
   component: AssocPage,
@@ -126,21 +127,28 @@ function AssocPage() {
   }
 
   const generateOne = async () => {
+    if (loading) return;
     if (!isOnline) {
       setError(OFFLINE_AI_MESSAGE);
       return;
     }
     setLoading(true);
     setError("");
+    const idempotencyKey = createAiIdempotencyKey();
     try {
-      const r = await gen({
-        data: {
-          term: current.term,
-          definition: current.definition,
-          targetLanguage: deck.targetLanguage,
-          definitionLanguage: deck.definitionLanguage,
-        },
-      });
+      const r = await executeAiRequest(
+        () =>
+          gen({
+            data: {
+              idempotencyKey,
+              term: current.term,
+              definition: current.definition,
+              targetLanguage: deck.targetLanguage,
+              definitionLanguage: deck.definitionLanguage,
+            },
+          }),
+        "Could not generate an association.",
+      );
       addAssoc(current.id, {
         text: `${r.association}\n\n${r.story}`.trim(),
         source: "ai",
@@ -148,8 +156,9 @@ function AssocPage() {
       });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not generate association");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const saveMine = () => {

@@ -1,0 +1,102 @@
+name: AI endpoint security
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/ai-security.yml"
+      - ".env.example"
+      - "docs/ai-security.md"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/check-ai-security-static.mjs"
+      - "scripts/verify-ai-security-quotas.mjs"
+      - "tests/ai-security.test.ts"
+      - "src/integrations/supabase/auth-attacher.ts"
+      - "src/integrations/supabase/auth-middleware.ts"
+      - "src/integrations/supabase/auth-token.ts"
+      - "src/integrations/supabase/types.ts"
+      - "src/lib/ai*"
+      - "src/lib/image-validation.ts"
+      - "src/lib/safe-url-fetch.server.ts"
+      - "src/lib/server-http-error.ts"
+      - "src/routes/assoc*"
+      - "src/routes/dashboard.tsx"
+      - "src/routes/deck*"
+      - "supabase/migrations/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/ai-security.yml"
+      - ".env.example"
+      - "docs/ai-security.md"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/check-ai-security-static.mjs"
+      - "scripts/verify-ai-security-quotas.mjs"
+      - "tests/ai-security.test.ts"
+      - "src/integrations/supabase/auth-attacher.ts"
+      - "src/integrations/supabase/auth-middleware.ts"
+      - "src/integrations/supabase/auth-token.ts"
+      - "src/integrations/supabase/types.ts"
+      - "src/lib/ai*"
+      - "src/lib/image-validation.ts"
+      - "src/lib/safe-url-fetch.server.ts"
+      - "src/lib/server-http-error.ts"
+      - "src/routes/assoc*"
+      - "src/routes/dashboard.tsx"
+      - "src/routes/deck*"
+      - "supabase/migrations/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-and-unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:ai-security
+      - run: npx eslint src/lib/ai.functions.ts src/lib/ai-security.server.ts src/lib/ai-client.ts src/lib/image-validation.ts src/lib/safe-url-fetch.server.ts src/lib/server-http-error.ts src/integrations/supabase/auth-middleware.ts src/integrations/supabase/auth-token.ts src/routes/dashboard.tsx 'src/routes/deck.$deckId.tsx' 'src/routes/assoc.$deckId.tsx' tests/ai-security.test.ts
+      - run: npm run build
+
+  supabase-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.110.0
+          github-token: ${{ github.token }}
+      - name: Start isolated Supabase
+        run: supabase start
+      - name: Lint database functions and schema
+        run: supabase db lint --local --level warning
+      - name: Export isolated test variables
+        run: |
+          supabase status -o env \
+            --override-name api.url=SUPABASE_URL \
+            --override-name auth.anon_key=SUPABASE_PUBLISHABLE_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            > .env.security
+      - name: Test atomic quota, concurrency, RLS, budget, and kill switch
+        run: node --env-file=.env.security scripts/verify-ai-security-quotas.mjs
+        env:
+          AI_SECURITY_TEST_CONFIG_MUTATION: "true"
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup
