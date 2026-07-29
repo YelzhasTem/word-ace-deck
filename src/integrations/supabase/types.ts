@@ -167,6 +167,13 @@ export type Database = {
             referencedRelation: "decks";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "cards_deck_owner_fkey";
+            columns: ["deck_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id", "user_id"];
+          },
         ];
       };
       collection_decks: {
