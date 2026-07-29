@@ -36,6 +36,7 @@ import {
   scheduleNewCard,
 } from "@/lib/delayed-recall";
 import type { DeckCoverColor } from "@/lib/deck-colors";
+import { createAiIdempotencyKey, executeAiRequest } from "@/lib/ai-client";
 
 export const Route = createFileRoute("/deck/$deckId")({
   component: DeckPage,
@@ -199,30 +200,37 @@ function DeckPage() {
   };
 
   const runGenerate = async (nextSeed: number) => {
-    if (!deck || deck.cards.length === 0) return;
+    if (!deck || deck.cards.length === 0 || aiLoading) return;
     if (!isOnline) {
       setAiError(OFFLINE_AI_MESSAGE);
       return;
     }
     setAiLoading(true);
     setAiError("");
+    const idempotencyKey = createAiIdempotencyKey();
     try {
-      const { text } = await generate({
-        data: {
-          words: deck.cards.map((c) => c.term),
-          deckName: deck.name,
-          seed: nextSeed,
-          targetLanguage: deck.targetLanguage,
-          definitionLanguage: deck.definitionLanguage,
-        },
-      });
+      const { text } = await executeAiRequest(
+        () =>
+          generate({
+            data: {
+              idempotencyKey,
+              words: deck.cards.map((c) => c.term),
+              deckName: deck.name,
+              seed: nextSeed,
+              targetLanguage: deck.targetLanguage,
+              definitionLanguage: deck.definitionLanguage,
+            },
+          }),
+        "Could not generate the review text.",
+      );
       setAiText(text);
       setAiSeed(nextSeed);
       setHighlightReviewWords(false);
     } catch (e) {
       setAiError(e instanceof Error ? e.message : "Could not generate text");
+    } finally {
+      setAiLoading(false);
     }
-    setAiLoading(false);
   };
 
   useEffect(() => {

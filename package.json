@@ -13,12 +13,16 @@
     "typecheck": "tsc --noEmit",
     "check:profile-privacy": "npm run test:security:profiles:static && npm run typecheck",
     "check:study-integrity": "npm run test:security:study:static && npm run typecheck",
+    "check:ai-security": "npm run test:security:ai:static && npm run test:security:ai:unit && npm run typecheck",
     "test:security:profiles:static": "node scripts/check-profile-privacy-static.mjs",
     "test:security:profiles": "node scripts/verify-profile-email-privacy.mjs",
     "test:security:profiles:fixture": "node scripts/run-profile-email-privacy-fixture.mjs",
     "test:security:study:static": "node scripts/check-study-data-integrity-static.mjs",
     "test:security:study": "node scripts/verify-study-data-integrity.mjs",
-    "test:security:study:fixture": "node scripts/run-study-data-integrity-fixture.mjs"
+    "test:security:study:fixture": "node scripts/run-study-data-integrity-fixture.mjs",
+    "test:security:ai:static": "node scripts/check-ai-security-static.mjs",
+    "test:security:ai:unit": "node --experimental-strip-types --test tests/ai-security.test.ts",
+    "test:security:ai:fixture": "node scripts/verify-ai-security-quotas.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -72,6 +76,7 @@
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",
     "tw-animate-css": "^1.3.4",
+    "undici": "^7.29.0",
     "vaul": "^1.1.2",
     "vite-tsconfig-paths": "^6.0.2",
     "zod": "^3.24.2"

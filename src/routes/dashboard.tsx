@@ -60,6 +60,7 @@ import {
 import { getUserErrorMessage } from "@/lib/user-errors";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import { cn } from "@/lib/utils";
+import { createAiIdempotencyKey, executeAiRequest } from "@/lib/ai-client";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -88,7 +89,7 @@ function errorMessage(error: unknown, fallback: string) {
 
 const MIN_DECK_CARDS = 4;
 const MAX_DECK_CARDS = 100;
-const MAX_IMPORT_IMAGE_BYTES = 7 * 1024 * 1024;
+const MAX_IMPORT_IMAGE_BYTES = 2_500_000;
 const SUPPORTED_IMPORT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 
 type ManualCardDraft = { term: string; definition: string };
@@ -212,7 +213,7 @@ function Home() {
   };
 
   const handleUrlGenerate = async () => {
-    if (!urlInput.trim()) return;
+    if (!urlInput.trim() || urlLoading) return;
     if (!isOnline) {
       setUrlError(OFFLINE_AI_MESSAGE);
       return;
@@ -221,16 +222,22 @@ function Home() {
     setUrlError("");
     const safeCount = clampCardCount(urlCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 15);
     setUrlCount(String(safeCount));
+    const idempotencyKey = createAiIdempotencyKey();
     let result: Awaited<ReturnType<typeof genDeckFromUrl>>;
     try {
-      result = await genDeckFromUrl({
-        data: {
-          url: urlInput.trim(),
-          count: safeCount,
-          targetLanguage,
-          definitionLanguage: definitionLanguage.code,
-        },
-      });
+      result = await executeAiRequest(
+        () =>
+          genDeckFromUrl({
+            data: {
+              idempotencyKey,
+              url: urlInput.trim(),
+              count: safeCount,
+              targetLanguage,
+              definitionLanguage: definitionLanguage.code,
+            },
+          }),
+        "Could not extract words from this page.",
+      );
     } catch (err) {
       setUrlError(`AI: ${errorMessage(err, "Could not extract words")}`);
       setUrlLoading(false);
@@ -344,10 +351,20 @@ function Home() {
 
     setImportMode("text");
     setImportError("");
+    const idempotencyKey = createAiIdempotencyKey();
     try {
-      const result = await importCardsFromText({
-        data: { text, targetLanguage, definitionLanguage: definitionLanguage.code },
-      });
+      const result = await executeAiRequest(
+        () =>
+          importCardsFromText({
+            data: {
+              idempotencyKey,
+              text,
+              targetLanguage,
+              definitionLanguage: definitionLanguage.code,
+            },
+          }),
+        "Could not import words from this list.",
+      );
       const added = appendImportedCards(result.cards);
       if (added > 0) {
         setImportText("");
@@ -376,24 +393,30 @@ function Home() {
       return;
     }
     if (file.size > MAX_IMPORT_IMAGE_BYTES) {
-      setImportError("Image must be 7 MB or smaller.");
+      setImportError("Image must be 2.5 MB or smaller.");
       return;
     }
 
     setImportMode("image");
     setImportError("");
     setImportImageName(file.name);
+    const idempotencyKey = createAiIdempotencyKey();
     try {
       const dataUrl = await readFileAsDataUrl(file);
       const imageBase64 = dataUrl.split(",")[1] ?? dataUrl;
-      const result = await importCardsFromImage({
-        data: {
-          imageBase64,
-          mimeType: file.type,
-          targetLanguage,
-          definitionLanguage: definitionLanguage.code,
-        },
-      });
+      const result = await executeAiRequest(
+        () =>
+          importCardsFromImage({
+            data: {
+              idempotencyKey,
+              imageBase64,
+              mimeType: file.type,
+              targetLanguage,
+              definitionLanguage: definitionLanguage.code,
+            },
+          }),
+        "Could not import words from this image.",
+      );
       const added = appendImportedCards(result.cards);
       if (added === 0) setImportError("No new words were added.");
     } catch (err) {
@@ -424,7 +447,7 @@ function Home() {
   const handleLookup = useCallback(
     async (word: string) => {
       const w = word.trim();
-      if (!w) return;
+      if (!w || trLoading) return;
       if (!isOnline) {
         setTrError(OFFLINE_AI_MESSAGE);
         return;
@@ -436,10 +459,20 @@ function Home() {
       setTrOriginalWord("");
       setTrInputIsDefinition(false);
       setTrWord(w);
+      const idempotencyKey = createAiIdempotencyKey();
       try {
-        const res = await fetchTranslations({
-          data: { word: w, targetLanguage, definitionLanguage: definitionLanguage.code },
-        });
+        const res = await executeAiRequest(
+          () =>
+            fetchTranslations({
+              data: {
+                idempotencyKey,
+                word: w,
+                targetLanguage,
+                definitionLanguage: definitionLanguage.code,
+              },
+            }),
+          "Could not fetch translations.",
+        );
         const correctedWord = res.correctedWord?.trim() ?? "";
         if (correctedWord) {
           setTrWord(correctedWord);
@@ -457,7 +490,14 @@ function Home() {
         setTrLoading(false);
       }
     },
-    [definitionLanguage.code, fetchTranslations, isOnline, learningLanguage.code, targetLanguage],
+    [
+      definitionLanguage.code,
+      fetchTranslations,
+      isOnline,
+      learningLanguage.code,
+      targetLanguage,
+      trLoading,
+    ],
   );
 
   const handlePickTranslation = (translation: string) => {
@@ -493,7 +533,7 @@ function Home() {
   };
 
   const handleAIGenerate = async () => {
-    if (!aiName.trim() || !aiTopic.trim()) return;
+    if (!aiName.trim() || !aiTopic.trim() || aiLoading) return;
     if (!isOnline) {
       setAiError(OFFLINE_AI_MESSAGE);
       return;
@@ -502,18 +542,24 @@ function Home() {
     setAiError("");
     const safeCount = clampCardCount(aiCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 10);
     setAiCount(String(safeCount));
+    const idempotencyKey = createAiIdempotencyKey();
     let result: Awaited<ReturnType<typeof genDeck>>;
     try {
-      result = await genDeck({
-        data: {
-          topic: aiTopic.trim(),
-          description: aiDesc.trim(),
-          level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
-          count: safeCount,
-          targetLanguage,
-          definitionLanguage: definitionLanguage.code,
-        },
-      });
+      result = await executeAiRequest(
+        () =>
+          genDeck({
+            data: {
+              idempotencyKey,
+              topic: aiTopic.trim(),
+              description: aiDesc.trim(),
+              level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
+              count: safeCount,
+              targetLanguage,
+              definitionLanguage: definitionLanguage.code,
+            },
+          }),
+        "Could not generate this deck.",
+      );
     } catch (err) {
       setAiError(`AI: ${errorMessage(err, "Could not generate deck")}`);
       setAiLoading(false);

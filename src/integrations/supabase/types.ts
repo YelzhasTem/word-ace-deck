@@ -33,6 +33,185 @@ export type Database = {
   };
   public: {
     Tables: {
+      ai_endpoint_policies: {
+        Row: {
+          concurrency_limit: number;
+          day_limit: number;
+          enabled: boolean;
+          endpoint: string;
+          hour_limit: number;
+          minute_limit: number;
+          request_class: string;
+          request_units: number;
+          slot_ttl_seconds: number;
+          updated_at: string;
+        };
+        Insert: {
+          concurrency_limit: number;
+          day_limit: number;
+          enabled?: boolean;
+          endpoint: string;
+          hour_limit: number;
+          minute_limit: number;
+          request_class: string;
+          request_units: number;
+          slot_ttl_seconds: number;
+          updated_at?: string;
+        };
+        Update: {
+          concurrency_limit?: number;
+          day_limit?: number;
+          enabled?: boolean;
+          endpoint?: string;
+          hour_limit?: number;
+          minute_limit?: number;
+          request_class?: string;
+          request_units?: number;
+          slot_ttl_seconds?: number;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_rate_limit_rollups: {
+        Row: {
+          bucket_start: string;
+          endpoint: string;
+          ip_hash: string;
+          last_seen_at: string;
+          rejection_count: number;
+          result: string;
+          user_id: string;
+        };
+        Insert: {
+          bucket_start: string;
+          endpoint: string;
+          ip_hash?: string;
+          last_seen_at?: string;
+          rejection_count?: number;
+          result: string;
+          user_id: string;
+        };
+        Update: {
+          bucket_start?: string;
+          endpoint?: string;
+          ip_hash?: string;
+          last_seen_at?: string;
+          rejection_count?: number;
+          result?: string;
+          user_id?: string;
+        };
+        Relationships: [];
+      };
+      ai_runtime_config: {
+        Row: {
+          daily_heavy_request_unit_budget: number;
+          daily_request_unit_budget: number;
+          enabled: boolean;
+          ip_concurrency_limit: number;
+          ip_daily_request_limit: number;
+          ip_hour_request_limit: number;
+          ip_minute_request_limit: number;
+          per_user_daily_unit_limit: number;
+          per_user_hourly_unit_limit: number;
+          singleton: boolean;
+          updated_at: string;
+        };
+        Insert: {
+          daily_heavy_request_unit_budget?: number;
+          daily_request_unit_budget?: number;
+          enabled?: boolean;
+          ip_concurrency_limit?: number;
+          ip_daily_request_limit?: number;
+          ip_hour_request_limit?: number;
+          ip_minute_request_limit?: number;
+          per_user_daily_unit_limit?: number;
+          per_user_hourly_unit_limit?: number;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Update: {
+          daily_heavy_request_unit_budget?: number;
+          daily_request_unit_budget?: number;
+          enabled?: boolean;
+          ip_concurrency_limit?: number;
+          ip_daily_request_limit?: number;
+          ip_hour_request_limit?: number;
+          ip_minute_request_limit?: number;
+          per_user_daily_unit_limit?: number;
+          per_user_hourly_unit_limit?: number;
+          singleton?: boolean;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      ai_usage_events: {
+        Row: {
+          completed_at: string | null;
+          endpoint: string;
+          expires_at: string;
+          idempotency_key: string;
+          input_size: number;
+          ip_hash: string | null;
+          latency_ms: number | null;
+          output_size: number | null;
+          provider_error_category: string | null;
+          rate_limit_result: string;
+          request_class: string;
+          request_hash: string;
+          request_id: string;
+          request_units: number;
+          started_at: string;
+          status: string;
+          user_id: string;
+        };
+        Insert: {
+          completed_at?: string | null;
+          endpoint: string;
+          expires_at: string;
+          idempotency_key: string;
+          input_size: number;
+          ip_hash?: string | null;
+          latency_ms?: number | null;
+          output_size?: number | null;
+          provider_error_category?: string | null;
+          rate_limit_result?: string;
+          request_class: string;
+          request_hash: string;
+          request_id: string;
+          request_units: number;
+          started_at?: string;
+          status: string;
+          user_id: string;
+        };
+        Update: {
+          completed_at?: string | null;
+          endpoint?: string;
+          expires_at?: string;
+          idempotency_key?: string;
+          input_size?: number;
+          ip_hash?: string | null;
+          latency_ms?: number | null;
+          output_size?: number | null;
+          provider_error_category?: string | null;
+          rate_limit_result?: string;
+          request_class?: string;
+          request_hash?: string;
+          request_id?: string;
+          request_units?: number;
+          started_at?: string;
+          status?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "ai_usage_events_endpoint_fkey";
+            columns: ["endpoint"];
+            isOneToOne: false;
+            referencedRelation: "ai_endpoint_policies";
+            referencedColumns: ["endpoint"];
+          },
+        ];
+      };
       card_associations: {
         Row: {
           card_id: string;
@@ -1327,8 +1506,35 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      acquire_ai_request: {
+        Args: {
+          p_endpoint: string;
+          p_idempotency_key: string;
+          p_input_size: number;
+          p_ip_hash: string | null;
+          p_request_hash: string;
+          p_request_id: string;
+          p_user_id: string;
+        };
+        Returns: {
+          decision: string;
+          reserved_request_id: string | null;
+          retry_after_seconds: number;
+        }[];
+      };
       can_study_card: { Args: { _card_id: string }; Returns: boolean };
       can_study_deck: { Args: { _deck_id: string }; Returns: boolean };
+      complete_ai_request: {
+        Args: {
+          p_latency_ms: number;
+          p_output_size: number;
+          p_provider_error_category?: string | null;
+          p_request_id: string;
+          p_status: string;
+          p_user_id: string;
+        };
+        Returns: boolean;
+      };
       complete_study_session: {
         Args: { p_completion_key: string; p_session_id: string };
         Returns: {
@@ -1525,12 +1731,12 @@ export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -1550,12 +1756,13 @@ export type Tables<
 
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -1574,12 +1781,13 @@ export type TablesInsert<
 
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
-    keyof DefaultSchema["Tables"] | { schema: keyof DatabaseWithoutInternals },
-  TableName extends (DefaultSchemaTableNameOrOptions extends {
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -1598,12 +1806,13 @@ export type TablesUpdate<
 
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
-    keyof DefaultSchema["Enums"] | { schema: keyof DatabaseWithoutInternals },
-  EnumName extends (DefaultSchemaEnumNameOrOptions extends {
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
-    : never) = never,
+    : never = never,
 > = DefaultSchemaEnumNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
@@ -1614,12 +1823,13 @@ export type Enums<
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    keyof DefaultSchema["CompositeTypes"] | { schema: keyof DatabaseWithoutInternals },
-  CompositeTypeName extends (PublicCompositeTypeNameOrOptions extends {
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof DatabaseWithoutInternals;
   }
     ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
-    : never) = never,
+    : never = never,
 > = PublicCompositeTypeNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals;
 }
