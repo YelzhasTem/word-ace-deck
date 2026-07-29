@@ -1,0 +1,94 @@
+name: Study data integrity
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/study-data-integrity.yml"
+      - "docs/study-data-integrity.md"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "src/integrations/supabase/**"
+      - "src/lib/decks.functions.ts"
+      - "src/lib/delayed-recall.ts"
+      - "src/lib/last-studied.ts"
+      - "src/lib/stats.ts"
+      - "src/lib/streak.ts"
+      - "src/lib/study-session.ts"
+      - "src/routes/assoc*"
+      - "src/routes/recall*"
+      - "src/routes/reverse*"
+      - "src/routes/speed*"
+      - "src/routes/study*"
+      - "src/routes/type*"
+      - "supabase/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/study-data-integrity.yml"
+      - "docs/study-data-integrity.md"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "src/integrations/supabase/**"
+      - "src/lib/decks.functions.ts"
+      - "src/lib/delayed-recall.ts"
+      - "src/lib/last-studied.ts"
+      - "src/lib/stats.ts"
+      - "src/lib/streak.ts"
+      - "src/lib/study-session.ts"
+      - "src/routes/assoc*"
+      - "src/routes/recall*"
+      - "src/routes/reverse*"
+      - "src/routes/speed*"
+      - "src/routes/study*"
+      - "src/routes/type*"
+      - "supabase/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: study-data-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:study-integrity
+
+  supabase-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.108.0
+          github-token: ${{ github.token }}
+      - name: Start isolated Supabase
+        run: supabase start
+      - name: Export local test variables
+        run: |
+          supabase status -o env \
+            --override-name api.url=SUPABASE_URL \
+            --override-name auth.anon_key=SUPABASE_PUBLISHABLE_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            > .env.security
+      - name: Test study writes through REST, Supabase JS, and RPC
+        run: node --env-file=.env.security scripts/run-study-data-integrity-fixture.mjs
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup

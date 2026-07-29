@@ -12,9 +12,13 @@
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
     "check:profile-privacy": "npm run test:security:profiles:static && npm run typecheck",
+    "check:study-integrity": "npm run test:security:study:static && npm run typecheck",
     "test:security:profiles:static": "node scripts/check-profile-privacy-static.mjs",
     "test:security:profiles": "node scripts/verify-profile-email-privacy.mjs",
-    "test:security:profiles:fixture": "node scripts/run-profile-email-privacy-fixture.mjs"
+    "test:security:profiles:fixture": "node scripts/run-profile-email-privacy-fixture.mjs",
+    "test:security:study:static": "node scripts/check-study-data-integrity-static.mjs",
+    "test:security:study": "node scripts/verify-study-data-integrity.mjs",
+    "test:security:study:fixture": "node scripts/run-study-data-integrity-fixture.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
