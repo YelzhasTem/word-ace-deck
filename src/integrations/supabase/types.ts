@@ -6,31 +6,6 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5";
   };
-  graphql_public: {
-    Tables: {
-      [_ in never]: never;
-    };
-    Views: {
-      [_ in never]: never;
-    };
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json;
-          operationName?: string;
-          query?: string;
-          variables?: Json;
-        };
-        Returns: Json;
-      };
-    };
-    Enums: {
-      [_ in never]: never;
-    };
-    CompositeTypes: {
-      [_ in never]: never;
-    };
-  };
   public: {
     Tables: {
       card_associations: {
@@ -133,6 +108,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "cards";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "card_progress_deck_card_fkey";
+            columns: ["deck_id", "card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["deck_id", "id"];
           },
           {
             foreignKeyName: "card_progress_deck_id_fkey";
@@ -747,6 +729,13 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "delayed_recall_entries_deck_card_fkey";
+            columns: ["deck_id", "card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["deck_id", "id"];
+          },
+          {
             foreignKeyName: "delayed_recall_entries_deck_id_fkey";
             columns: ["deck_id"];
             isOneToOne: false;
@@ -901,6 +890,7 @@ export type Database = {
           id: string;
           max_combo: number | null;
           score: number;
+          session_id: string | null;
           user_id: string;
         };
         Insert: {
@@ -911,6 +901,7 @@ export type Database = {
           id?: string;
           max_combo?: number | null;
           score: number;
+          session_id?: string | null;
           user_id: string;
         };
         Update: {
@@ -921,6 +912,7 @@ export type Database = {
           id?: string;
           max_combo?: number | null;
           score?: number;
+          session_id?: string | null;
           user_id?: string;
         };
         Relationships: [
@@ -929,6 +921,13 @@ export type Database = {
             columns: ["deck_id"];
             isOneToOne: false;
             referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "speed_runs_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
             referencedColumns: ["id"];
           },
         ];
@@ -962,8 +961,10 @@ export type Database = {
           correct: boolean;
           deck_id: string;
           id: string;
+          idempotency_key: string | null;
           mode: string;
           response_ms: number | null;
+          session_id: string | null;
           user_id: string;
         };
         Insert: {
@@ -973,8 +974,10 @@ export type Database = {
           correct: boolean;
           deck_id: string;
           id?: string;
+          idempotency_key?: string | null;
           mode?: string;
           response_ms?: number | null;
+          session_id?: string | null;
           user_id: string;
         };
         Update: {
@@ -984,8 +987,10 @@ export type Database = {
           correct?: boolean;
           deck_id?: string;
           id?: string;
+          idempotency_key?: string | null;
           mode?: string;
           response_ms?: number | null;
+          session_id?: string | null;
           user_id?: string;
         };
         Relationships: [
@@ -997,7 +1002,74 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "study_events_deck_card_fkey";
+            columns: ["deck_id", "card_id"];
+            isOneToOne: false;
+            referencedRelation: "cards";
+            referencedColumns: ["deck_id", "id"];
+          },
+          {
             foreignKeyName: "study_events_deck_id_fkey";
+            columns: ["deck_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_events_session_id_fkey";
+            columns: ["session_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      study_sessions: {
+        Row: {
+          client_session_key: string;
+          completed_at: string | null;
+          completion_key: string | null;
+          created_at: string;
+          deck_id: string;
+          duration_seconds: number | null;
+          id: string;
+          mode: string;
+          started_at: string;
+          status: string;
+          updated_at: string;
+          user_id: string;
+        };
+        Insert: {
+          client_session_key: string;
+          completed_at?: string | null;
+          completion_key?: string | null;
+          created_at?: string;
+          deck_id: string;
+          duration_seconds?: number | null;
+          id?: string;
+          mode: string;
+          started_at?: string;
+          status?: string;
+          updated_at?: string;
+          user_id: string;
+        };
+        Update: {
+          client_session_key?: string;
+          completed_at?: string | null;
+          completion_key?: string | null;
+          created_at?: string;
+          deck_id?: string;
+          duration_seconds?: number | null;
+          id?: string;
+          mode?: string;
+          started_at?: string;
+          status?: string;
+          updated_at?: string;
+          user_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "study_sessions_deck_id_fkey";
             columns: ["deck_id"];
             isOneToOne: false;
             referencedRelation: "decks";
@@ -1031,6 +1103,21 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
+      can_study_card: { Args: { _card_id: string }; Returns: boolean };
+      can_study_deck: { Args: { _deck_id: string }; Returns: boolean };
+      complete_study_session: {
+        Args: { p_completion_key: string; p_session_id: string };
+        Returns: {
+          accuracy: number;
+          answer_count: number;
+          completed_at: string;
+          duplicate: boolean;
+          max_combo: number;
+          score: number;
+          session_id: string;
+          session_status: string;
+        }[];
+      };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
@@ -1058,10 +1145,42 @@ export type Database = {
         Args: { _base: string; _user_id?: string };
         Returns: string;
       };
+      mark_deck_studied: { Args: { p_deck_id: string }; Returns: string };
       normalize_username: {
         Args: { _fallback?: string; _value: string };
         Returns: string;
       };
+      record_study_answer: {
+        Args: {
+          p_card_id: string;
+          p_idempotency_key: string;
+          p_progress_key?: string;
+          p_response_ms?: number;
+          p_result: boolean;
+          p_session_id: string;
+        };
+        Returns: {
+          avg_ms: number;
+          correct_count: number;
+          due_at: string;
+          duplicate: boolean;
+          event_id: string;
+          mastery: number;
+          recall_correct_count: number;
+          recall_due_at: string;
+          recall_interval_idx: number;
+          recall_score: number;
+          recall_stage_idx: number;
+          recall_wrong_count: number;
+          samples: number;
+          slow_misses: number;
+          stage: number;
+          total_ms: number;
+          wrong_count: number;
+        }[];
+      };
+      reset_deck_known: { Args: { p_deck_id: string }; Returns: number };
+      schedule_recall_card: { Args: { p_card_id: string }; Returns: boolean };
       search_friend_profiles: {
         Args: { _limit?: number; _query: string };
         Returns: {
@@ -1072,6 +1191,23 @@ export type Database = {
           status: string;
           user_id: string;
           username: string;
+        }[];
+      };
+      set_card_known: {
+        Args: { p_card_id: string; p_known: boolean };
+        Returns: boolean;
+      };
+      start_study_session: {
+        Args: {
+          p_client_session_key: string;
+          p_deck_id: string;
+          p_duration_seconds?: number;
+          p_mode: string;
+        };
+        Returns: {
+          session_id: string;
+          session_started_at: string;
+          session_status: string;
         }[];
       };
     };
@@ -1209,9 +1345,6 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
-  graphql_public: {
-    Enums: {},
-  },
   public: {
     Enums: {
       app_role: ["admin", "user"],

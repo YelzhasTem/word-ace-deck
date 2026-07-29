@@ -113,7 +113,7 @@ function TypePage() {
     if (ok) playCorrectSound();
     else playWrongSound();
     setVerdict(ok ? "ok" : "miss");
-    recordAnswer(deck.id, current.id, ok, elapsed);
+    recordAnswer(deck.id, current.id, ok, elapsed, { mode: "type" });
     if (ok) {
       setRight((r) => r + 1);
       recordStreakToday();
