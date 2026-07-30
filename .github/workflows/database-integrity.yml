@@ -69,6 +69,8 @@ jobs:
             --override-name auth.anon_key=SUPABASE_PUBLISHABLE_KEY \
             --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
             > .env.security
+      - name: Test collection report validation through Supabase JS
+        run: node --env-file=.env.security scripts/verify-collection-report-validation.mjs
       - name: Test profile privacy through REST and Supabase JS
         run: node --env-file=.env.security scripts/run-profile-email-privacy-fixture.mjs
       - name: Test study integrity through REST, Supabase JS, and RPC

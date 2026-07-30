@@ -17,6 +17,8 @@ const communityFunctions = fs.readFileSync(
   path.join(root, "src/lib/community.functions.ts"),
   "utf8",
 );
+const reportValidation = fs.readFileSync(path.join(root, "src/lib/report-validation.ts"), "utf8");
+const communityRoute = fs.readFileSync(path.join(root, "src/routes/community.tsx"), "utf8");
 
 assert.match(migration, /^BEGIN;/);
 assert.match(migration, /COMMIT;\s*$/);
@@ -78,6 +80,10 @@ for (const requiredScenario of [
   "collection cannot link a deck owned by another user",
   "new deck cannot reference a missing Auth user",
   "valid mastery and study-stage upper boundaries remain valid",
+  "collection report accepts exactly three trimmed characters",
+  "collection report accepts exactly four hundred Unicode characters",
+  "blank collection report reason is rejected by a direct insert",
+  "overlong collection report reason is rejected by a direct insert",
 ]) {
   assert.match(sqlTests, new RegExp(requiredScenario), `Missing test: ${requiredScenario}`);
 }
@@ -112,5 +118,19 @@ assert.equal(
   3,
   "Every marketplace duplication path must preserve the 120-character name limit",
 );
+
+assert.match(reportValidation, /REPORT_REASON_MIN_LENGTH = 3/);
+assert.match(reportValidation, /REPORT_REASON_MAX_LENGTH = 400/);
+assert.match(reportValidation, /Array\.from\(value\)\.length/);
+assert.match(communityFunctions, /export const reportCollection = createServerFn/);
+assert.match(communityFunctions, /\.inputValidator\(parseCollectionReportInput\)/);
+assert.match(communityFunctions, /\.inputValidator\(parseDeckReportInput\)/);
+assert.equal(
+  communityFunctions.match(/throw new Error\(reportDatabaseErrorMessage\(error\)\)/g)?.length,
+  2,
+  "Both report types must hide raw database errors",
+);
+assert.match(communityRoute, /maxLength=\{REPORT_REASON_MAX_LENGTH\}/);
+assert.match(communityRoute, /safeReportClientErrorMessage\(error\)/);
 
 console.log("Database integrity static audit passed.");

@@ -3,6 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
+import {
+  parseCollectionReportInput,
+  parseDeckReportInput,
+  reportDatabaseErrorMessage,
+} from "@/lib/report-validation";
 
 export const DECK_CATEGORIES = [
   "General English",
@@ -606,14 +611,25 @@ export const rateCollection = createServerFn({ method: "POST" })
 
 export const reportDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ deckId: z.string().uuid(), reason: z.string().min(3).max(400) }).parse(input),
-  )
+  .inputValidator(parseDeckReportInput)
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("deck_reports")
       .insert({ deck_id: data.deckId, reporter_id: context.userId, reason: data.reason });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(reportDatabaseErrorMessage(error));
+    return { ok: true };
+  });
+
+export const reportCollection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(parseCollectionReportInput)
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("collection_reports").insert({
+      collection_id: data.collectionId,
+      reporter_id: context.userId,
+      reason: data.reason,
+    });
+    if (error) throw new Error(reportDatabaseErrorMessage(error));
     return { ok: true };
   });
 

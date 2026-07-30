@@ -344,6 +344,86 @@ SELECT extensions.throws_matching($test$
   )
 $test$, '.*', 'short report reason is rejected');
 
+SELECT extensions.lives_ok($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', '  abc  '
+  )
+$test$, 'collection report accepts exactly three trimmed characters');
+
+SELECT extensions.lives_ok($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', 'ordinary report reason'
+  )
+$test$, 'collection report accepts an ordinary reason');
+
+SELECT extensions.lives_ok($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', repeat('界', 400)
+  )
+$test$, 'collection report accepts exactly four hundred Unicode characters');
+
+SELECT extensions.lives_ok($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', '理由です'
+  )
+$test$, 'collection report accepts ordinary Unicode text');
+
+SELECT extensions.throws_matching($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', ''
+  )
+$test$, '.*', 'empty collection report reason is rejected by a direct insert');
+
+SELECT extensions.throws_matching($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', '   '
+  )
+$test$, '.*', 'blank collection report reason is rejected by a direct insert');
+
+SELECT extensions.throws_matching($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', 'x'
+  )
+$test$, '.*', 'one-character collection report reason is rejected by a direct insert');
+
+SELECT extensions.throws_matching($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', 'no'
+  )
+$test$, '.*', 'two-character collection report reason is rejected by a direct insert');
+
+SELECT extensions.throws_matching($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', repeat('x', 401)
+  )
+$test$, '.*', 'overlong collection report reason is rejected by a direct insert');
+
+SELECT extensions.throws_matching($test$
+  INSERT INTO public.collection_reports (collection_id, reporter_id, reason)
+  VALUES (
+    '85000000-0000-4000-8000-000000000001',
+    '81000000-0000-4000-8000-000000000001', NULL
+  )
+$test$, '.*', 'null collection report reason is rejected by a direct insert');
+
 SELECT extensions.throws_matching($test$
   INSERT INTO public.deck_reports (deck_id, reporter_id, reason, reviewed_at)
   VALUES (

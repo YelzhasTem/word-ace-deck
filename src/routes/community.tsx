@@ -1,19 +1,34 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { Archive, BookOpen, Copy, Heart, Search, Star, Users } from "lucide-react";
+import { Archive, BookOpen, Copy, Flag, Heart, Search, Star, Users } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import {
   duplicatePublicDeck,
   duplicatePublicCollection,
   getCommunityHome,
+  reportCollection,
   searchPublicCollections,
   searchPublicDecks,
 } from "@/lib/community.functions";
+import {
+  getReportReasonValidationMessage,
+  REPORT_REASON_MAX_LENGTH,
+  safeReportClientErrorMessage,
+} from "@/lib/report-validation";
 
 export const Route = createFileRoute("/community")({
   component: CommunityPage,
@@ -95,10 +110,12 @@ function DeckCard({
 function CollectionCard({
   collection,
   onCopy,
+  onReport,
   copyDisabled = false,
 }: {
   collection: CommunityCollection;
   onCopy: (id: string) => void;
+  onReport: (id: string) => void;
   copyDisabled?: boolean;
 }) {
   return (
@@ -131,14 +148,28 @@ function CollectionCard({
           {collection.rating || "New"}
         </span>
       </div>
-      <Button
-        variant="outline"
-        className="rounded-full"
-        onClick={() => onCopy(collection.id)}
-        disabled={copyDisabled}
-      >
-        <Copy className="h-4 w-4" /> Add collection
-      </Button>
+      <div className="grid grid-cols-[1fr_auto] gap-2">
+        <Button
+          variant="outline"
+          className="rounded-full"
+          onClick={() => onCopy(collection.id)}
+          disabled={copyDisabled}
+        >
+          <Copy className="h-4 w-4" /> Add collection
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="rounded-full"
+          onClick={() => onReport(collection.id)}
+          disabled={copyDisabled}
+          aria-label="Report collection"
+          title="Report collection"
+        >
+          <Flag className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -175,6 +206,7 @@ function CommunityPage() {
   const searchCollections = useServerFn(searchPublicCollections);
   const copyDeck = useServerFn(duplicatePublicDeck);
   const copyCollection = useServerFn(duplicatePublicCollection);
+  const submitCollectionReport = useServerFn(reportCollection);
   const [home, setHome] = useState<{
     trending: CommunityDeck[];
     popular: CommunityDeck[];
@@ -189,6 +221,10 @@ function CommunityPage() {
   const [searchTarget, setSearchTarget] = useState<"all" | "decks" | "collections">("all");
   const [mode, setMode] = useState<"search" | "trending" | "following" | "saved">("search");
   const [loading, setLoading] = useState(true);
+  const [reportingCollectionId, setReportingCollectionId] = useState<string | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportError, setReportError] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
 
   useEffect(() => {
     loadHome()
@@ -268,6 +304,46 @@ function CommunityPage() {
       toast.error(
         error instanceof Error ? error.message : "Could not add collection to your library.",
       );
+    }
+  };
+
+  const openCollectionReport = (collectionId: string) => {
+    setReportingCollectionId(collectionId);
+    setReportReason("");
+    setReportError("");
+  };
+
+  const closeCollectionReport = () => {
+    setReportingCollectionId(null);
+    setReportReason("");
+    setReportError("");
+  };
+
+  const onReportCollection = async () => {
+    if (!reportingCollectionId || reportSubmitting) return;
+    if (!isOnline) {
+      setReportError(OFFLINE_SAVE_MESSAGE);
+      return;
+    }
+
+    const validationError = getReportReasonValidationMessage(reportReason);
+    if (validationError) {
+      setReportError(validationError);
+      return;
+    }
+
+    setReportError("");
+    setReportSubmitting(true);
+    try {
+      await submitCollectionReport({
+        data: { collectionId: reportingCollectionId, reason: reportReason },
+      });
+      closeCollectionReport();
+      toast.success("Report sent for review.");
+    } catch (error) {
+      setReportError(safeReportClientErrorMessage(error));
+    } finally {
+      setReportSubmitting(false);
     }
   };
 
@@ -386,6 +462,7 @@ function CommunityPage() {
                           key={collection.id}
                           collection={collection}
                           onCopy={onCopyCollection}
+                          onReport={openCollectionReport}
                           copyDisabled={!isOnline}
                         />
                       ))}
@@ -438,6 +515,66 @@ function CommunityPage() {
           </div>
         )}
       </main>
+
+      <Dialog
+        open={reportingCollectionId !== null}
+        onOpenChange={(open) => {
+          if (!open && !reportSubmitting) closeCollectionReport();
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Report collection</DialogTitle>
+            <DialogDescription>
+              Tell the moderation team why this collection should be reviewed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Textarea
+              value={reportReason}
+              onChange={(event) => {
+                setReportReason(event.target.value);
+                if (reportError) setReportError("");
+              }}
+              maxLength={REPORT_REASON_MAX_LENGTH}
+              placeholder="Reason for reporting"
+              aria-invalid={Boolean(reportError)}
+              aria-describedby={reportError ? "collection-report-error" : undefined}
+              disabled={reportSubmitting}
+            />
+            <div className="flex items-start justify-between gap-3 text-xs">
+              <span
+                id="collection-report-error"
+                role={reportError ? "alert" : undefined}
+                className="text-destructive"
+              >
+                {reportError}
+              </span>
+              <span className="ml-auto shrink-0 text-muted-foreground">
+                {Array.from(reportReason).length}/{REPORT_REASON_MAX_LENGTH}
+              </span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={closeCollectionReport}
+              disabled={reportSubmitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={onReportCollection}
+              disabled={!isOnline || reportSubmitting}
+            >
+              <Flag className="h-4 w-4" />
+              {reportSubmitting ? "Sending..." : "Send report"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
