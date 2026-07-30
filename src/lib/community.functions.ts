@@ -19,6 +19,13 @@ export const DECK_CATEGORIES = [
 
 const DeckVisibility = z.enum(["private", "unlisted", "public"]);
 const DeckCategory = z.enum(DECK_CATEGORIES);
+const MAX_MARKETPLACE_NAME_LENGTH = 120;
+const COPY_NAME_SUFFIX = " (copy)";
+
+function copyName(name: string) {
+  const availableLength = MAX_MARKETPLACE_NAME_LENGTH - COPY_NAME_SUFFIX.length;
+  return `${name.slice(0, availableLength).trimEnd()}${COPY_NAME_SUFFIX}`;
+}
 
 type CommunityDeckRow = {
   id: string;
@@ -638,7 +645,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
       .from("decks")
       .insert({
         user_id: userId,
-        name: `${deck.name} (copy)`,
+        name: copyName(deck.name),
         description: deck.description ?? "",
         category: deck.category,
         keywords: deck.keywords ?? [],
@@ -711,7 +718,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
       .from("collections")
       .insert({
         user_id: userId,
-        name: `${collection.name} (copy)`,
+        name: copyName(collection.name),
         description: collection.description ?? "",
         keywords: collection.keywords ?? [],
         source_collection_id: collection.id,
@@ -748,7 +755,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
         .from("decks")
         .insert({
           user_id: userId,
-          name: `${deck.name} (copy)`,
+          name: copyName(deck.name),
           description: deck.description ?? "",
           category: deck.category,
           keywords: deck.keywords ?? [],

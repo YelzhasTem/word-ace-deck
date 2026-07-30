@@ -1,11 +1,6 @@
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5";
-  };
   graphql_public: {
     Tables: {
       [_ in never]: never;
@@ -414,11 +409,25 @@ export type Database = {
             referencedColumns: ["id"];
           },
           {
+            foreignKeyName: "collection_decks_collection_owner_fkey";
+            columns: ["collection_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "collections";
+            referencedColumns: ["id", "user_id"];
+          },
+          {
             foreignKeyName: "collection_decks_deck_id_fkey";
             columns: ["deck_id"];
             isOneToOne: false;
             referencedRelation: "decks";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "collection_decks_deck_owner_fkey";
+            columns: ["deck_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "decks";
+            referencedColumns: ["id", "user_id"];
           },
         ];
       };
@@ -640,7 +649,22 @@ export type Database = {
           follower_id?: string;
           id?: string;
         };
-        Relationships: [];
+        Relationships: [
+          {
+            foreignKeyName: "creator_follows_creator_id_profile_fkey";
+            columns: ["creator_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["user_id"];
+          },
+          {
+            foreignKeyName: "creator_follows_follower_id_profile_fkey";
+            columns: ["follower_id"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["user_id"];
+          },
+        ];
       };
       deck_learning_settings: {
         Row: {
@@ -1141,6 +1165,13 @@ export type Database = {
             referencedRelation: "study_sessions";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "speed_runs_session_owner_fkey";
+            columns: ["session_id", "user_id", "deck_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id", "deck_id"];
+          },
         ];
       };
       streak_days: {
@@ -1273,6 +1304,13 @@ export type Database = {
             referencedRelation: "study_sessions";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "study_events_session_owner_fkey";
+            columns: ["session_id", "user_id", "deck_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id", "deck_id"];
+          },
         ];
       };
       study_question_options: {
@@ -1377,6 +1415,13 @@ export type Database = {
             referencedRelation: "study_sessions";
             referencedColumns: ["id"];
           },
+          {
+            foreignKeyName: "study_questions_session_owner_fkey";
+            columns: ["session_id", "user_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id"];
+          },
         ];
       };
       study_session_cards: {
@@ -1424,6 +1469,13 @@ export type Database = {
             isOneToOne: false;
             referencedRelation: "study_sessions";
             referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "study_session_cards_session_owner_fkey";
+            columns: ["session_id", "user_id", "deck_id"];
+            isOneToOne: false;
+            referencedRelation: "study_sessions";
+            referencedColumns: ["id", "user_id", "deck_id"];
           },
         ];
       };
