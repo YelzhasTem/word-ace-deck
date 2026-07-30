@@ -3,14 +3,16 @@ import { BlockList, isIP } from "node:net";
 import { Agent, buildConnector, fetch as undiciFetch, type Response } from "undici";
 
 export const URL_FETCH_MAX_BYTES = 512 * 1024;
-export const URL_FETCH_TIMEOUT_MS = 12_000;
-export const URL_FETCH_MAX_REDIRECTS = 4;
+export const URL_FETCH_TIMEOUT_MS = 10_000;
+export const URL_FETCH_MAX_REDIRECTS = 3;
+export const URL_FETCH_MAX_URL_CHARS = 2_000;
 export const URL_TEXT_EXCERPT_CHARS = 12_000;
 
 const ALLOWED_CONTENT_TYPES = new Set(["text/html", "application/xhtml+xml", "text/plain"]);
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const ENCODED_CONTROL_CHARACTERS = /%(?:0[0-9a-f]|1[0-9a-f]|7f)/i;
-const LOCAL_HOSTNAME = /(?:^|\.)(?:localhost|local|internal|home\.arpa)$/i;
+const UNICODE_CONTROL_CHARACTERS = /[\p{Cc}\p{Cf}]/u;
+const LOCAL_HOSTNAME = /(?:^|\.)(?:localhost|local|internal|localdomain|home\.arpa)$/i;
 const METADATA_HOSTNAME = /(?:^|\.)metadata(?:\.google\.internal)?$/i;
 
 const blockedIpv4Addresses = new BlockList();
@@ -24,6 +26,7 @@ for (const [network, prefix] of [
   ["172.16.0.0", 12],
   ["192.0.0.0", 24],
   ["192.0.2.0", 24],
+  ["192.88.99.0", 24],
   ["192.168.0.0", 16],
   ["198.18.0.0", 15],
   ["198.51.100.0", 24],
@@ -36,15 +39,19 @@ for (const [network, prefix] of [
 for (const [network, prefix] of [
   ["::", 128],
   ["::1", 128],
+  ["::", 96],
   ["::ffff:0:0", 96],
   ["64:ff9b::", 96],
+  ["64:ff9b:1::", 48],
   ["100::", 64],
-  ["2001::", 32],
-  ["2001:2::", 48],
-  ["2001:10::", 28],
+  ["2001::", 23],
   ["2001:db8::", 32],
+  ["2002::", 16],
+  ["3fff::", 20],
+  ["5f00::", 16],
   ["fc00::", 7],
   ["fe80::", 10],
+  ["fec0::", 10],
   ["ff00::", 8],
 ] as const) {
   blockedIpv6Addresses.addSubnet(network, prefix, "ipv6");
@@ -86,10 +93,16 @@ function hostnameWithoutBrackets(hostname: string) {
 }
 
 function hasControlCharacters(value: string) {
-  return Array.from(value).some((character) => {
-    const codePoint = character.codePointAt(0) ?? 0;
-    return codePoint <= 31 || codePoint === 127;
-  });
+  return UNICODE_CONTROL_CHARACTERS.test(value);
+}
+
+export function normalizeHostname(rawHostname: string) {
+  let hostname = hostnameWithoutBrackets(rawHostname).toLowerCase();
+  if (hostname.endsWith(".")) hostname = hostname.slice(0, -1);
+  if (!hostname || hostname.endsWith(".")) {
+    fail(422, "URL_HOST_INVALID", "Enter a valid public web address.");
+  }
+  return hostname;
 }
 
 export function isPublicIpAddress(address: string) {
@@ -100,7 +113,12 @@ export function isPublicIpAddress(address: string) {
 }
 
 export function parseSafeRemoteUrl(rawUrl: string) {
-  if (!rawUrl || hasControlCharacters(rawUrl) || ENCODED_CONTROL_CHARACTERS.test(rawUrl)) {
+  if (
+    !rawUrl ||
+    rawUrl.length > URL_FETCH_MAX_URL_CHARS ||
+    hasControlCharacters(rawUrl) ||
+    ENCODED_CONTROL_CHARACTERS.test(rawUrl)
+  ) {
     fail(422, "URL_INVALID", "Enter a valid public web address.");
   }
 
@@ -110,7 +128,7 @@ export function parseSafeRemoteUrl(rawUrl: string) {
   } catch {
     fail(422, "URL_INVALID", "Enter a valid public web address.");
   }
-  if (hasControlCharacters(decoded)) {
+  if (hasControlCharacters(decoded) || ENCODED_CONTROL_CHARACTERS.test(decoded)) {
     fail(422, "URL_INVALID", "Enter a valid public web address.");
   }
 
@@ -121,17 +139,21 @@ export function parseSafeRemoteUrl(rawUrl: string) {
     fail(422, "URL_INVALID", "Enter a valid public web address.");
   }
 
-  if (url.protocol !== "http:" && url.protocol !== "https:") {
-    fail(422, "URL_SCHEME_BLOCKED", "Only public HTTP and HTTPS pages are supported.");
+  if (url.protocol !== "https:") {
+    fail(422, "URL_SCHEME_BLOCKED", "Only public HTTPS pages are supported.");
   }
   if (url.username || url.password) {
     fail(422, "URL_CREDENTIALS_BLOCKED", "Web addresses containing credentials are not supported.");
   }
 
-  const hostname = hostnameWithoutBrackets(url.hostname).toLowerCase();
-  if (!hostname || LOCAL_HOSTNAME.test(hostname) || METADATA_HOSTNAME.test(hostname)) {
+  const hostname = normalizeHostname(url.hostname);
+  if (LOCAL_HOSTNAME.test(hostname) || METADATA_HOSTNAME.test(hostname)) {
     fail(422, "URL_HOST_BLOCKED", "This web address is not publicly accessible.");
   }
+
+  // A single trailing dot is a valid FQDN form. Remove it so DNS validation,
+  // TLS SNI, the Host header, and redirect-loop checks use the same host.
+  url.hostname = isIP(hostname) === 6 ? `[${hostname}]` : hostname;
   url.hash = "";
   return url;
 }
@@ -146,9 +168,37 @@ const defaultLookup: SafeLookup = async (hostname) => {
     .map(({ address, family }) => ({ address, family }));
 };
 
-export async function resolveSafeUrl(rawUrl: string | URL, lookup: SafeLookup = defaultLookup) {
+function waitForLookup(
+  lookup: Promise<ResolvedAddress[]>,
+  signal?: AbortSignal,
+): Promise<ResolvedAddress[]> {
+  if (!signal) return lookup;
+  if (signal.aborted) return Promise.reject(new Error("URL lookup aborted"));
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      signal.removeEventListener("abort", onAbort);
+      callback();
+    };
+    const onAbort = () => finish(() => reject(new Error("URL lookup aborted")));
+    signal.addEventListener("abort", onAbort, { once: true });
+    lookup.then(
+      (addresses) => finish(() => resolve(addresses)),
+      (error) => finish(() => reject(error)),
+    );
+  });
+}
+
+export async function resolveSafeUrl(
+  rawUrl: string | URL,
+  lookup: SafeLookup = defaultLookup,
+  signal?: AbortSignal,
+) {
   const url = parseSafeRemoteUrl(String(rawUrl));
-  const hostname = hostnameWithoutBrackets(url.hostname);
+  const hostname = normalizeHostname(url.hostname);
   let addresses: ResolvedAddress[];
 
   const literalFamily = isIP(hostname);
@@ -156,13 +206,17 @@ export async function resolveSafeUrl(rawUrl: string | URL, lookup: SafeLookup = 
     addresses = [{ address: hostname, family: literalFamily }];
   } else {
     try {
-      addresses = await lookup(hostname);
-    } catch {
+      addresses = await waitForLookup(lookup(hostname), signal);
+    } catch (error) {
+      if (signal?.aborted) throw error;
       fail(422, "URL_DNS_FAILED", "Could not resolve this web address.");
     }
   }
 
-  if (!addresses.length || addresses.some(({ address }) => !isPublicIpAddress(address))) {
+  if (
+    !addresses.length ||
+    addresses.some(({ address, family }) => isIP(address) !== family || !isPublicIpAddress(address))
+  ) {
     fail(422, "URL_HOST_BLOCKED", "This web address is not publicly accessible.");
   }
 
@@ -230,7 +284,7 @@ async function readLimitedText(response: Response, controller: AbortController, 
 }
 
 const pinnedRequest: SafeUrlRequest = async (url, addresses, controller) => {
-  const hostname = hostnameWithoutBrackets(url.hostname);
+  const hostname = normalizeHostname(url.hostname);
   const address = addresses.find((candidate) => candidate.family === 4) ?? addresses[0];
   const agent = createPinnedAgent(hostname, address);
   try {
@@ -264,10 +318,21 @@ export async function fetchSafeUrlText(
   const controller = new AbortController();
   const deadline = setTimeout(() => controller.abort(), timeoutMs);
   let currentUrl = parseSafeRemoteUrl(rawUrl);
+  const visitedUrls = new Set<string>();
 
   try {
     for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
-      const { url, addresses } = await resolveSafeUrl(currentUrl, dependencies.lookup);
+      const normalizedUrl = currentUrl.toString();
+      if (visitedUrls.has(normalizedUrl)) {
+        fail(422, "URL_REDIRECT_LOOP", "This page contains a redirect loop.");
+      }
+      visitedUrls.add(normalizedUrl);
+
+      const { url, addresses } = await resolveSafeUrl(
+        currentUrl,
+        dependencies.lookup,
+        controller.signal,
+      );
       const requested = await request(url, addresses, controller);
       const { response } = requested;
 
@@ -301,6 +366,13 @@ export async function fetchSafeUrlText(
         if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
           await response.body?.cancel();
           fail(422, "URL_CONTENT_TYPE_BLOCKED", "Only HTML and plain-text pages are supported.");
+        }
+        const contentEncoding = (response.headers.get("content-encoding") ?? "")
+          .trim()
+          .toLowerCase();
+        if (contentEncoding && contentEncoding !== "identity") {
+          await response.body?.cancel();
+          fail(422, "URL_CONTENT_ENCODING_BLOCKED", "Compressed pages are not supported.");
         }
 
         const body = await readLimitedText(response, controller, maxBytes);
