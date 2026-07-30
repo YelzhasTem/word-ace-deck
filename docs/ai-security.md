@@ -48,11 +48,21 @@ On Vercel, the server reads `x-vercel-forwarded-for`, falling back to Vercel's o
 
 ## URL import and SSRF
 
-URL import accepts only `http:` and `https:` without credentials or control characters. Local hostnames and metadata names are rejected. DNS must return only globally routable IPv4/IPv6 addresses; private, loopback, link-local, carrier NAT, multicast, unspecified, reserved, documentation, IPv4-mapped IPv6, and metadata ranges are blocked.
+The only user-controlled server-side URL fetch is the `generateDeckFromUrl` flow:
 
-The validated address is pinned into the Undici connector, reducing DNS-rebinding exposure. Redirects are manual, limited to four, and each target repeats URL and DNS validation. No incoming authorization header, cookies, or secrets are forwarded.
+`dashboard URL field -> authenticated server function -> AI quota/idempotency guard -> safe-url-fetch.server.ts -> bounded text extraction -> Gemini -> validated deck payload`.
 
-Only HTML, XHTML, and plain text are accepted. The total deadline is 12 seconds. Responses are streamed, checked against `Content-Length` when present, and aborted above 512 KiB even when the header is missing or false. The server sends `Accept-Encoding: identity`; unsupported and binary formats are rejected.
+URL import accepts only `https:` URLs up to 2,000 characters. Credentials, Unicode or encoded control characters, malformed ports, empty or ambiguous hosts, local names, and metadata names are rejected; fragments are removed before request and redirect-loop comparison. International hostnames are canonicalized with the platform URL parser; hostnames are lowercased and a single DNS trailing dot is removed before policy checks and network use.
+
+Literal addresses and every A/AAAA answer must be globally routable. Private, loopback, link-local, carrier NAT, multicast, unspecified, reserved, documentation, transition, IPv4-compatible, IPv4-mapped IPv6, and metadata ranges are blocked. A mixed DNS answer set is rejected in full.
+
+The validated IP is pinned into the Undici connector used for that exact request while TLS SNI and the HTTP host remain the normalized public hostname. Therefore the request does not perform a second hostname lookup after validation in the current Node/Vercel implementation. Replacing this connector with plain `fetch` would reopen a DNS-rebinding gap and requires a security review.
+
+Redirects use `redirect: "manual"`, allow at most three hops, detect normalized URL loops, support relative `Location`, and repeat the complete protocol, credential, hostname, DNS, and IP validation for every target. A public page cannot redirect into a local address. Incoming authorization headers, cookies, forwarding headers, and server secrets are never forwarded.
+
+Only uncompressed HTML, XHTML, and plain text are accepted. DNS, connect, headers, redirects, and streaming body reads share one 10-second deadline. Responses are checked against `Content-Length`, streamed with a 512 KiB decoded byte cap even when the header is absent or false, and aborted as soon as the cap is crossed. Unsupported, compressed, binary, PDF, archive, and image content is rejected.
+
+The importer does not execute JavaScript, launch a browser, load frames, follow links, or fetch styles, images, scripts, or other subresources. It removes script, style, and markup text locally, collapses the result, and sends at most 12,000 text characters to Gemini. The complete source URL, including query parameters, is not included in the provider prompt. Model output still passes the normal strict schema, field-length, card-count, and minimum-card validation before it reaches the client.
 
 ## Input and provider limits
 
