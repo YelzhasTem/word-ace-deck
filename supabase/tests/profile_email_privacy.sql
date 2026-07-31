@@ -1,4 +1,8 @@
+CREATE EXTENSION IF NOT EXISTS pgtap WITH SCHEMA extensions;
+
 BEGIN;
+
+SELECT extensions.plan(1);
 
 -- Synthetic fixtures only. The transaction is always rolled back.
 INSERT INTO auth.users (
@@ -48,7 +52,8 @@ INSERT INTO public.decks (
   name,
   visibility,
   target_language,
-  definition_language
+  definition_language,
+  published_at
 )
 VALUES (
   '30000000-0000-4000-8000-000000000003',
@@ -56,7 +61,8 @@ VALUES (
   'Synthetic security test deck',
   'public',
   'en',
-  'ru'
+  'ru',
+  now()
 );
 
 SET LOCAL ROLE anon;
@@ -252,5 +258,8 @@ END;
 $$;
 
 RESET ROLE;
+
+SELECT extensions.pass('profile privacy checks completed');
+SELECT * FROM extensions.finish();
 
 ROLLBACK;

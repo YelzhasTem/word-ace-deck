@@ -1,0 +1,84 @@
+name: Database integrity
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/database-integrity.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "src/**"
+      - "supabase/**"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/database-integrity.yml"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/**"
+      - "src/**"
+      - "supabase/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: database-integrity-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:database-integrity
+      - run: npx eslint scripts/check-database-integrity-static.mjs src/lib/community.functions.ts
+      - run: npm run build
+
+  supabase-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.110.0
+          github-token: ${{ github.token }}
+      - name: Start isolated Supabase
+        run: supabase start
+      - name: Rebuild all migrations from zero
+        run: supabase db reset --local
+      - name: Lint database functions and schema
+        run: supabase db lint --local --level warning
+      - name: Test SQL constraints and privacy
+        run: supabase test db
+      - name: Export isolated test variables
+        run: |
+          supabase status -o env \
+            --override-name api.url=SUPABASE_URL \
+            --override-name auth.anon_key=SUPABASE_PUBLISHABLE_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            > .env.security
+      - name: Test collection report validation through Supabase JS
+        run: node --env-file=.env.security scripts/verify-collection-report-validation.mjs
+      - name: Test profile privacy through REST and Supabase JS
+        run: node --env-file=.env.security scripts/run-profile-email-privacy-fixture.mjs
+      - name: Test study integrity through REST, Supabase JS, and RPC
+        run: node --env-file=.env.security scripts/run-study-data-integrity-fixture.mjs
+      - name: Test AI quota integrity and RLS
+        run: node --env-file=.env.security scripts/verify-ai-security-quotas.mjs
+        env:
+          AI_SECURITY_TEST_CONFIG_MUTATION: "true"
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup

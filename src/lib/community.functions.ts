@@ -3,6 +3,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
+import {
+  parseCollectionReportInput,
+  parseDeckReportInput,
+  reportDatabaseErrorMessage,
+} from "@/lib/report-validation";
 
 export const DECK_CATEGORIES = [
   "General English",
@@ -19,6 +24,13 @@ export const DECK_CATEGORIES = [
 
 const DeckVisibility = z.enum(["private", "unlisted", "public"]);
 const DeckCategory = z.enum(DECK_CATEGORIES);
+const MAX_MARKETPLACE_NAME_LENGTH = 120;
+const COPY_NAME_SUFFIX = " (copy)";
+
+function copyName(name: string) {
+  const availableLength = MAX_MARKETPLACE_NAME_LENGTH - COPY_NAME_SUFFIX.length;
+  return `${name.slice(0, availableLength).trimEnd()}${COPY_NAME_SUFFIX}`;
+}
 
 type CommunityDeckRow = {
   id: string;
@@ -599,14 +611,25 @@ export const rateCollection = createServerFn({ method: "POST" })
 
 export const reportDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) =>
-    z.object({ deckId: z.string().uuid(), reason: z.string().min(3).max(400) }).parse(input),
-  )
+  .inputValidator(parseDeckReportInput)
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase
       .from("deck_reports")
       .insert({ deck_id: data.deckId, reporter_id: context.userId, reason: data.reason });
-    if (error) throw new Error(error.message);
+    if (error) throw new Error(reportDatabaseErrorMessage(error));
+    return { ok: true };
+  });
+
+export const reportCollection = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(parseCollectionReportInput)
+  .handler(async ({ data, context }) => {
+    const { error } = await context.supabase.from("collection_reports").insert({
+      collection_id: data.collectionId,
+      reporter_id: context.userId,
+      reason: data.reason,
+    });
+    if (error) throw new Error(reportDatabaseErrorMessage(error));
     return { ok: true };
   });
 
@@ -638,7 +661,7 @@ export const duplicatePublicDeck = createServerFn({ method: "POST" })
       .from("decks")
       .insert({
         user_id: userId,
-        name: `${deck.name} (copy)`,
+        name: copyName(deck.name),
         description: deck.description ?? "",
         category: deck.category,
         keywords: deck.keywords ?? [],
@@ -711,7 +734,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
       .from("collections")
       .insert({
         user_id: userId,
-        name: `${collection.name} (copy)`,
+        name: copyName(collection.name),
         description: collection.description ?? "",
         keywords: collection.keywords ?? [],
         source_collection_id: collection.id,
@@ -748,7 +771,7 @@ export const duplicatePublicCollection = createServerFn({ method: "POST" })
         .from("decks")
         .insert({
           user_id: userId,
-          name: `${deck.name} (copy)`,
+          name: copyName(deck.name),
           description: deck.description ?? "",
           category: deck.category,
           keywords: deck.keywords ?? [],
