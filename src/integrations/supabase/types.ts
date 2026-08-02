@@ -1574,8 +1574,35 @@ export type Database = {
           retry_after_seconds: number;
         }[];
       };
+      advance_account_deletion_job: {
+        Args: {
+          p_expected_step: string;
+          p_job_id: string;
+          p_lease_token: string;
+          p_next_step: string;
+          p_storage_files_deleted?: number;
+        };
+        Returns: {
+          job_status: string;
+          resume_step: string;
+        }[];
+      };
       can_study_card: { Args: { _card_id: string }; Returns: boolean };
       can_study_deck: { Args: { _deck_id: string }; Returns: boolean };
+      claim_account_deletion_job: {
+        Args: { p_job_id: string };
+        Returns: {
+          attempt_count: number;
+          claimed: boolean;
+          job_id: string;
+          job_status: string;
+          lease_expires_at: string | null;
+          lease_token: string | null;
+          resume_step: string;
+          retry_after_seconds: number;
+          user_id: string | null;
+        }[];
+      };
       complete_ai_request: {
         Args: {
           p_latency_ms: number;
@@ -1635,6 +1662,31 @@ export type Database = {
           duplicate: boolean;
         }[];
       };
+      fail_account_deletion_job: {
+        Args: {
+          p_error_code: string;
+          p_job_id: string;
+          p_lease_token: string;
+          p_retryable: boolean;
+        };
+        Returns: string;
+      };
+      finalize_account_deletion_database: {
+        Args: { p_job_id: string; p_lease_token: string };
+        Returns: {
+          job_status: string;
+          removed_rows: number;
+        }[];
+      };
+      get_my_account_deletion_status: {
+        Args: never;
+        Returns: {
+          attempt_count: number;
+          job_id: string;
+          job_status: string;
+          next_retry_at: string | null;
+        }[];
+      };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];
@@ -1642,6 +1694,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_account_deletion_pending: { Args: never; Returns: boolean };
       is_public_profile: { Args: { _user_id: string }; Returns: boolean };
       is_study_answer_correct: {
         Args: { _expected: string; _submitted: string };
@@ -1690,6 +1743,7 @@ export type Database = {
         Args: { _fallback?: string; _value: string };
         Returns: string;
       };
+      purge_expired_account_deletion_jobs: { Args: never; Returns: number };
       record_study_answer: {
         Args: {
           p_idempotency_key: string;
@@ -1754,6 +1808,19 @@ export type Database = {
           total_ms: number;
           verification_type: string;
           wrong_count: number;
+        }[];
+      };
+      renew_account_deletion_lease: {
+        Args: { p_job_id: string; p_lease_token: string };
+        Returns: boolean;
+      };
+      request_account_deletion: {
+        Args: never;
+        Returns: {
+          attempt_count: number;
+          job_id: string;
+          job_status: string;
+          next_retry_at: string | null;
         }[];
       };
       reset_deck_known: { Args: { p_deck_id: string }; Returns: number };

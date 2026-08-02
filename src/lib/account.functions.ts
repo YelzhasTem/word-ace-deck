@@ -1,88 +1,64 @@
 import { createServerFn } from "@tanstack/react-start";
-import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { z } from "zod";
+import {
+  requireSupabaseAuth,
+  requireSupabaseSession,
+} from "@/integrations/supabase/auth-middleware";
+import { executeAccountDeletion } from "@/lib/account-deletion.server";
+import { AccountDeletionWorkflowError } from "@/lib/account-deletion-workflow";
+import { httpError } from "@/lib/server-http-error";
 
-type DeleteBuilder = {
-  delete(): DeleteBuilder;
-  eq(column: string, value: string): DeleteBuilder;
-  or(filter: string): DeleteBuilder;
-  select(columns: string): DeleteBuilder;
-  maybeSingle(): Promise<{ data: unknown | null; error: { message?: string } | null }>;
-  then: Promise<{ error: { message?: string } | null }>["then"];
-};
+const DeleteAccountInput = z.object({ confirmation: z.literal("DELETE") }).strict();
+const ResumeDeletionInput = z.object({ jobId: z.string().uuid() }).strict();
 
-type AdminDb = {
-  from(table: string): DeleteBuilder;
-};
-
-async function deleteWhere(table: string, column: string, userId: string) {
-  const { error } = await (supabaseAdmin as unknown as AdminDb)
-    .from(table)
-    .delete()
-    .eq(column, userId);
-
-  if (error) throw new Error(error.message || `Could not delete ${table}.`);
-}
-
-async function deleteWhereEither(
-  table: string,
-  firstColumn: string,
-  secondColumn: string,
-  userId: string,
-) {
-  const { error } = await (supabaseAdmin as unknown as AdminDb)
-    .from(table)
-    .delete()
-    .or(`${firstColumn}.eq.${userId},${secondColumn}.eq.${userId}`);
-
-  if (error) throw new Error(error.message || `Could not delete ${table}.`);
-}
-
-async function deleteAvatarFiles(userId: string) {
-  const bucket = supabaseAdmin.storage.from("avatars");
-  const { data, error } = await bucket.list(userId, { limit: 100 });
-
-  if (error || !data?.length) return;
-
-  const paths = data.map((file) => `${userId}/${file.name}`);
-  await bucket.remove(paths);
+function throwSafeDeletionError(error: unknown): never {
+  if (error instanceof AccountDeletionWorkflowError) {
+    httpError(error.statusCode, error.code, error.message, error.retryAfterSeconds);
+  }
+  httpError(500, "ACCOUNT_DELETION_FAILED", "Account deletion needs support assistance.");
 }
 
 export const deleteMyAccount = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
+  .middleware([requireSupabaseSession])
+  .inputValidator((input) => DeleteAccountInput.parse(input))
   .handler(async ({ context }) => {
-    const userId = context.userId;
-
-    const { error: userCheckError } = await supabaseAdmin.auth.admin.getUserById(userId);
-    if (userCheckError) {
-      throw new Error(userCheckError.message || "Could not verify account before deletion.");
+    const { data, error } = await context.supabase.rpc("request_account_deletion");
+    const job = data?.[0];
+    if (error || !job) {
+      httpError(
+        503,
+        "ACCOUNT_DELETION_RETRYABLE",
+        "Account deletion is not complete yet. Please try again shortly.",
+        5,
+      );
     }
 
-    await deleteAvatarFiles(userId);
+    try {
+      const result = await executeAccountDeletion(job.job_id, context.userId);
+      return { ok: true as const, status: result.status };
+    } catch (workflowError) {
+      throwSafeDeletionError(workflowError);
+    }
+  });
 
-    await deleteWhereEither("friendships", "requester_id", "addressee_id", userId);
-    await deleteWhereEither("creator_follows", "creator_id", "follower_id", userId);
+// Operational resume for a job whose Auth user may already be gone. There is no
+// public UI for this endpoint and only an authenticated Memora admin may invoke it.
+export const resumeAccountDeletion = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => ResumeDeletionInput.parse(input))
+  .handler(async ({ data, context }) => {
+    const role = await context.supabase.rpc("has_role", {
+      _user_id: context.userId,
+      _role: "admin",
+    });
+    if (role.error || !role.data) {
+      httpError(403, "ACCOUNT_DELETION_FAILED", "This deletion request cannot be processed.");
+    }
 
-    await deleteWhere("deck_likes", "user_id", userId);
-    await deleteWhere("deck_saves", "user_id", userId);
-    await deleteWhere("deck_ratings", "user_id", userId);
-    await deleteWhere("deck_reports", "reporter_id", userId);
-
-    await deleteWhere("collection_likes", "user_id", userId);
-    await deleteWhere("collection_saves", "user_id", userId);
-    await deleteWhere("collection_ratings", "user_id", userId);
-    await deleteWhere("collection_reports", "reporter_id", userId);
-
-    await deleteWhere("collection_decks", "user_id", userId);
-    await deleteWhere("cards", "user_id", userId);
-    await deleteWhere("collections", "user_id", userId);
-    await deleteWhere("decks", "user_id", userId);
-    await deleteWhere("streak_days", "user_id", userId);
-    await deleteWhere("user_roles", "user_id", userId);
-    await deleteWhere("profiles", "user_id", userId);
-
-    const { error } = await supabaseAdmin.auth.admin.deleteUser(userId);
-    if (error) throw new Error(error.message || "Could not delete account.");
-
-    return { ok: true };
+    try {
+      const result = await executeAccountDeletion(data.jobId);
+      return { ok: true as const, status: result.status };
+    } catch (workflowError) {
+      throwSafeDeletionError(workflowError);
+    }
   });

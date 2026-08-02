@@ -1,0 +1,123 @@
+name: Account deletion security
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/account-deletion.yml"
+      - "docs/account-deletion.md"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/check-account-deletion-static.mjs"
+      - "scripts/verify-account-deletion.ts"
+      - "src/integrations/supabase/auth-middleware.ts"
+      - "src/integrations/supabase/client.server.ts"
+      - "src/integrations/supabase/types.ts"
+      - "src/lib/account-deletion*.ts"
+      - "src/lib/account.functions.ts"
+      - "src/routes/profile.tsx"
+      - "supabase/migrations/**"
+      - "supabase/tests/**"
+      - "tests/account-deletion.test.ts"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/account-deletion.yml"
+      - "docs/account-deletion.md"
+      - "package.json"
+      - "package-lock.json"
+      - "scripts/check-account-deletion-static.mjs"
+      - "scripts/verify-account-deletion.ts"
+      - "src/integrations/supabase/auth-middleware.ts"
+      - "src/integrations/supabase/client.server.ts"
+      - "src/integrations/supabase/types.ts"
+      - "src/lib/account-deletion*.ts"
+      - "src/lib/account.functions.ts"
+      - "src/routes/profile.tsx"
+      - "supabase/migrations/**"
+      - "supabase/tests/**"
+      - "tests/account-deletion.test.ts"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: account-deletion-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check:account-deletion
+      - run: >-
+          npx eslint
+          scripts/check-account-deletion-static.mjs
+          scripts/verify-account-deletion.ts
+          tests/account-deletion.test.ts
+          src/integrations/supabase/auth-middleware.ts
+          src/integrations/supabase/types.ts
+          src/lib/account-deletion-errors.ts
+          src/lib/account-deletion-workflow.ts
+          src/lib/account-deletion.server.ts
+          src/lib/account.functions.ts
+          src/routes/profile.tsx
+      - run: npm run build
+      - name: Verify service-role credentials are absent from browser assets
+        run: |
+          if grep -R -E "SUPABASE_SERVICE_ROLE_KEY|service_role" .vercel/output/static; then
+            echo "A service-role marker was found in browser assets."
+            exit 1
+          fi
+
+  supabase-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.110.0
+          github-token: ${{ github.token }}
+      - name: Start isolated Supabase
+        run: supabase start
+      - name: Rebuild all migrations from zero
+        run: supabase db reset --local
+      - name: Lint database functions and schema
+        run: supabase db lint --local --level warning
+      - name: Test SQL constraints, privacy, and account deletion
+        run: supabase test db
+      - name: Export isolated test variables
+        run: |
+          supabase status -o env \
+            --override-name api.url=SUPABASE_URL \
+            --override-name auth.anon_key=SUPABASE_PUBLISHABLE_KEY \
+            --override-name auth.service_role_key=SUPABASE_SERVICE_ROLE_KEY \
+            > .env.security
+      - name: Test resumable account deletion through Auth, Storage, RPC, and Supabase JS
+        run: node --env-file=.env.security --experimental-strip-types scripts/verify-account-deletion.ts
+      - name: Test atomic deck creation regression
+        run: node --env-file=.env.security scripts/verify-atomic-deck-creation.mjs
+      - name: Test collection report validation regression
+        run: node --env-file=.env.security scripts/verify-collection-report-validation.mjs
+      - name: Test profile privacy regression
+        run: node --env-file=.env.security scripts/run-profile-email-privacy-fixture.mjs
+      - name: Test study integrity regression
+        run: node --env-file=.env.security scripts/run-study-data-integrity-fixture.mjs
+      - name: Test AI quota and RLS regression
+        run: node --env-file=.env.security scripts/verify-ai-security-quotas.mjs
+        env:
+          AI_SECURITY_TEST_CONFIG_MUTATION: "true"
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup
