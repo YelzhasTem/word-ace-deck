@@ -62,6 +62,10 @@ AS $function$
 DECLARE
   v_inserted INTEGER;
   v_existing private.content_creation_requests%ROWTYPE;
+  v_result_deck_id UUID;
+  v_result_collection_id UUID;
+  v_expected_count INTEGER;
+  v_existing_count INTEGER;
 BEGIN
   INSERT INTO private.content_creation_requests (
     user_id, operation, idempotency_key, request_hash
@@ -88,6 +92,74 @@ BEGIN
   IF v_existing.result IS NULL THEN
     RAISE EXCEPTION 'CREATE_DECK_FAILED' USING ERRCODE = 'P0001';
   END IF;
+
+  -- Idempotency records intentionally outlive their result rows for auditing.
+  -- A replay must never report success for content that has since been deleted.
+  BEGIN
+    IF p_operation IN ('create_deck_with_cards', 'duplicate_public_deck') THEN
+      v_result_deck_id := (v_existing.result ->> 'deckId')::UUID;
+      IF jsonb_typeof(v_existing.result -> 'cardIds') <> 'array'
+         OR NOT EXISTS (
+           SELECT 1 FROM public.decks AS deck
+           WHERE deck.id = v_result_deck_id AND deck.user_id = p_user_id
+         ) THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESULT_GONE' USING ERRCODE = 'P0001';
+      END IF;
+
+      v_expected_count := jsonb_array_length(v_existing.result -> 'cardIds');
+      SELECT count(*) INTO v_existing_count
+      FROM jsonb_array_elements_text(v_existing.result -> 'cardIds') AS item(card_id)
+      JOIN public.cards AS card
+        ON card.id = item.card_id::UUID
+       AND card.deck_id = v_result_deck_id
+       AND card.user_id = p_user_id;
+      IF v_existing_count <> v_expected_count THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESULT_GONE' USING ERRCODE = 'P0001';
+      END IF;
+
+      IF p_operation = 'create_deck_with_cards'
+         AND COALESCE(v_existing.result ->> 'collectionId', '') <> '' THEN
+        v_result_collection_id := (v_existing.result ->> 'collectionId')::UUID;
+        IF NOT EXISTS (
+          SELECT 1
+          FROM public.collection_decks AS link
+          WHERE link.collection_id = v_result_collection_id
+            AND link.deck_id = v_result_deck_id
+            AND link.user_id = p_user_id
+        ) THEN
+          RAISE EXCEPTION 'IDEMPOTENCY_RESULT_GONE' USING ERRCODE = 'P0001';
+        END IF;
+      END IF;
+    ELSIF p_operation = 'duplicate_public_collection' THEN
+      v_result_collection_id := (v_existing.result ->> 'collectionId')::UUID;
+      IF jsonb_typeof(v_existing.result -> 'deckIds') <> 'array'
+         OR NOT EXISTS (
+           SELECT 1 FROM public.collections AS collection
+           WHERE collection.id = v_result_collection_id
+             AND collection.user_id = p_user_id
+         ) THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESULT_GONE' USING ERRCODE = 'P0001';
+      END IF;
+
+      v_expected_count := jsonb_array_length(v_existing.result -> 'deckIds');
+      SELECT count(*) INTO v_existing_count
+      FROM jsonb_array_elements_text(v_existing.result -> 'deckIds') AS item(deck_id)
+      JOIN public.decks AS deck
+        ON deck.id = item.deck_id::UUID AND deck.user_id = p_user_id
+      JOIN public.collection_decks AS link
+        ON link.collection_id = v_result_collection_id
+       AND link.deck_id = deck.id
+       AND link.user_id = p_user_id;
+      IF v_existing_count <> v_expected_count THEN
+        RAISE EXCEPTION 'IDEMPOTENCY_RESULT_GONE' USING ERRCODE = 'P0001';
+      END IF;
+    END IF;
+  EXCEPTION
+    WHEN raise_exception THEN
+      RAISE;
+    WHEN OTHERS THEN
+      RAISE EXCEPTION 'IDEMPOTENCY_RESULT_GONE' USING ERRCODE = 'P0001';
+  END;
 
   RETURN v_existing.result;
 END;
@@ -212,6 +284,7 @@ DECLARE
   v_request_hash TEXT;
   v_replay JSONB;
   v_result JSONB;
+  v_normalized_cards JSONB := '[]'::JSONB;
 BEGIN
   IF v_user_id IS NULL THEN
     RAISE EXCEPTION 'UNAUTHENTICATED' USING ERRCODE = 'P0001';
@@ -268,6 +341,11 @@ BEGIN
        OR v_position > 10000 THEN
       RAISE EXCEPTION 'INVALID_CARD' USING ERRCODE = 'P0001';
     END IF;
+    v_normalized_cards := v_normalized_cards || jsonb_build_array(jsonb_build_object(
+      'term', v_term,
+      'definition', v_definition,
+      'position', v_position
+    ));
     v_index := v_index + 1;
   END LOOP;
 
@@ -277,7 +355,11 @@ BEGIN
     'coverColor', p_cover_color,
     'targetLanguage', p_target_language,
     'definitionLanguage', p_definition_language,
-    'cards', p_cards,
+    'visibility', 'private',
+    'category', 'General English',
+    'keywords', '[]'::JSONB,
+    'publishedAt', NULL,
+    'cards', v_normalized_cards,
     'collectionId', COALESCE(p_collection_id::TEXT, ''),
     'useDefaultCollection', p_use_default_collection
   ));
@@ -319,7 +401,7 @@ BEGIN
   ) RETURNING id INTO v_deck_id;
 
   v_index := 0;
-  FOR v_card IN SELECT value FROM jsonb_array_elements(p_cards)
+  FOR v_card IN SELECT value FROM jsonb_array_elements(v_normalized_cards)
   LOOP
     INSERT INTO public.cards (deck_id, user_id, term, definition, position)
     VALUES (
@@ -357,7 +439,7 @@ EXCEPTION
     IF SQLERRM = ANY (ARRAY[
       'UNAUTHENTICATED', 'INVALID_DECK', 'INVALID_CARD', 'TOO_MANY_CARDS',
       'COLLECTION_NOT_FOUND', 'COLLECTION_ACCESS_DENIED',
-      'IDEMPOTENCY_CONFLICT', 'CREATE_DECK_FAILED'
+      'IDEMPOTENCY_CONFLICT', 'IDEMPOTENCY_RESULT_GONE', 'CREATE_DECK_FAILED'
     ]) THEN
       RAISE;
     END IF;
@@ -380,8 +462,9 @@ SET search_path = pg_catalog, public
 AS $function$
 DECLARE
   v_user_id UUID := auth.uid();
-  v_source public.decks%ROWTYPE;
-  v_card RECORD;
+  v_source JSONB;
+  v_card JSONB;
+  v_card_count INTEGER;
   v_deck_id UUID;
   v_card_id UUID;
   v_card_ids UUID[] := ARRAY[]::UUID[];
@@ -411,13 +494,35 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT source.* INTO v_source
+  SELECT jsonb_build_object(
+    'id', source.id,
+    'name', source.name,
+    'description', source.description,
+    'targetLanguage', source.target_language,
+    'definitionLanguage', source.definition_language,
+    'category', source.category,
+    'keywords', to_jsonb(source.keywords),
+    'cards', (
+      SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'term', source_card.term,
+        'definition', source_card.definition,
+        'position', source_card.position
+      ) ORDER BY source_card.position, source_card.id), '[]'::JSONB)
+      FROM public.cards AS source_card
+      WHERE source_card.deck_id = source.id
+    )
+  ) INTO v_source
   FROM public.decks AS source
   WHERE source.id = p_source_deck_id
     AND source.visibility IN ('public', 'unlisted')
-    AND source.hidden_at IS NULL;
+    AND source.hidden_at IS NULL
+  FOR SHARE OF source;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'DECK_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+  v_card_count := jsonb_array_length(v_source -> 'cards');
+  IF v_card_count > 100 THEN
+    RAISE EXCEPTION 'TOO_MANY_CARDS' USING ERRCODE = 'P0001';
   END IF;
 
   INSERT INTO public.decks (
@@ -425,24 +530,23 @@ BEGIN
     category, keywords, source_deck_id, visibility
   ) VALUES (
     v_user_id,
-    btrim(left(v_source.name, 113)) || ' (copy)',
-    v_source.description,
-    v_source.target_language,
-    v_source.definition_language,
-    v_source.category,
-    v_source.keywords,
-    v_source.id,
+    btrim(left(v_source ->> 'name', 113)) || ' (copy)',
+    v_source ->> 'description',
+    v_source ->> 'targetLanguage',
+    v_source ->> 'definitionLanguage',
+    (v_source ->> 'category')::public.deck_category,
+    ARRAY(SELECT jsonb_array_elements_text(v_source -> 'keywords')),
+    (v_source ->> 'id')::UUID,
     'private'
   ) RETURNING id INTO v_deck_id;
 
   FOR v_card IN
-    SELECT source_card.term, source_card.definition, source_card.position
-    FROM public.cards AS source_card
-    WHERE source_card.deck_id = v_source.id
-    ORDER BY source_card.position, source_card.id
+    SELECT value FROM jsonb_array_elements(v_source -> 'cards')
   LOOP
     INSERT INTO public.cards (deck_id, user_id, term, definition, position)
-    VALUES (v_deck_id, v_user_id, v_card.term, v_card.definition, v_position)
+    VALUES (
+      v_deck_id, v_user_id, v_card ->> 'term', v_card ->> 'definition', v_position
+    )
     RETURNING id INTO v_card_id;
     v_card_ids := array_append(v_card_ids, v_card_id);
     v_position := v_position + 1;
@@ -451,7 +555,7 @@ BEGIN
   UPDATE public.decks
   SET copy_count = copy_count + 1,
       learner_count = learner_count + 1
-  WHERE id = v_source.id;
+  WHERE id = (v_source ->> 'id')::UUID;
 
   v_result := jsonb_build_object('deckId', v_deck_id, 'cardIds', to_jsonb(v_card_ids));
   PERFORM private.complete_content_creation(
@@ -462,7 +566,8 @@ EXCEPTION
   WHEN raise_exception THEN
     IF SQLERRM = ANY (ARRAY[
       'UNAUTHENTICATED', 'INVALID_DECK', 'DECK_NOT_FOUND',
-      'IDEMPOTENCY_CONFLICT', 'CREATE_DECK_FAILED'
+      'TOO_MANY_CARDS', 'IDEMPOTENCY_CONFLICT', 'IDEMPOTENCY_RESULT_GONE',
+      'CREATE_DECK_FAILED'
     ]) THEN
       RAISE;
     END IF;
@@ -483,9 +588,12 @@ SET search_path = pg_catalog, public
 AS $function$
 DECLARE
   v_user_id UUID := auth.uid();
-  v_source public.collections%ROWTYPE;
-  v_source_deck RECORD;
-  v_source_card RECORD;
+  v_source JSONB;
+  v_source_deck JSONB;
+  v_source_card JSONB;
+  v_deck_count INTEGER;
+  v_total_card_count INTEGER;
+  v_largest_deck_card_count INTEGER;
   v_collection_id UUID;
   v_deck_id UUID;
   v_deck_ids UUID[] := ARRAY[]::UUID[];
@@ -516,34 +624,74 @@ BEGIN
     RETURN;
   END IF;
 
-  SELECT source.* INTO v_source
+  SELECT jsonb_build_object(
+    'id', source.id,
+    'name', source.name,
+    'description', source.description,
+    'keywords', to_jsonb(source.keywords),
+    'decks', (
+      SELECT COALESCE(jsonb_agg(jsonb_build_object(
+        'id', deck.id,
+        'name', deck.name,
+        'description', deck.description,
+        'targetLanguage', deck.target_language,
+        'definitionLanguage', deck.definition_language,
+        'category', deck.category,
+        'keywords', to_jsonb(deck.keywords),
+        'cards', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'term', card.term,
+            'definition', card.definition,
+            'position', card.position
+          ) ORDER BY card.position, card.id), '[]'::JSONB)
+          FROM public.cards AS card
+          WHERE card.deck_id = deck.id
+        )
+      ) ORDER BY link.position, link.id), '[]'::JSONB)
+      FROM public.collection_decks AS link
+      JOIN public.decks AS deck ON deck.id = link.deck_id
+      WHERE link.collection_id = source.id
+        AND deck.visibility IN ('public', 'unlisted')
+        AND deck.hidden_at IS NULL
+    )
+  ) INTO v_source
   FROM public.collections AS source
   WHERE source.id = p_source_collection_id
     AND source.visibility IN ('public', 'unlisted')
-    AND source.hidden_at IS NULL;
+    AND source.hidden_at IS NULL
+  FOR SHARE OF source;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'COLLECTION_NOT_FOUND' USING ERRCODE = 'P0001';
+  END IF;
+
+  -- Collection copies are intentionally bounded independently of the normal
+  -- 1-100 card creation contract to keep one transaction predictable.
+  v_deck_count := jsonb_array_length(v_source -> 'decks');
+  IF v_deck_count > 25 THEN
+    RAISE EXCEPTION 'TOO_MANY_DECKS' USING ERRCODE = 'P0001';
+  END IF;
+  SELECT
+    COALESCE(sum(jsonb_array_length(source_deck.value -> 'cards')), 0),
+    COALESCE(max(jsonb_array_length(source_deck.value -> 'cards')), 0)
+  INTO v_total_card_count, v_largest_deck_card_count
+  FROM jsonb_array_elements(v_source -> 'decks') AS source_deck(value);
+  IF v_largest_deck_card_count > 100 OR v_total_card_count > 2500 THEN
+    RAISE EXCEPTION 'TOO_MANY_CARDS' USING ERRCODE = 'P0001';
   END IF;
 
   INSERT INTO public.collections (
     user_id, name, description, keywords, source_collection_id, visibility
   ) VALUES (
     v_user_id,
-    btrim(left(v_source.name, 113)) || ' (copy)',
-    v_source.description,
-    v_source.keywords,
-    v_source.id,
+    btrim(left(v_source ->> 'name', 113)) || ' (copy)',
+    v_source ->> 'description',
+    ARRAY(SELECT jsonb_array_elements_text(v_source -> 'keywords')),
+    (v_source ->> 'id')::UUID,
     'private'
   ) RETURNING id INTO v_collection_id;
 
   FOR v_source_deck IN
-    SELECT deck.*
-    FROM public.collection_decks AS link
-    JOIN public.decks AS deck ON deck.id = link.deck_id
-    WHERE link.collection_id = v_source.id
-      AND deck.visibility IN ('public', 'unlisted')
-      AND deck.hidden_at IS NULL
-    ORDER BY link.position, link.id
+    SELECT value FROM jsonb_array_elements(v_source -> 'decks')
   LOOP
     v_card_position := 0;
     INSERT INTO public.decks (
@@ -551,25 +699,22 @@ BEGIN
       category, keywords, source_deck_id, visibility
     ) VALUES (
       v_user_id,
-      btrim(left(v_source_deck.name, 113)) || ' (copy)',
-      v_source_deck.description,
-      v_source_deck.target_language,
-      v_source_deck.definition_language,
-      v_source_deck.category,
-      v_source_deck.keywords,
-      v_source_deck.id,
+      btrim(left(v_source_deck ->> 'name', 113)) || ' (copy)',
+      v_source_deck ->> 'description',
+      v_source_deck ->> 'targetLanguage',
+      v_source_deck ->> 'definitionLanguage',
+      (v_source_deck ->> 'category')::public.deck_category,
+      ARRAY(SELECT jsonb_array_elements_text(v_source_deck -> 'keywords')),
+      (v_source_deck ->> 'id')::UUID,
       'private'
     ) RETURNING id INTO v_deck_id;
 
     FOR v_source_card IN
-      SELECT card.term, card.definition, card.position
-      FROM public.cards AS card
-      WHERE card.deck_id = v_source_deck.id
-      ORDER BY card.position, card.id
+      SELECT value FROM jsonb_array_elements(v_source_deck -> 'cards')
     LOOP
       INSERT INTO public.cards (deck_id, user_id, term, definition, position)
       VALUES (
-        v_deck_id, v_user_id, v_source_card.term, v_source_card.definition,
+        v_deck_id, v_user_id, v_source_card ->> 'term', v_source_card ->> 'definition',
         v_card_position
       );
       v_card_position := v_card_position + 1;
@@ -583,13 +728,13 @@ BEGIN
     UPDATE public.decks
     SET copy_count = copy_count + 1,
         learner_count = learner_count + 1
-    WHERE id = v_source_deck.id;
+    WHERE id = (v_source_deck ->> 'id')::UUID;
   END LOOP;
 
   UPDATE public.collections
   SET copy_count = copy_count + 1,
       learner_count = learner_count + 1
-  WHERE id = v_source.id;
+  WHERE id = (v_source ->> 'id')::UUID;
 
   v_result := jsonb_build_object(
     'collectionId', v_collection_id,
@@ -603,7 +748,8 @@ EXCEPTION
   WHEN raise_exception THEN
     IF SQLERRM = ANY (ARRAY[
       'UNAUTHENTICATED', 'INVALID_DECK', 'COLLECTION_NOT_FOUND',
-      'IDEMPOTENCY_CONFLICT', 'CREATE_DECK_FAILED'
+      'TOO_MANY_DECKS', 'TOO_MANY_CARDS', 'IDEMPOTENCY_CONFLICT',
+      'IDEMPOTENCY_RESULT_GONE', 'CREATE_DECK_FAILED'
     ]) THEN
       RAISE;
     END IF;
@@ -631,8 +777,8 @@ COMMENT ON FUNCTION public.create_deck_with_cards(
   TEXT, TEXT, TEXT, TEXT, TEXT, JSONB, UUID, BOOLEAN, UUID
 ) IS 'Atomically creates one owned deck, 1-100 cards, and an optional owned collection link.';
 COMMENT ON FUNCTION public.duplicate_public_deck_atomic(UUID, UUID) IS
-  'Atomically copies one visible marketplace deck and all of its cards for auth.uid().';
+  'Atomically copies one visible marketplace deck of at most 100 cards for auth.uid().';
 COMMENT ON FUNCTION public.duplicate_public_collection_atomic(UUID, UUID) IS
-  'Atomically copies a visible marketplace collection and every visible linked deck for auth.uid().';
+  'Atomically copies a visible marketplace collection of at most 25 decks and 2500 cards for auth.uid().';
 
 COMMIT;

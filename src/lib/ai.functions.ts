@@ -158,8 +158,14 @@ function cleanDeckPayload(parsed: DeckPayload, fallbackName: string, description
       term: cleanText(card?.term, MAX_CARD_TERM),
       definition: firstTranslation(card?.definition),
     }))
-    .filter((card) => card.term && card.definition)
-    .slice(0, MAX_DECK_CARDS);
+    .filter((card) => card.term && card.definition);
+  if (cards.length > MAX_DECK_CARDS) {
+    throw new AiOperationError(
+      502,
+      "AI_PROVIDER_TOO_MANY_ITEMS",
+      `AI returned more than ${MAX_DECK_CARDS} cards. Try again.`,
+    );
+  }
 
   return {
     name: cleanGeneratedDeckName(parsed.name, fallbackName),
@@ -172,7 +178,7 @@ function cleanImportedCards(cards: unknown) {
   const sourceCards = Array.isArray(cards) ? cards : [];
   const seen = new Set<string>();
 
-  return sourceCards
+  const cleanedCards = sourceCards
     .map((card) => ({
       term: cleanText(card?.term, MAX_CARD_TERM),
       definition: firstTranslation(card?.definition),
@@ -183,8 +189,15 @@ function cleanImportedCards(cards: unknown) {
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
-    })
-    .slice(0, MAX_DECK_CARDS);
+    });
+  if (cleanedCards.length > MAX_DECK_CARDS) {
+    throw new AiOperationError(
+      502,
+      "AI_PROVIDER_TOO_MANY_ITEMS",
+      `AI returned more than ${MAX_DECK_CARDS} cards. Try again.`,
+    );
+  }
+  return cleanedCards;
 }
 
 function getGeminiApiKey() {

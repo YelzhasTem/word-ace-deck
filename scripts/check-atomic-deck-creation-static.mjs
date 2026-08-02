@@ -13,6 +13,7 @@ const communityFunctions = fs.readFileSync(
   "utf8",
 );
 const dashboard = fs.readFileSync(path.join(root, "src/routes/dashboard.tsx"), "utf8");
+const aiFunctions = fs.readFileSync(path.join(root, "src/lib/ai.functions.ts"), "utf8");
 const community = fs.readFileSync(path.join(root, "src/routes/community.tsx"), "utf8");
 const communityDeck = fs.readFileSync(path.join(root, "src/routes/community.$deckId.tsx"), "utf8");
 const generatedTypes = fs.readFileSync(
@@ -66,7 +67,30 @@ assert.match(migration, /v_card_count > 100/);
 assert.match(migration, /v_card_count = 0/);
 assert.match(migration, /COLLECTION_ACCESS_DENIED/);
 assert.match(migration, /IDEMPOTENCY_CONFLICT/);
+assert.match(migration, /IDEMPOTENCY_RESULT_GONE/);
+for (const hashedField of [
+  "name",
+  "description",
+  "coverColor",
+  "targetLanguage",
+  "definitionLanguage",
+  "visibility",
+  "category",
+  "keywords",
+  "publishedAt",
+  "cards",
+  "collectionId",
+  "useDefaultCollection",
+]) {
+  assert.match(
+    migration,
+    new RegExp(`'${hashedField}'`),
+    `Idempotency hash is missing ${hashedField}`,
+  );
+}
 assert.match(migration, /pg_advisory_xact_lock/);
+assert.match(migration, /v_deck_count > 25/);
+assert.match(migration, /v_total_card_count > 2500/);
 assert.match(migration, /ENABLE ROW LEVEL SECURITY/);
 assert.match(
   migration,
@@ -97,6 +121,15 @@ assert.doesNotMatch(
 
 assert.match(dashboard, /stableCreationKey/);
 assert.match(dashboard, /isCreatingDeck/);
+assert.match(dashboard, /remaining words were not added because a deck can contain at most/);
+assert.doesNotMatch(
+  aiFunctions.slice(
+    aiFunctions.indexOf("function cleanDeckPayload"),
+    aiFunctions.indexOf("function getGeminiApiKey"),
+  ),
+  /slice\(0, MAX_DECK_CARDS\)/,
+  "AI and import card arrays must not be silently truncated",
+);
 assert.match(community, /copyingDeckId/);
 assert.match(community, /copyingCollectionId/);
 assert.match(community, /idempotencyKey/);
@@ -109,7 +142,13 @@ for (const rollbackScenario of [
   "collection-link failure rolls back the deck",
   "collection-link failure rolls back all cards",
   "idempotent replay does not create a duplicate deck",
+  "replay never returns a deleted deck ID",
+  "reordering cards changes the normalized payload hash",
   "foreign collection rejects the whole request",
+  "a private deck cannot be copied by UUID",
+  "public deck copy does not transfer persisted study progress",
+  "public deck copy does not transfer likes, saves, ratings, or reports",
+  "copying a collection with more than twenty-five decks is rejected",
   "late card failure rolls back a public deck copy",
   "late card failure rolls back a public collection copy",
   "failed collection copy rolls back decks created before the final failure",

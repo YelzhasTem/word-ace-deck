@@ -16,6 +16,14 @@ test("known atomic RPC errors become fixed user-facing messages", () => {
     "This request was already used for different content. Please try again.",
   );
   assert.equal(getDeckCreationErrorCode({ details: "TOO_MANY_CARDS" }), "TOO_MANY_CARDS");
+  assert.equal(
+    getDeckCreationErrorMessage({ message: "IDEMPOTENCY_RESULT_GONE" }),
+    "The original result was deleted. Start a new request to create it again.",
+  );
+  assert.equal(
+    getDeckCreationErrorMessage({ message: "TOO_MANY_DECKS" }),
+    "This collection is too large to copy at once.",
+  );
 });
 
 test("unknown database details never reach the client message", () => {

@@ -3,10 +3,13 @@ const DECK_CREATION_MESSAGES = {
   INVALID_DECK: "Check the deck name, description, and languages.",
   INVALID_CARD: "Every card needs a valid word, translation, and position.",
   TOO_MANY_CARDS: "A deck can contain at most 100 cards.",
+  TOO_MANY_DECKS: "This collection is too large to copy at once.",
   COLLECTION_NOT_FOUND: "That collection no longer exists.",
   COLLECTION_ACCESS_DENIED: "You can only add a deck to your own collection.",
   DECK_NOT_FOUND: "That public deck is no longer available.",
   IDEMPOTENCY_CONFLICT: "This request was already used for different content. Please try again.",
+  IDEMPOTENCY_RESULT_GONE:
+    "The original result was deleted. Start a new request to create it again.",
   CREATE_DECK_FAILED: "Could not create the deck. Nothing was saved.",
 } as const;
 

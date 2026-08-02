@@ -367,9 +367,13 @@ function Home() {
         ),
       );
       const nextCards = [...manualCards];
+      let reachedLimit = false;
 
       for (const card of cards) {
-        if (nextCards.length >= MAX_DECK_CARDS) break;
+        if (nextCards.length >= MAX_DECK_CARDS) {
+          reachedLimit = true;
+          break;
+        }
         const term = card.term.trim();
         const definition = card.definition.trim();
         const key = `${term.toLocaleLowerCase("en-US")}::${definition.toLocaleLowerCase("en-US")}`;
@@ -379,7 +383,7 @@ function Home() {
       }
 
       setManualCards(nextCards);
-      return nextCards.length - manualCards.length;
+      return { added: nextCards.length - manualCards.length, reachedLimit };
     },
     [manualCards],
   );
@@ -412,9 +416,14 @@ function Home() {
           }),
         "Could not import words from this list.",
       );
-      const added = appendImportedCards(result.cards);
+      const { added, reachedLimit } = appendImportedCards(result.cards);
       if (added > 0) {
         setImportText("");
+        if (reachedLimit) {
+          setImportError(
+            `Added ${added} words. The remaining words were not added because a deck can contain at most ${MAX_DECK_CARDS} cards.`,
+          );
+        }
       } else {
         setImportError("No new words were added.");
       }
@@ -464,8 +473,14 @@ function Home() {
           }),
         "Could not import words from this image.",
       );
-      const added = appendImportedCards(result.cards);
-      if (added === 0) setImportError("No new words were added.");
+      const { added, reachedLimit } = appendImportedCards(result.cards);
+      if (reachedLimit) {
+        setImportError(
+          `Added ${added} words. The remaining words were not added because a deck can contain at most ${MAX_DECK_CARDS} cards.`,
+        );
+      } else if (added === 0) {
+        setImportError("No new words were added.");
+      }
     } catch (err) {
       setImportError(errorMessage(err, "Could not import words from this image"));
     } finally {

@@ -50,6 +50,11 @@ VALUES
     '93100000-0000-4000-8000-000000000002',
     '92000000-0000-4000-8000-000000000002',
     'Atomic rollback source', 'public', now()
+  ),
+  (
+    '93100000-0000-4000-8000-000000000003',
+    '92000000-0000-4000-8000-000000000002',
+    'Atomic private source', 'private', NULL
   );
 
 INSERT INTO public.cards (deck_id, user_id, term, definition, position)
@@ -68,7 +73,43 @@ VALUES
     '93100000-0000-4000-8000-000000000002',
     '92000000-0000-4000-8000-000000000002',
     'rollback-last', 'last definition', 1
+  ),
+  (
+    '93100000-0000-4000-8000-000000000003',
+    '92000000-0000-4000-8000-000000000002',
+    'private-source', 'private definition', 0
   );
+
+UPDATE public.cards SET known = TRUE WHERE term = 'public-source';
+
+INSERT INTO public.deck_likes (deck_id, user_id)
+VALUES ('93100000-0000-4000-8000-000000000001', '92000000-0000-4000-8000-000000000002');
+INSERT INTO public.deck_saves (deck_id, user_id)
+VALUES ('93100000-0000-4000-8000-000000000001', '91000000-0000-4000-8000-000000000001');
+INSERT INTO public.deck_ratings (deck_id, user_id, rating)
+VALUES (
+  '93100000-0000-4000-8000-000000000001',
+  '91000000-0000-4000-8000-000000000001',
+  5
+);
+INSERT INTO public.deck_reports (deck_id, reporter_id, reason)
+VALUES (
+  '93100000-0000-4000-8000-000000000001',
+  '91000000-0000-4000-8000-000000000001',
+  'test report'
+);
+INSERT INTO public.card_progress (
+  user_id, deck_id, card_key, card_id, correct_count, mastery
+)
+SELECT
+  '92000000-0000-4000-8000-000000000002',
+  card.deck_id,
+  card.id::TEXT,
+  card.id,
+  3,
+  0.5
+FROM public.cards AS card
+WHERE card.term = 'public-source';
 
 INSERT INTO public.collections (
   id, user_id, name, visibility, published_at
@@ -113,6 +154,16 @@ SELECT extensions.ok(
   'authenticated clients cannot call private idempotency helpers'
 );
 
+SET LOCAL ROLE anon;
+SELECT extensions.throws_matching($test$
+  SELECT * FROM public.create_deck_with_cards(
+    'Anon deck', '', NULL, 'en', 'ru',
+    '[{"term":"valid","definition":"valid","position":0}]'::jsonb,
+    NULL, FALSE, '94000000-0000-4000-8000-000000000099'
+  )
+$test$, 'permission denied for function create_deck_with_cards', 'anon invocation is rejected');
+RESET ROLE;
+
 SELECT set_config('request.jwt.claim.sub', '91000000-0000-4000-8000-000000000001', true);
 SELECT set_config('request.jwt.claim.role', 'authenticated', true);
 SELECT set_config(
@@ -121,6 +172,10 @@ SELECT set_config(
   true
 );
 SET LOCAL ROLE authenticated;
+
+SELECT extensions.throws_matching($test$
+  SELECT count(*) FROM private.content_creation_requests
+$test$, 'permission denied', 'authenticated cannot directly read idempotency records');
 
 SELECT extensions.lives_ok($test$
   SELECT * FROM public.create_deck_with_cards(
@@ -134,6 +189,11 @@ SELECT extensions.is(
   (SELECT count(*) FROM public.decks WHERE name = 'One card'),
   1::BIGINT,
   'one-card creation writes exactly one deck'
+);
+SELECT extensions.is(
+  (SELECT user_id FROM public.decks WHERE name = 'One card'),
+  auth.uid(),
+  'created deck owner comes only from the authenticated session'
 );
 SELECT extensions.is(
   (
@@ -235,6 +295,47 @@ SELECT extensions.throws_matching($test$
 $test$, 'IDEMPOTENCY_CONFLICT', 'same key with a different payload is rejected');
 
 SELECT extensions.lives_ok($test$
+  SELECT * FROM public.create_deck_with_cards(
+    '  Normalized replay  ', '  same description  ', NULL, 'en', 'ru',
+    '[{"term":"  first  ","definition":"  one  ","position":0},
+      {"term":"second","definition":"two","position":1}]'::jsonb,
+    NULL, FALSE, '94000000-0000-4000-8000-000000000017'
+  )
+$test$, 'first normalized idempotent payload succeeds');
+SELECT extensions.lives_ok($test$
+  SELECT * FROM public.create_deck_with_cards(
+    'Normalized replay', 'same description', NULL, 'en', 'ru',
+    '[{"term":"first","definition":"one","position":0},
+      {"term":"second","definition":"two","position":1}]'::jsonb,
+    NULL, FALSE, '94000000-0000-4000-8000-000000000017'
+  )
+$test$, 'equivalent normalized payload replays without a false conflict');
+SELECT extensions.throws_matching($test$
+  SELECT * FROM public.create_deck_with_cards(
+    'Normalized replay', 'same description', NULL, 'en', 'ru',
+    '[{"term":"second","definition":"two","position":0},
+      {"term":"first","definition":"one","position":1}]'::jsonb,
+    NULL, FALSE, '94000000-0000-4000-8000-000000000017'
+  )
+$test$, 'IDEMPOTENCY_CONFLICT', 'reordering cards changes the normalized payload hash');
+
+SELECT extensions.lives_ok($test$
+  SELECT * FROM public.create_deck_with_cards(
+    'Deleted replay', '', NULL, 'en', 'ru',
+    '[{"term":"delete-me","definition":"delete me","position":0}]'::jsonb,
+    NULL, FALSE, '94000000-0000-4000-8000-000000000018'
+  )
+$test$, 'result-deletion fixture is created');
+DELETE FROM public.decks WHERE name = 'Deleted replay' AND user_id = auth.uid();
+SELECT extensions.throws_matching($test$
+  SELECT * FROM public.create_deck_with_cards(
+    'Deleted replay', '', NULL, 'en', 'ru',
+    '[{"term":"delete-me","definition":"delete me","position":0}]'::jsonb,
+    NULL, FALSE, '94000000-0000-4000-8000-000000000018'
+  )
+$test$, 'IDEMPOTENCY_RESULT_GONE', 'replay never returns a deleted deck ID');
+
+SELECT extensions.lives_ok($test$
   SELECT * FROM public.duplicate_public_deck_atomic(
     '93100000-0000-4000-8000-000000000001',
     '94100000-0000-4000-8000-000000000001'
@@ -254,6 +355,43 @@ SELECT extensions.is(
   ),
   1::BIGINT,
   'public deck copy replay does not create a duplicate'
+);
+SELECT extensions.throws_matching($test$
+  SELECT * FROM public.duplicate_public_deck_atomic(
+    '93100000-0000-4000-8000-000000000003',
+    '94100000-0000-4000-8000-000000000004'
+  )
+$test$, 'DECK_NOT_FOUND', 'a private deck cannot be copied by UUID');
+
+SELECT extensions.is(
+  (
+    SELECT count(*)
+    FROM public.decks AS copied
+    WHERE copied.source_deck_id = '93100000-0000-4000-8000-000000000001'
+      AND copied.user_id = auth.uid()
+      AND copied.visibility = 'private'
+      AND copied.published_at IS NULL
+      AND copied.learner_count = 0
+      AND copied.like_count = 0
+      AND copied.rating_sum = 0
+      AND copied.rating_count = 0
+      AND copied.view_count = 0
+      AND copied.copy_count = 0
+  ),
+  1::BIGINT,
+  'public deck copy is private, owned by auth.uid(), and resets publication metadata'
+);
+SELECT extensions.is(
+  (
+    SELECT count(*)
+    FROM public.cards AS copied_card
+    JOIN public.decks AS copied_deck ON copied_deck.id = copied_card.deck_id
+    WHERE copied_deck.source_deck_id = '93100000-0000-4000-8000-000000000001'
+      AND copied_deck.user_id = auth.uid()
+      AND copied_card.known
+  ),
+  0::BIGINT,
+  'public deck copy does not transfer card progress state'
 );
 
 SELECT extensions.throws_matching($test$
@@ -338,6 +476,101 @@ SELECT extensions.is(
 );
 
 RESET ROLE;
+SELECT extensions.ok(
+  hashtextextended('91000000-0000-4000-8000-000000000001', 52017001)
+    <> hashtextextended('92000000-0000-4000-8000-000000000002', 52017001),
+  'default-collection advisory lock keys are scoped to each fixture user'
+);
+SELECT extensions.is(
+  (
+    SELECT
+      (SELECT count(*) FROM public.deck_likes WHERE deck_id = copied.id)
+      + (SELECT count(*) FROM public.deck_saves WHERE deck_id = copied.id)
+      + (SELECT count(*) FROM public.deck_ratings WHERE deck_id = copied.id)
+      + (SELECT count(*) FROM public.deck_reports WHERE deck_id = copied.id)
+    FROM public.decks AS copied
+    WHERE copied.source_deck_id = '93100000-0000-4000-8000-000000000001'
+      AND copied.user_id = '91000000-0000-4000-8000-000000000001'
+  ),
+  0::BIGINT,
+  'public deck copy does not transfer likes, saves, ratings, or reports'
+);
+SELECT extensions.is(
+  (
+    SELECT count(*)
+    FROM public.card_progress AS progress
+    JOIN public.decks AS copied ON copied.id = progress.deck_id
+    WHERE copied.source_deck_id = '93100000-0000-4000-8000-000000000001'
+      AND copied.user_id = '91000000-0000-4000-8000-000000000001'
+  ),
+  0::BIGINT,
+  'public deck copy does not transfer persisted study progress'
+);
+
+INSERT INTO public.decks (
+  id, user_id, name, visibility, published_at
+) VALUES (
+  '93100000-0000-4000-8000-000000000004',
+  '92000000-0000-4000-8000-000000000002',
+  'Oversized public deck', 'public', now()
+);
+INSERT INTO public.cards (deck_id, user_id, term, definition, position)
+SELECT
+  '93100000-0000-4000-8000-000000000004',
+  '92000000-0000-4000-8000-000000000002',
+  'oversized-' || value,
+  'definition',
+  value
+FROM generate_series(0, 100) AS value;
+
+INSERT INTO public.collections (
+  id, user_id, name, visibility, published_at
+) VALUES (
+  '93200000-0000-4000-8000-000000000002',
+  '92000000-0000-4000-8000-000000000002',
+  'Oversized public collection', 'public', now()
+);
+INSERT INTO public.decks (user_id, name, visibility, published_at)
+SELECT
+  '92000000-0000-4000-8000-000000000002',
+  'Oversized collection deck ' || value,
+  'public',
+  now()
+FROM generate_series(1, 26) AS value;
+INSERT INTO public.collection_decks (collection_id, deck_id, user_id, position)
+SELECT
+  '93200000-0000-4000-8000-000000000002',
+  deck.id,
+  '92000000-0000-4000-8000-000000000002',
+  (row_number() OVER (ORDER BY deck.name) - 1)::INTEGER
+FROM public.decks AS deck
+WHERE deck.user_id = '92000000-0000-4000-8000-000000000002'
+  AND deck.name LIKE 'Oversized collection deck %';
+
+SET LOCAL ROLE authenticated;
+SELECT extensions.throws_matching($test$
+  SELECT * FROM public.duplicate_public_deck_atomic(
+    '93100000-0000-4000-8000-000000000004',
+    '94100000-0000-4000-8000-000000000005'
+  )
+$test$, 'TOO_MANY_CARDS', 'copying a deck with more than one hundred cards is rejected');
+SELECT extensions.throws_matching($test$
+  SELECT * FROM public.duplicate_public_collection_atomic(
+    '93200000-0000-4000-8000-000000000002',
+    '94100000-0000-4000-8000-000000000006'
+  )
+$test$, 'TOO_MANY_DECKS', 'copying a collection with more than twenty-five decks is rejected');
+SELECT extensions.is(
+  (
+    SELECT count(*) FROM public.collections
+    WHERE source_collection_id = '93200000-0000-4000-8000-000000000002'
+      AND user_id = auth.uid()
+  ),
+  0::BIGINT,
+  'oversized collection rejection leaves no partial collection copy'
+);
+RESET ROLE;
+
 CREATE FUNCTION pg_temp.fail_atomic_last_card()
 RETURNS TRIGGER LANGUAGE plpgsql AS $trigger$
 BEGIN
@@ -379,8 +612,12 @@ SELECT extensions.is(
 );
 SELECT extensions.is(
   (
-    SELECT count(*) FROM public.cards
-    WHERE term IN ('first', 'rollback-last') AND user_id = auth.uid()
+    SELECT count(*)
+    FROM public.cards AS card
+    JOIN public.decks AS deck ON deck.id = card.deck_id
+    WHERE deck.name = 'Late card rollback'
+      AND card.term IN ('first', 'rollback-last')
+      AND card.user_id = auth.uid()
   ),
   0::BIGINT,
   'failure on the final card rolls back earlier cards'

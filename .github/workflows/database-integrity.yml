@@ -39,7 +39,7 @@ jobs:
       - run: npm ci
       - run: npm run check:database-integrity
       - run: npm run check:atomic-deck-creation
-      - run: npx eslint scripts/check-database-integrity-static.mjs scripts/check-atomic-deck-creation-static.mjs src/lib/decks.functions.ts src/lib/community.functions.ts src/lib/deck-creation-errors.ts src/lib/decks.ts src/routes/dashboard.tsx src/routes/community.tsx 'src/routes/community.$deckId.tsx'
+      - run: npx eslint scripts/check-database-integrity-static.mjs scripts/check-atomic-deck-creation-static.mjs src/lib/ai.functions.ts src/lib/decks.functions.ts src/lib/community.functions.ts src/lib/deck-creation-errors.ts src/lib/decks.ts src/routes/dashboard.tsx src/routes/community.tsx 'src/routes/community.$deckId.tsx'
       - run: npm run build
 
   supabase-integration:

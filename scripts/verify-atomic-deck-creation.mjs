@@ -86,6 +86,20 @@ try {
   );
   assert.ok(conflict.error?.message.includes("IDEMPOTENCY_CONFLICT"));
 
+  const { error: deleteReplayResultError } = await admin
+    .from("decks")
+    .delete()
+    .eq("id", concurrentIds[0]);
+  assert.ifError(deleteReplayResultError);
+  const deletedReplay = await userA.client.rpc(
+    "create_deck_with_cards",
+    createArgs("Concurrent replay", replayKey),
+  );
+  assert.ok(
+    deletedReplay.error?.message.includes("IDEMPOTENCY_RESULT_GONE"),
+    "A deleted result must not be returned as a successful replay",
+  );
+
   const defaultResults = await Promise.all([
     userA.client.rpc(
       "create_deck_with_cards",
@@ -95,14 +109,25 @@ try {
       "create_deck_with_cards",
       createArgs("Concurrent default two", randomUUID(), true),
     ),
+    userB.client.rpc(
+      "create_deck_with_cards",
+      createArgs("Independent user default", randomUUID(), true),
+    ),
   ]);
   for (const result of defaultResults) assert.ifError(result.error);
-  const defaultCollectionIds = defaultResults.map((result) => result.data?.[0]?.collection_id);
+  const defaultCollectionIds = defaultResults
+    .slice(0, 2)
+    .map((result) => result.data?.[0]?.collection_id);
   assert.ok(defaultCollectionIds.every(Boolean));
   assert.equal(
     new Set(defaultCollectionIds).size,
     1,
     "Concurrent requests selected different default collections",
+  );
+  assert.notEqual(
+    defaultResults[0].data?.[0]?.collection_id,
+    defaultResults[2].data?.[0]?.collection_id,
+    "Different users must receive independent default collections",
   );
   const { count: defaultCount, error: defaultCountError } = await admin
     .from("collections")
@@ -111,6 +136,13 @@ try {
     .eq("name", "My collection");
   assert.ifError(defaultCountError);
   assert.equal(defaultCount, 1, "Concurrent requests created duplicate default collections");
+  const { count: userBDefaultCount, error: userBDefaultCountError } = await admin
+    .from("collections")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userB.id)
+    .eq("name", "My collection");
+  assert.ifError(userBDefaultCountError);
+  assert.equal(userBDefaultCount, 1, "A second user's default collection was not independent");
 
   const { data: sourceDeck, error: sourceDeckError } = await admin
     .from("decks")
