@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Copy, Flag, Heart, Library, Star } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -15,6 +15,7 @@ import {
   toggleDeckLike,
   toggleDeckSave,
 } from "@/lib/community.functions";
+import { createContentIdempotencyKey } from "@/lib/deck-creation-errors";
 
 export const Route = createFileRoute("/community/$deckId")({
   component: CommunityDeckPage,
@@ -52,6 +53,9 @@ function CommunityDeckPage() {
   const [cards, setCards] = useState<PublicCard[]>([]);
   const [reportReason, setReportReason] = useState("");
   const [loading, setLoading] = useState(true);
+  const [duplicating, setDuplicating] = useState(false);
+  const duplicateActive = useRef(false);
+  const duplicateKey = useRef<string | null>(null);
 
   useEffect(() => {
     loadDetails({ data: { deckId } })
@@ -84,14 +88,27 @@ function CommunityDeckPage() {
   };
 
   const onDuplicate = async () => {
-    if (!deck) return;
+    if (!deck || duplicateActive.current) return;
     if (!isOnline) {
       toast.error(OFFLINE_SAVE_MESSAGE);
       return;
     }
-    const res = await duplicateDeck({ data: { deckId: deck.id } });
-    toast.success("Deck copied into your library.");
-    navigate({ to: "/deck/$deckId", params: { deckId: res.id } });
+    duplicateKey.current ??= createContentIdempotencyKey();
+    duplicateActive.current = true;
+    setDuplicating(true);
+    try {
+      const res = await duplicateDeck({
+        data: { deckId: deck.id, idempotencyKey: duplicateKey.current },
+      });
+      duplicateKey.current = null;
+      toast.success("Deck copied into your library.");
+      navigate({ to: "/deck/$deckId", params: { deckId: res.id } });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not add deck to your library.");
+    } finally {
+      duplicateActive.current = false;
+      setDuplicating(false);
+    }
   };
 
   const onRate = async (rating: number) => {
@@ -177,7 +194,11 @@ function CommunityDeckPage() {
               >
                 <Library className="h-4 w-4" /> {deck.saved ? "Saved" : "Save"}
               </Button>
-              <Button className="rounded-full" onClick={onDuplicate} disabled={!isOnline}>
+              <Button
+                className="rounded-full"
+                onClick={onDuplicate}
+                disabled={!isOnline || duplicating}
+              >
                 <Copy className="h-4 w-4" /> Add to library
               </Button>
             </div>

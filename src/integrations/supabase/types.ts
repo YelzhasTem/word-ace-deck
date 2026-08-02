@@ -1600,6 +1600,41 @@ export type Database = {
           session_status: string;
         }[];
       };
+      create_deck_with_cards: {
+        Args: {
+          p_cards: Json;
+          p_collection_id: string | null;
+          p_cover_color: string | null;
+          p_definition_language: string;
+          p_description: string | null;
+          p_idempotency_key: string;
+          p_name: string;
+          p_target_language: string;
+          p_use_default_collection: boolean;
+        };
+        Returns: {
+          card_ids: string[];
+          collection_id: string | null;
+          deck_id: string;
+          duplicate: boolean;
+        }[];
+      };
+      duplicate_public_collection_atomic: {
+        Args: { p_idempotency_key: string; p_source_collection_id: string };
+        Returns: {
+          collection_id: string;
+          deck_ids: string[];
+          duplicate: boolean;
+        }[];
+      };
+      duplicate_public_deck_atomic: {
+        Args: { p_idempotency_key: string; p_source_deck_id: string };
+        Returns: {
+          card_ids: string[];
+          deck_id: string;
+          duplicate: boolean;
+        }[];
+      };
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"];

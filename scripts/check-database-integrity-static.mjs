@@ -112,11 +112,15 @@ for (const nullableAiSignature of [
   );
 }
 
-assert.match(communityFunctions, /function copyName\(/);
-assert.equal(
-  communityFunctions.match(/name: copyName\(/g)?.length,
-  3,
-  "Every marketplace duplication path must preserve the 120-character name limit",
+assert.match(communityFunctions, /\.rpc\("duplicate_public_deck_atomic"/);
+assert.match(communityFunctions, /"duplicate_public_collection_atomic"/);
+assert.doesNotMatch(
+  communityFunctions.slice(
+    communityFunctions.indexOf("export const duplicatePublicDeck"),
+    communityFunctions.indexOf("export const getCreatorProfile"),
+  ),
+  /\.from\("(?:decks|cards|collections|collection_decks)"\)/,
+  "Marketplace duplication must use the atomic database RPCs",
 );
 
 assert.match(reportValidation, /REPORT_REASON_MIN_LENGTH = 3/);

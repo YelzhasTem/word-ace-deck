@@ -94,6 +94,14 @@ const SUPPORTED_IMPORT_IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] a
 
 type ManualCardDraft = { term: string; definition: string };
 type ImportImageMimeType = (typeof SUPPORTED_IMPORT_IMAGE_TYPES)[number];
+type PendingCreation = { fingerprint: string; idempotencyKey: string };
+
+function stableCreationKey(requestRef: { current: PendingCreation | null }, fingerprint: string) {
+  if (requestRef.current?.fingerprint !== fingerprint) {
+    requestRef.current = { fingerprint, idempotencyKey: createAiIdempotencyKey() };
+  }
+  return requestRef.current.idempotencyKey;
+}
 
 function clampCardCount(value: string, min: number, max: number, fallback: number) {
   const parsed = Number(value);
@@ -115,7 +123,7 @@ function isSupportedImportImageType(type: string): type is ImportImageMimeType {
 }
 
 function Home() {
-  const { decks, createDeckWithCards, deleteDeck } = useDecks();
+  const { decks, createDeckWithCards, deleteDeck, isCreatingDeck } = useDecks();
   const navigate = useNavigate();
   const { collections } = useCollections();
   const [collectionId, setCollectionId] = useState<string>("__default__");
@@ -157,6 +165,9 @@ function Home() {
   const [deckColor, setDeckColor] = useState<DeckCoverColor | null>(null);
   const deckToDelete = decks.find((d) => d.id === deleteDeckId);
   const imageImportInputRef = useRef<HTMLInputElement | null>(null);
+  const manualCreationRef = useRef<PendingCreation | null>(null);
+  const aiCreationRef = useRef<PendingCreation | null>(null);
+  const urlCreationRef = useRef<PendingCreation | null>(null);
 
   // Manual creation state
   const [name, setName] = useState("");
@@ -189,6 +200,10 @@ function Home() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const genDeck = useServerFn(generateDeckWithAI);
+  const aiGeneratedRef = useRef<{
+    fingerprint: string;
+    result: Awaited<ReturnType<typeof genDeck>>;
+  } | null>(null);
 
   // URL-based generation state
   const [urlInput, setUrlInput] = useState("");
@@ -197,6 +212,10 @@ function Home() {
   const [urlLoading, setUrlLoading] = useState(false);
   const [urlError, setUrlError] = useState("");
   const genDeckFromUrl = useServerFn(generateDeckFromUrl);
+  const urlGeneratedRef = useRef<{
+    fingerprint: string;
+    result: Awaited<ReturnType<typeof genDeckFromUrl>>;
+  } | null>(null);
 
   const handleTargetLanguageChange = (value: LearningLanguage) => {
     setTargetLanguage(value);
@@ -213,7 +232,7 @@ function Home() {
   };
 
   const handleUrlGenerate = async () => {
-    if (!urlInput.trim() || urlLoading) return;
+    if (!urlInput.trim() || urlLoading || isCreatingDeck) return;
     if (!isOnline) {
       setUrlError(OFFLINE_AI_MESSAGE);
       return;
@@ -222,26 +241,39 @@ function Home() {
     setUrlError("");
     const safeCount = clampCardCount(urlCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 15);
     setUrlCount(String(safeCount));
-    const idempotencyKey = createAiIdempotencyKey();
-    let result: Awaited<ReturnType<typeof genDeckFromUrl>>;
-    try {
-      result = await executeAiRequest(
-        () =>
-          genDeckFromUrl({
-            data: {
-              idempotencyKey,
-              url: urlInput.trim(),
-              count: safeCount,
-              targetLanguage,
-              definitionLanguage: definitionLanguage.code,
-            },
-          }),
-        "Could not extract words from this page.",
-      );
-    } catch (err) {
-      setUrlError(`AI: ${errorMessage(err, "Could not extract words")}`);
-      setUrlLoading(false);
-      return;
+    const fingerprint = JSON.stringify({
+      url: urlInput.trim(),
+      description: urlDesc.trim(),
+      count: safeCount,
+      collectionId: selectedCollectionId,
+      deckColor,
+      targetLanguage,
+      definitionLanguage: definitionLanguage.code,
+    });
+    const idempotencyKey = stableCreationKey(urlCreationRef, fingerprint);
+    let result =
+      urlGeneratedRef.current?.fingerprint === fingerprint ? urlGeneratedRef.current.result : null;
+    if (!result) {
+      try {
+        result = await executeAiRequest(
+          () =>
+            genDeckFromUrl({
+              data: {
+                idempotencyKey: createAiIdempotencyKey(),
+                url: urlInput.trim(),
+                count: safeCount,
+                targetLanguage,
+                definitionLanguage: definitionLanguage.code,
+              },
+            }),
+          "Could not extract words from this page.",
+        );
+        urlGeneratedRef.current = { fingerprint, result };
+      } catch (err) {
+        setUrlError(`AI: ${errorMessage(err, "Could not extract words")}`);
+        setUrlLoading(false);
+        return;
+      }
     }
 
     try {
@@ -253,10 +285,13 @@ function Home() {
         deckColor,
         targetLanguage,
         definitionLanguage.code,
+        idempotencyKey,
       );
       setUrlInput("");
       setUrlDesc("");
       setDeckColor(null);
+      urlCreationRef.current = null;
+      urlGeneratedRef.current = null;
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
@@ -283,15 +318,26 @@ function Home() {
     setTrOptions([]);
     setTrError("");
     setManualError("");
+    manualCreationRef.current = null;
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || manualCards.length < MIN_DECK_CARDS) return;
+    if (!name.trim() || manualCards.length < MIN_DECK_CARDS || isCreatingDeck) return;
     if (!isOnline) {
       setManualError(OFFLINE_SAVE_MESSAGE);
       return;
     }
     setManualError("");
+    const fingerprint = JSON.stringify({
+      name: name.trim(),
+      description: desc.trim(),
+      cards: manualCards,
+      collectionId: selectedCollectionId,
+      deckColor,
+      targetLanguage,
+      definitionLanguage: definitionLanguage.code,
+    });
+    const idempotencyKey = stableCreationKey(manualCreationRef, fingerprint);
     try {
       const created = await createDeckWithCards(
         name.trim(),
@@ -301,6 +347,7 @@ function Home() {
         deckColor,
         targetLanguage,
         definitionLanguage.code,
+        idempotencyKey,
       );
       resetManual();
       setDeckColor(null);
@@ -533,7 +580,7 @@ function Home() {
   };
 
   const handleAIGenerate = async () => {
-    if (!aiName.trim() || !aiTopic.trim() || aiLoading) return;
+    if (!aiName.trim() || !aiTopic.trim() || aiLoading || isCreatingDeck) return;
     if (!isOnline) {
       setAiError(OFFLINE_AI_MESSAGE);
       return;
@@ -542,28 +589,43 @@ function Home() {
     setAiError("");
     const safeCount = clampCardCount(aiCount, MIN_DECK_CARDS, MAX_DECK_CARDS, 10);
     setAiCount(String(safeCount));
-    const idempotencyKey = createAiIdempotencyKey();
-    let result: Awaited<ReturnType<typeof genDeck>>;
-    try {
-      result = await executeAiRequest(
-        () =>
-          genDeck({
-            data: {
-              idempotencyKey,
-              topic: aiTopic.trim(),
-              description: aiDesc.trim(),
-              level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
-              count: safeCount,
-              targetLanguage,
-              definitionLanguage: definitionLanguage.code,
-            },
-          }),
-        "Could not generate this deck.",
-      );
-    } catch (err) {
-      setAiError(`AI: ${errorMessage(err, "Could not generate deck")}`);
-      setAiLoading(false);
-      return;
+    const fingerprint = JSON.stringify({
+      name: aiName.trim(),
+      topic: aiTopic.trim(),
+      description: aiDesc.trim(),
+      level: aiLevel,
+      count: safeCount,
+      collectionId: selectedCollectionId,
+      deckColor,
+      targetLanguage,
+      definitionLanguage: definitionLanguage.code,
+    });
+    const idempotencyKey = stableCreationKey(aiCreationRef, fingerprint);
+    let result =
+      aiGeneratedRef.current?.fingerprint === fingerprint ? aiGeneratedRef.current.result : null;
+    if (!result) {
+      try {
+        result = await executeAiRequest(
+          () =>
+            genDeck({
+              data: {
+                idempotencyKey: createAiIdempotencyKey(),
+                topic: aiTopic.trim(),
+                description: aiDesc.trim(),
+                level: aiLevel as "A1" | "A2" | "B1" | "B2" | "C1" | "C2",
+                count: safeCount,
+                targetLanguage,
+                definitionLanguage: definitionLanguage.code,
+              },
+            }),
+          "Could not generate this deck.",
+        );
+        aiGeneratedRef.current = { fingerprint, result };
+      } catch (err) {
+        setAiError(`AI: ${errorMessage(err, "Could not generate deck")}`);
+        setAiLoading(false);
+        return;
+      }
     }
 
     try {
@@ -575,11 +637,14 @@ function Home() {
         deckColor,
         targetLanguage,
         definitionLanguage.code,
+        idempotencyKey,
       );
       setAiName("");
       setAiTopic("");
       setAiDesc("");
       setDeckColor(null);
+      aiCreationRef.current = null;
+      aiGeneratedRef.current = null;
       setOpen(false);
       navigate({ to: "/deck/$deckId", params: { deckId: created.id } });
     } catch (err) {
@@ -1023,10 +1088,18 @@ function Home() {
                         <Button
                           onClick={handleCreate}
                           disabled={
-                            !isOnline || !name.trim() || manualCards.length < MIN_DECK_CARDS
+                            !isOnline ||
+                            isCreatingDeck ||
+                            !name.trim() ||
+                            manualCards.length < MIN_DECK_CARDS
                           }
                         >
-                          <Check className="h-4 w-4" /> {t("create.confirm")} ({manualCards.length})
+                          {isCreatingDeck ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Check className="h-4 w-4" />
+                          )}{" "}
+                          {t("create.confirm")} ({manualCards.length})
                         </Button>
                       </DialogFooter>
                     </TabsContent>
@@ -1107,7 +1180,13 @@ function Home() {
                         </Button>
                         <Button
                           onClick={handleAIGenerate}
-                          disabled={!isOnline || aiLoading || !aiName.trim() || !aiTopic.trim()}
+                          disabled={
+                            !isOnline ||
+                            aiLoading ||
+                            isCreatingDeck ||
+                            !aiName.trim() ||
+                            !aiTopic.trim()
+                          }
                         >
                           {aiLoading ? (
                             <>
@@ -1175,7 +1254,7 @@ function Home() {
                         </Button>
                         <Button
                           onClick={handleUrlGenerate}
-                          disabled={!isOnline || urlLoading || !urlInput.trim()}
+                          disabled={!isOnline || urlLoading || isCreatingDeck || !urlInput.trim()}
                         >
                           {urlLoading ? (
                             <>
