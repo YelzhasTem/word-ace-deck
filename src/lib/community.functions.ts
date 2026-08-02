@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
+import { getDeckCreationErrorMessage } from "@/lib/deck-creation-errors";
 import {
   parseCollectionReportInput,
   parseDeckReportInput,
@@ -24,13 +25,6 @@ export const DECK_CATEGORIES = [
 
 const DeckVisibility = z.enum(["private", "unlisted", "public"]);
 const DeckCategory = z.enum(DECK_CATEGORIES);
-const MAX_MARKETPLACE_NAME_LENGTH = 120;
-const COPY_NAME_SUFFIX = " (copy)";
-
-function copyName(name: string) {
-  const availableLength = MAX_MARKETPLACE_NAME_LENGTH - COPY_NAME_SUFFIX.length;
-  return `${name.slice(0, availableLength).trimEnd()}${COPY_NAME_SUFFIX}`;
-}
 
 type CommunityDeckRow = {
   id: string;
@@ -635,203 +629,32 @@ export const reportCollection = createServerFn({ method: "POST" })
 
 export const duplicatePublicDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
+  .inputValidator((input) =>
+    z.object({ deckId: z.string().uuid(), idempotencyKey: z.string().uuid() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: deck, error } = await supabase
-      .from("decks")
-      .select(
-        "id, name, description, target_language, definition_language, category, keywords, copy_count, learner_count",
-      )
-      .eq("id", data.deckId)
-      .in("visibility", ["public", "unlisted"])
-      .is("hidden_at", null)
-      .single();
-    if (error || !deck) throw new Error(error?.message ?? "Deck not found");
-    const { data: cards, error: cardsError } = await supabase
-      .from("cards")
-      .select("term, definition, position")
-      .eq("deck_id", deck.id)
-      .order("position", { ascending: true });
-    if (cardsError) throw new Error(cardsError.message);
-    const copiedTargetLanguage = deck.target_language ?? "en";
-    const copiedDefinitionLanguage =
-      deck.definition_language ?? (copiedTargetLanguage === "en" ? "ru" : "en");
-    const { data: newDeck, error: createError } = await supabase
-      .from("decks")
-      .insert({
-        user_id: userId,
-        name: copyName(deck.name),
-        description: deck.description ?? "",
-        category: deck.category,
-        keywords: deck.keywords ?? [],
-        target_language: copiedTargetLanguage,
-        definition_language: copiedDefinitionLanguage,
-        source_deck_id: deck.id,
-        visibility: "private",
-      })
-      .select("id")
-      .single();
-    if (createError || !newDeck)
-      throw new Error(createError?.message ?? "Failed to duplicate deck");
-    if ((cards ?? []).length > 0) {
-      const { error: insertCardsError } = await supabase.from("cards").insert(
-        cards.map(
-          (card: { term: string; definition: string; position: number }, position: number) => ({
-            deck_id: newDeck.id,
-            user_id: userId,
-            term: card.term,
-            definition: card.definition,
-            position,
-          }),
-        ),
-      );
-      if (insertCardsError) throw new Error(insertCardsError.message);
-    }
-    await supabase
-      .from("decks")
-      .update({
-        copy_count: (deck.copy_count ?? 0) + 1,
-        learner_count: (deck.learner_count ?? 0) + 1,
-      })
-      .eq("id", deck.id);
-    return { id: newDeck.id };
+    const { data: rows, error } = await context.supabase.rpc("duplicate_public_deck_atomic", {
+      p_source_deck_id: data.deckId,
+      p_idempotency_key: data.idempotencyKey,
+    });
+    const row = rows?.[0];
+    if (error || !row) throw new Error(getDeckCreationErrorMessage(error));
+    return { id: row.deck_id, cardIds: row.card_ids, duplicate: row.duplicate };
   });
 
 export const duplicatePublicCollection = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input) => z.object({ collectionId: z.string().uuid() }).parse(input))
+  .inputValidator((input) =>
+    z.object({ collectionId: z.string().uuid(), idempotencyKey: z.string().uuid() }).parse(input),
+  )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { data: collection, error } = await supabase
-      .from("collections")
-      .select("id, name, description, keywords, copy_count, learner_count")
-      .eq("id", data.collectionId)
-      .in("visibility", ["public", "unlisted"])
-      .is("hidden_at", null)
-      .single();
-    if (error || !collection) throw new Error(error?.message ?? "Collection not found");
-
-    const { data: links, error: linksError } = await supabase
-      .from("collection_decks")
-      .select("deck_id, position")
-      .eq("collection_id", collection.id)
-      .order("position", { ascending: true });
-    if (linksError) throw new Error(linksError.message);
-
-    const sourceDeckIds = (links ?? []).map((link: { deck_id: string }) => link.deck_id);
-    const { data: sourceDecks, error: deckError } = sourceDeckIds.length
-      ? await supabase
-          .from("decks")
-          .select(
-            "id, name, description, target_language, definition_language, category, keywords, copy_count, learner_count",
-          )
-          .in("id", sourceDeckIds)
-      : { data: [], error: null };
-    if (deckError) throw new Error(deckError.message);
-
-    const { data: newCollection, error: createCollectionError } = await supabase
-      .from("collections")
-      .insert({
-        user_id: userId,
-        name: copyName(collection.name),
-        description: collection.description ?? "",
-        keywords: collection.keywords ?? [],
-        source_collection_id: collection.id,
-        visibility: "private",
-      })
-      .select("id")
-      .single();
-    if (createCollectionError || !newCollection) {
-      throw new Error(createCollectionError?.message ?? "Failed to duplicate collection");
-    }
-
-    const decksById = new Map((sourceDecks ?? []).map((deck) => [deck.id, deck]));
-    const newLinks: {
-      collection_id: string;
-      deck_id: string;
-      user_id: string;
-      position: number;
-    }[] = [];
-
-    for (const [position, sourceDeckId] of sourceDeckIds.entries()) {
-      const deck = decksById.get(sourceDeckId);
-      if (!deck) continue;
-      const { data: cards, error: cardsError } = await supabase
-        .from("cards")
-        .select("term, definition, position")
-        .eq("deck_id", deck.id)
-        .order("position", { ascending: true });
-      if (cardsError) throw new Error(cardsError.message);
-      const copiedTargetLanguage = deck.target_language ?? "en";
-      const copiedDefinitionLanguage =
-        deck.definition_language ?? (copiedTargetLanguage === "en" ? "ru" : "en");
-
-      const { data: newDeck, error: createDeckError } = await supabase
-        .from("decks")
-        .insert({
-          user_id: userId,
-          name: copyName(deck.name),
-          description: deck.description ?? "",
-          category: deck.category,
-          keywords: deck.keywords ?? [],
-          target_language: copiedTargetLanguage,
-          definition_language: copiedDefinitionLanguage,
-          source_deck_id: deck.id,
-          visibility: "private",
-        })
-        .select("id")
-        .single();
-      if (createDeckError || !newDeck)
-        throw new Error(createDeckError?.message ?? "Failed to duplicate deck");
-
-      if ((cards ?? []).length > 0) {
-        const { error: insertCardsError } = await supabase.from("cards").insert(
-          cards.map(
-            (
-              card: { term: string; definition: string; position: number },
-              cardPosition: number,
-            ) => ({
-              deck_id: newDeck.id,
-              user_id: userId,
-              term: card.term,
-              definition: card.definition,
-              position: cardPosition,
-            }),
-          ),
-        );
-        if (insertCardsError) throw new Error(insertCardsError.message);
-      }
-
-      await supabase
-        .from("decks")
-        .update({
-          copy_count: (deck.copy_count ?? 0) + 1,
-          learner_count: (deck.learner_count ?? 0) + 1,
-        })
-        .eq("id", deck.id);
-      newLinks.push({
-        collection_id: newCollection.id,
-        deck_id: newDeck.id,
-        user_id: userId,
-        position,
-      });
-    }
-
-    if (newLinks.length > 0) {
-      const { error: linkError } = await supabase.from("collection_decks").insert(newLinks);
-      if (linkError) throw new Error(linkError.message);
-    }
-
-    await supabase
-      .from("collections")
-      .update({
-        copy_count: (collection.copy_count ?? 0) + 1,
-        learner_count: (collection.learner_count ?? 0) + 1,
-      })
-      .eq("id", collection.id);
-
-    return { id: newCollection.id };
+    const { data: rows, error } = await context.supabase.rpc("duplicate_public_collection_atomic", {
+      p_source_collection_id: data.collectionId,
+      p_idempotency_key: data.idempotencyKey,
+    });
+    const row = rows?.[0];
+    if (error || !row) throw new Error(getDeckCreationErrorMessage(error));
+    return { id: row.collection_id, deckIds: row.deck_ids, duplicate: row.duplicate };
   });
 
 export const getCreatorProfile = createServerFn({ method: "GET" })

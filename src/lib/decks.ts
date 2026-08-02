@@ -14,7 +14,6 @@ import { OFFLINE_SAVE_MESSAGE, isBrowserOnline } from "@/lib/online-status";
 import { getUserErrorMessage } from "@/lib/user-errors";
 import {
   addCardRecord,
-  createDeckRecord,
   createDeckWithCardsRecord,
   deleteCardRecord,
   deleteDeckRecord,
@@ -124,7 +123,6 @@ const DECKS_KEY = ["my-decks"] as const;
 export function useDecks() {
   const queryClient = useQueryClient();
   const fetchMyDecks = useServerFn(getMyDecks);
-  const createDeckFn = useServerFn(createDeckRecord);
   const createDeckWithCardsFn = useServerFn(createDeckWithCardsRecord);
   const addCardFn = useServerFn(addCardRecord);
   const deleteDeckFn = useServerFn(deleteDeckRecord);
@@ -187,25 +185,6 @@ export function useDecks() {
     toast.error(`${msg}: ${getUserErrorMessage(error, "unknown error")}`);
   };
 
-  const createDeckMut = useMutation({
-    mutationFn: (vars: {
-      name: string;
-      description: string;
-      collectionId?: string | null;
-      coverColor?: DeckCoverColor | null;
-      targetLanguage?: LearningLanguage;
-      definitionLanguage?: LearningLanguage;
-    }) => {
-      requireOnline();
-      return createDeckFn({ data: vars });
-    },
-    onSuccess: () => {
-      toast.success("Deck created");
-      invalidate();
-    },
-    onError: onError("Could not create deck"),
-  });
-
   const createDeckWithCardsMut = useMutation({
     mutationFn: (vars: {
       name: string;
@@ -215,9 +194,10 @@ export function useDecks() {
       coverColor?: DeckCoverColor | null;
       targetLanguage?: LearningLanguage;
       definitionLanguage?: LearningLanguage;
+      idempotencyKey: string;
     }) => {
       requireOnline();
-      return createDeckWithCardsFn({ data: vars });
+      return createDeckWithCardsFn({ data: { ...vars, useDefaultCollection: true } });
     },
     onSuccess: (data) => {
       data.cardIds?.forEach((cardId) => scheduleNewCard(data.id, cardId));
@@ -331,23 +311,6 @@ export function useDecks() {
   return {
     decks,
     isLoading: !authReady || (hasSession && query.isLoading),
-    createDeck: (
-      name: string,
-      description: string,
-      collectionId?: string | null,
-      coverColor?: DeckCoverColor | null,
-      targetLanguage?: LearningLanguage,
-      definitionLanguage?: LearningLanguage,
-    ) => {
-      return createDeckMut.mutateAsync({
-        name,
-        description,
-        collectionId,
-        coverColor,
-        targetLanguage,
-        definitionLanguage,
-      });
-    },
     createDeckWithCards: (
       name: string,
       description: string,
@@ -356,6 +319,7 @@ export function useDecks() {
       coverColor?: DeckCoverColor | null,
       targetLanguage?: LearningLanguage,
       definitionLanguage?: LearningLanguage,
+      idempotencyKey?: string,
     ) => {
       return createDeckWithCardsMut.mutateAsync({
         name,
@@ -365,8 +329,10 @@ export function useDecks() {
         coverColor,
         targetLanguage,
         definitionLanguage,
+        idempotencyKey: idempotencyKey ?? crypto.randomUUID(),
       });
     },
+    isCreatingDeck: createDeckWithCardsMut.isPending,
     deleteDeck: (id: string) => deleteDeckMut.mutate(id),
     deleteDecks: async (ids: string[]) => {
       for (const id of ids) {

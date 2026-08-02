@@ -38,7 +38,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check:database-integrity
-      - run: npx eslint scripts/check-database-integrity-static.mjs src/lib/community.functions.ts
+      - run: npm run check:atomic-deck-creation
+      - run: npx eslint scripts/check-database-integrity-static.mjs scripts/check-atomic-deck-creation-static.mjs src/lib/ai.functions.ts src/lib/decks.functions.ts src/lib/community.functions.ts src/lib/deck-creation-errors.ts src/lib/decks.ts src/routes/dashboard.tsx src/routes/community.tsx 'src/routes/community.$deckId.tsx'
       - run: npm run build
 
   supabase-integration:
@@ -71,6 +72,8 @@ jobs:
             > .env.security
       - name: Test collection report validation through Supabase JS
         run: node --env-file=.env.security scripts/verify-collection-report-validation.mjs
+      - name: Test atomic deck creation and concurrent retries through Supabase JS
+        run: node --env-file=.env.security scripts/verify-atomic-deck-creation.mjs
       - name: Test profile privacy through REST and Supabase JS
         run: node --env-file=.env.security scripts/run-profile-email-privacy-fixture.mjs
       - name: Test study integrity through REST, Supabase JS, and RPC

@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Archive, BookOpen, Copy, Flag, Heart, Search, Star, Users } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -29,6 +29,7 @@ import {
   REPORT_REASON_MAX_LENGTH,
   safeReportClientErrorMessage,
 } from "@/lib/report-validation";
+import { createContentIdempotencyKey } from "@/lib/deck-creation-errors";
 
 export const Route = createFileRoute("/community")({
   component: CommunityPage,
@@ -225,6 +226,12 @@ function CommunityPage() {
   const [reportReason, setReportReason] = useState("");
   const [reportError, setReportError] = useState("");
   const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [copyingDeckId, setCopyingDeckId] = useState<string | null>(null);
+  const [copyingCollectionId, setCopyingCollectionId] = useState<string | null>(null);
+  const deckCopyKeys = useRef(new Map<string, string>());
+  const collectionCopyKeys = useRef(new Map<string, string>());
+  const deckCopyActive = useRef(false);
+  const collectionCopyActive = useRef(false);
 
   useEffect(() => {
     loadHome()
@@ -279,31 +286,50 @@ function CommunityPage() {
   }, [activeSearch, mode, query, searchCollections, searchDecks, sort, searchTarget]);
 
   const onCopyDeck = async (deckId: string) => {
+    if (deckCopyActive.current) return;
     if (!isOnline) {
       toast.error(OFFLINE_SAVE_MESSAGE);
       return;
     }
+    const idempotencyKey = deckCopyKeys.current.get(deckId) ?? createContentIdempotencyKey();
+    deckCopyKeys.current.set(deckId, idempotencyKey);
+    deckCopyActive.current = true;
+    setCopyingDeckId(deckId);
     try {
-      const res = await copyDeck({ data: { deckId } });
+      const res = await copyDeck({ data: { deckId, idempotencyKey } });
+      deckCopyKeys.current.delete(deckId);
       toast.success("Deck copied into your library.");
       navigate({ to: "/deck/$deckId", params: { deckId: res.id } });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add deck to your library.");
+    } finally {
+      deckCopyActive.current = false;
+      setCopyingDeckId(null);
     }
   };
 
   const onCopyCollection = async (collectionId: string) => {
+    if (collectionCopyActive.current) return;
     if (!isOnline) {
       toast.error(OFFLINE_SAVE_MESSAGE);
       return;
     }
+    const idempotencyKey =
+      collectionCopyKeys.current.get(collectionId) ?? createContentIdempotencyKey();
+    collectionCopyKeys.current.set(collectionId, idempotencyKey);
+    collectionCopyActive.current = true;
+    setCopyingCollectionId(collectionId);
     try {
-      await copyCollection({ data: { collectionId } });
+      await copyCollection({ data: { collectionId, idempotencyKey } });
+      collectionCopyKeys.current.delete(collectionId);
       toast.success("Collection copied into your library.");
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : "Could not add collection to your library.",
       );
+    } finally {
+      collectionCopyActive.current = false;
+      setCopyingCollectionId(null);
     }
   };
 
@@ -448,7 +474,7 @@ function CommunityPage() {
                         key={deck.id}
                         deck={deck}
                         onCopy={onCopyDeck}
-                        copyDisabled={!isOnline}
+                        copyDisabled={!isOnline || copyingDeckId !== null}
                       />
                     ))}
                   </div>
@@ -463,7 +489,7 @@ function CommunityPage() {
                           collection={collection}
                           onCopy={onCopyCollection}
                           onReport={openCollectionReport}
-                          copyDisabled={!isOnline}
+                          copyDisabled={!isOnline || copyingCollectionId !== null}
                         />
                       ))}
                     </div>
@@ -480,31 +506,31 @@ function CommunityPage() {
               title="Trending Decks"
               decks={home.trending}
               onCopy={onCopyDeck}
-              copyDisabled={!isOnline}
+              copyDisabled={!isOnline || copyingDeckId !== null}
             />
             <Section
               title="Most Popular"
               decks={home.popular}
               onCopy={onCopyDeck}
-              copyDisabled={!isOnline}
+              copyDisabled={!isOnline || copyingDeckId !== null}
             />
             <Section
               title="New Decks"
               decks={home.newest}
               onCopy={onCopyDeck}
-              copyDisabled={!isOnline}
+              copyDisabled={!isOnline || copyingDeckId !== null}
             />
             <Section
               title="Top Rated"
               decks={home.topRated}
               onCopy={onCopyDeck}
-              copyDisabled={!isOnline}
+              copyDisabled={!isOnline || copyingDeckId !== null}
             />
             <Section
               title="Recommended For You"
               decks={home.recommended}
               onCopy={onCopyDeck}
-              copyDisabled={!isOnline}
+              copyDisabled={!isOnline || copyingDeckId !== null}
             />
           </div>
         )}
