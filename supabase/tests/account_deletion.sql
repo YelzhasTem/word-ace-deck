@@ -167,6 +167,66 @@ SELECT extensions.ok(
   ),
   'all direct application foreign keys to Auth users delete with cascade'
 );
+SELECT extensions.ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'private'
+      AND table_name = 'account_deletion_jobs'
+      AND column_name IN (
+        'email', 'username', 'access_token', 'refresh_token', 'avatar_url',
+        'storage_path', 'term', 'definition', 'card_content'
+      )
+  ),
+  'deletion jobs retain no email, tokens, Storage paths, or learning content'
+);
+SELECT extensions.ok(
+  EXISTS (
+    SELECT 1
+    FROM pg_index AS index_info
+    WHERE index_info.indrelid = 'private.account_deletion_jobs'::regclass
+      AND index_info.indisunique
+      AND pg_get_indexdef(index_info.indexrelid) LIKE '%(user_ref_hash)%'
+  ),
+  'the pseudonymous tombstone hash is uniquely indexed'
+);
+SELECT extensions.ok(
+  NOT EXISTS (
+    WITH expected(schema_name, table_name) AS (
+      VALUES
+        ('public', 'profiles'), ('public', 'profile_private'),
+        ('public', 'user_roles'), ('public', 'decks'), ('public', 'cards'),
+        ('public', 'collections'), ('public', 'collection_decks'),
+        ('public', 'friendships'), ('public', 'creator_follows'),
+        ('public', 'deck_likes'), ('public', 'deck_saves'),
+        ('public', 'deck_ratings'), ('public', 'deck_reports'),
+        ('public', 'collection_likes'), ('public', 'collection_saves'),
+        ('public', 'collection_ratings'), ('public', 'collection_reports'),
+        ('public', 'card_progress'), ('public', 'card_associations'),
+        ('public', 'deck_learning_settings'), ('public', 'delayed_recall_entries'),
+        ('public', 'last_studied_decks'), ('public', 'streak_days'),
+        ('public', 'study_sessions'), ('public', 'study_session_cards'),
+        ('public', 'study_questions'), ('public', 'study_question_options'),
+        ('public', 'study_events'), ('public', 'speed_runs'),
+        ('private', 'content_creation_requests'),
+        ('private', 'user_default_collections')
+    )
+    SELECT 1
+    FROM expected
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM pg_trigger AS trigger_info
+      JOIN pg_class AS table_info ON table_info.oid = trigger_info.tgrelid
+      JOIN pg_namespace AS schema_info ON schema_info.oid = table_info.relnamespace
+      WHERE schema_info.nspname = expected.schema_name
+        AND table_info.relname = expected.table_name
+        AND trigger_info.tgname = 'block_pending_account_mutation'
+        AND NOT trigger_info.tgisinternal
+        AND (trigger_info.tgtype & 1) = 0
+    )
+  ),
+  'every current user-mutating table has a statement-level pending-deletion trigger'
+);
 
 SET LOCAL ROLE anon;
 SELECT set_config('request.jwt.claim.sub', '', true);
@@ -457,6 +517,58 @@ SELECT extensions.throws_matching(
   'a stale JWT cannot recreate or mutate application data'
 );
 RESET ROLE;
+
+-- Retention cleanup is deliberately service-only and must never remove active
+-- or retryable work while pruning expired completed audit records.
+INSERT INTO private.account_deletion_jobs (
+  id, user_id, user_ref_hash, status, resume_step, next_retry_at
+)
+VALUES
+  (
+    'd1000000-0000-4000-8000-000000000001',
+    'd2000000-0000-4000-8000-000000000001',
+    repeat('c', 64), 'requested', 'storage_cleanup', NULL
+  ),
+  (
+    'd1000000-0000-4000-8000-000000000002',
+    'd2000000-0000-4000-8000-000000000002',
+    repeat('d', 64), 'failed_retryable', 'database_verification', now() + interval '1 hour'
+  );
+INSERT INTO private.account_deletion_jobs (
+  id, user_id, user_ref_hash, status, resume_step,
+  completed_at, retention_until
+)
+VALUES (
+  'd1000000-0000-4000-8000-000000000003',
+  NULL, repeat('e', 64), 'completed', 'done',
+  now() - interval '31 days', now() - interval '1 day'
+);
+
+SET LOCAL ROLE service_role;
+SELECT set_config('request.jwt.claim.sub', '', true);
+SELECT set_config('request.jwt.claim.role', 'service_role', true);
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
+SELECT extensions.is(
+  public.purge_expired_account_deletion_jobs(),
+  1::BIGINT,
+  'retention purge removes only the expired completed job'
+);
+RESET ROLE;
+SELECT extensions.ok(
+  EXISTS (
+    SELECT 1 FROM private.account_deletion_jobs
+    WHERE id = 'd1000000-0000-4000-8000-000000000001'
+  )
+  AND EXISTS (
+    SELECT 1 FROM private.account_deletion_jobs
+    WHERE id = 'd1000000-0000-4000-8000-000000000002'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM private.account_deletion_jobs
+    WHERE id = 'd1000000-0000-4000-8000-000000000003'
+  ),
+  'retention purge preserves active and retryable deletion jobs'
+);
 
 SELECT * FROM extensions.finish();
 ROLLBACK;

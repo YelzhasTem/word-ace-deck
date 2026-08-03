@@ -17,6 +17,7 @@
     "check:database-integrity": "npm run test:database:integrity:static && npm run test:community:reports:unit && npm run test:security:profiles:static && npm run test:security:study:static && npm run test:security:ai:static && npm run typecheck",
     "check:atomic-deck-creation": "npm run test:decks:atomic:static && npm run test:decks:atomic:unit && npm run typecheck",
     "check:account-deletion": "npm run test:account-deletion:static && npm run test:account-deletion:unit && npm run typecheck",
+    "account-deletion:resume": "node --experimental-strip-types scripts/resume-account-deletion-job.ts",
     "test:account-deletion:static": "node scripts/check-account-deletion-static.mjs",
     "test:account-deletion:unit": "node --experimental-strip-types --test tests/account-deletion.test.ts",
     "test:account-deletion:fixture": "node --experimental-strip-types scripts/verify-account-deletion.ts",
