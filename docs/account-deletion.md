@@ -54,6 +54,23 @@ If the request stops after Auth deletion, the user can no longer authenticate. A
 Memora admin can invoke the server-only operational resume action with the job ID. There is no
 background worker or pretend cron in this implementation.
 
+### Trusted operator resume
+
+Use only a trusted server checkout with the production server environment already injected. Never
+paste the service-role key into the command line, a ticket, chat, or log.
+
+1. Obtain the job UUID from the minimal operational job log; do not search by email or username.
+2. Confirm that the job is retryable and record its safe `resume_step` and attempt count.
+3. Run `npm run account-deletion:resume -- --job-id <job-id>` once.
+4. Run the same command once more. `Account deletion status: completed` is the expected
+   idempotent result; any other outcome requires investigation rather than a manual status update.
+5. Confirm that Auth, the avatar prefix, public rows, and private rows are absent before closing the
+   incident.
+
+The CLI prints only the final status. It does not print the user ID, email, Storage paths, provider
+errors, tokens, or stack traces. The authenticated server action is a separate path: it derives the
+caller from the JWT and requires a confirmed `admin` role before invoking the same coordinator.
+
 ## Database ownership graph
 
 The current schema uses `ON DELETE CASCADE` from `auth.users` for these direct user roots:
@@ -108,6 +125,11 @@ provider-supported reauthentication flows, and Memora must not emulate password 
 Adding a reliable recent-session or provider reauthentication gate is a future defense-in-depth
 improvement; it must not change SMTP or Resend settings as part of this workflow.
 
+Deletion is a `POST` server action with a strict request schema. Authentication comes from an
+explicit Bearer access token, not an ambient cross-site cookie, so another origin cannot submit the
+user's session through normal browser CSRF behavior. The server validates the token and derives the
+user ID from it; the confirmation string is an intent check, not an authentication credential.
+
 ## Local data
 
 After completion the browser signs out locally, clears `localStorage` and `sessionStorage`, and
@@ -123,6 +145,17 @@ is service-role-only and should be called by a trusted scheduled operation or an
 procedure. The completed-job retention must remain longer than the maximum Supabase access-token
 lifetime, because the retained hash blocks stale JWTs. No scheduler is created by this migration.
 
+Before production rollout, the reviewer must record the production Auth **JWT expiry limit** from
+Supabase Authentication > Sessions. The 30-day completed retention may be used only when that
+verified limit is shorter than 30 days; otherwise increase retention before applying the migration.
+This check is intentionally a rollout gate rather than an inferred default.
+
 For a retryable job whose Auth user is gone, an operator should verify the safe status, invoke the
 admin-only resume action once, and confirm `completed`. Do not manually mark a job completed or
 delete it before residual verification succeeds.
+
+No automatic retry scheduler is installed. The UI reports an interruption as incomplete and lets
+the still-authenticated owner retry; after Auth deletion, a trusted operator must resume the job.
+A future operational task must add a trusted scheduler/operator runner for retryable jobs, invoke
+the service-only retention purge for completed jobs after 30 days and terminal jobs after 90 days,
+and alert on attempt exhaustion. That task must preserve the same lease and verification rules.

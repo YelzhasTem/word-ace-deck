@@ -4,7 +4,10 @@ import {
   requireSupabaseAuth,
   requireSupabaseSession,
 } from "@/integrations/supabase/auth-middleware";
-import { executeAccountDeletion } from "@/lib/account-deletion.server";
+import {
+  executeAccountDeletion,
+  executeAccountDeletionAsAdmin,
+} from "@/lib/account-deletion.server";
 import { AccountDeletionWorkflowError } from "@/lib/account-deletion-workflow";
 import { httpError } from "@/lib/server-http-error";
 
@@ -47,16 +50,12 @@ export const resumeAccountDeletion = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input) => ResumeDeletionInput.parse(input))
   .handler(async ({ data, context }) => {
-    const role = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (role.error || !role.data) {
-      httpError(403, "ACCOUNT_DELETION_FAILED", "This deletion request cannot be processed.");
-    }
-
     try {
-      const result = await executeAccountDeletion(data.jobId);
+      const result = await executeAccountDeletionAsAdmin(
+        context.supabase,
+        context.userId,
+        data.jobId,
+      );
       return { ok: true as const, status: result.status };
     } catch (workflowError) {
       throwSafeDeletionError(workflowError);

@@ -1,5 +1,8 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { supabaseAdmin } from "@/integrations/supabase/client.server";
+import { supabaseAdmin } from "../integrations/supabase/client.server.ts";
+import type { Database } from "../integrations/supabase/types.ts";
+import { requireAccountDeletionAdmin } from "./account-deletion-admin.ts";
 import {
   AccountDeletionStepError,
   AccountDeletionWorkflowError,
@@ -7,7 +10,7 @@ import {
   runAccountDeletionWorkflow,
   type AccountDeletionBackend,
   type AccountDeletionClaim,
-} from "@/lib/account-deletion-workflow";
+} from "./account-deletion-workflow.ts";
 
 const AccountDeletionStatusSchema = z.enum([
   "requested",
@@ -165,4 +168,17 @@ export function createAccountDeletionBackend(): AccountDeletionBackend {
 
 export async function executeAccountDeletion(jobId: string, expectedUserId?: string) {
   return runAccountDeletionWorkflow(createAccountDeletionBackend(), jobId, expectedUserId);
+}
+
+export async function executeAccountDeletionAsAdmin(
+  caller: SupabaseClient<Database>,
+  callerUserId: string,
+  jobId: string,
+) {
+  await requireAccountDeletionAdmin(
+    (userId) => caller.rpc("has_role", { _user_id: userId, _role: "admin" }),
+    callerUserId,
+  );
+
+  return executeAccountDeletion(jobId);
 }

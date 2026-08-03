@@ -8,6 +8,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "scripts/check-account-deletion-static.mjs"
+      - "scripts/resume-account-deletion-job.ts"
       - "scripts/verify-account-deletion.ts"
       - "src/integrations/supabase/auth-middleware.ts"
       - "src/integrations/supabase/client.server.ts"
@@ -26,6 +27,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "scripts/check-account-deletion-static.mjs"
+      - "scripts/resume-account-deletion-job.ts"
       - "scripts/verify-account-deletion.ts"
       - "src/integrations/supabase/auth-middleware.ts"
       - "src/integrations/supabase/client.server.ts"
@@ -59,11 +61,13 @@ jobs:
       - run: >-
           npx eslint
           scripts/check-account-deletion-static.mjs
+          scripts/resume-account-deletion-job.ts
           scripts/verify-account-deletion.ts
           tests/account-deletion.test.ts
           src/integrations/supabase/auth-middleware.ts
           src/integrations/supabase/types.ts
           src/lib/account-deletion-errors.ts
+          src/lib/account-deletion-admin.ts
           src/lib/account-deletion-workflow.ts
           src/lib/account-deletion.server.ts
           src/lib/account.functions.ts

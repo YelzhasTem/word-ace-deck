@@ -441,7 +441,8 @@ function ProfilePage() {
                   <AlertDialogTitle>Delete your account?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This permanently deletes your Memora account and learning data. This action
-                    cannot be undone. Type DELETE to confirm.
+                    cannot be undone. Processing may need a safe retry before it finishes. Type
+                    DELETE to confirm.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="space-y-2">

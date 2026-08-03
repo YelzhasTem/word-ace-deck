@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { requireAccountDeletionAdmin } from "../src/lib/account-deletion-admin.ts";
 import {
   AccountDeletionStepError,
   AccountDeletionWorkflowError,
@@ -171,22 +172,24 @@ class FakeBackend implements AccountDeletionBackend {
   }
 }
 
-test("Storage cleanup traverses nested folders and every page beyond 100 objects", async () => {
+test("Storage cleanup traverses nested folders and every page beyond 1,000 objects", async () => {
   const userId = "user-a";
   const files = Array.from(
-    { length: 205 },
-    (_, index) => `${userId}/avatar-${String(index).padStart(3, "0")}.png`,
+    { length: 1_205 },
+    (_, index) => `${userId}/avatar-${String(index).padStart(4, "0")}.png`,
   );
   files.push(`${userId}/archive/2025/old.png`, `${userId}/archive/2026/current.png`);
   const storage = new FakeStorage(files);
 
   const deleted = await cleanupAccountStorage(storage, userId);
 
-  assert.equal(deleted, 207);
+  assert.equal(deleted, 1_207);
   assert.equal(storage.files.size, 0);
   assert.ok(storage.offsets.includes(100));
   assert.ok(storage.offsets.includes(200));
-  assert.ok(storage.removeCalls >= 3);
+  assert.ok(storage.offsets.includes(1_000));
+  assert.ok(storage.offsets.includes(1_200));
+  assert.ok(storage.removeCalls >= 13);
 });
 
 test("Storage cleanup resumes safely after a partial batch failure", async () => {
@@ -304,4 +307,28 @@ test("UI error mapping never reflects unknown internal details", () => {
     getAccountDeletionErrorMessage(new Error("HTTP 503: Account deletion is not complete yet.")),
     "Account deletion is not complete yet. Please try again shortly.",
   );
+});
+
+test("Admin resume authorization rejects ordinary users and lookup failures", async () => {
+  for (const lookup of [
+    async () => ({ data: false, error: null }),
+    async () => ({ data: null, error: new Error("internal role lookup detail") }),
+  ]) {
+    await assert.rejects(
+      requireAccountDeletionAdmin(lookup, "b1000000-0000-4000-8000-000000000002"),
+      (error: unknown) =>
+        error instanceof AccountDeletionWorkflowError &&
+        error.statusCode === 403 &&
+        error.message === "This deletion request cannot be processed.",
+    );
+  }
+});
+
+test("Admin resume authorization accepts only a confirmed Memora admin role", async () => {
+  let checkedUserId = "";
+  await requireAccountDeletionAdmin(async (userId) => {
+    checkedUserId = userId;
+    return { data: true, error: null };
+  }, "c1000000-0000-4000-8000-000000000003");
+  assert.equal(checkedUserId, "c1000000-0000-4000-8000-000000000003");
 });

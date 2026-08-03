@@ -6,8 +6,10 @@ const migration = await readFile(
   "utf8",
 );
 const accountFunctions = await readFile("src/lib/account.functions.ts", "utf8");
+const accountAdmin = await readFile("src/lib/account-deletion-admin.ts", "utf8");
 const workflow = await readFile("src/lib/account-deletion-workflow.ts", "utf8");
 const server = await readFile("src/lib/account-deletion.server.ts", "utf8");
+const operatorScript = await readFile("scripts/resume-account-deletion-job.ts", "utf8");
 const authMiddleware = await readFile("src/integrations/supabase/auth-middleware.ts", "utf8");
 const profile = await readFile("src/routes/profile.tsx", "utf8");
 const generatedTypes = await readFile("src/integrations/supabase/types.ts", "utf8");
@@ -31,17 +33,25 @@ assert.match(jobDefinition, /lease_token UUID/);
 assert.match(jobDefinition, /next_retry_at TIMESTAMPTZ/);
 assert.match(jobDefinition, /retention_until TIMESTAMPTZ/);
 
-for (const rpc of [
+const securityDefinerRpcs = [
+  "is_account_deletion_pending",
   "request_account_deletion",
+  "get_my_account_deletion_status",
   "claim_account_deletion_job",
   "renew_account_deletion_lease",
   "advance_account_deletion_job",
   "fail_account_deletion_job",
   "finalize_account_deletion_database",
   "purge_expired_account_deletion_jobs",
-]) {
+];
+for (const rpc of securityDefinerRpcs) {
   assert.match(migration, new RegExp(`FUNCTION public\\.${rpc}\\(`), `Missing ${rpc}`);
   assert.match(generatedTypes, new RegExp(`\\b${rpc}:`), `Generated types are missing ${rpc}`);
+  const start = migration.indexOf(`FUNCTION public.${rpc}(`);
+  const end = migration.indexOf("$function$;", start);
+  const definition = migration.slice(start, end);
+  assert.match(definition, /SECURITY DEFINER/, `${rpc} must be SECURITY DEFINER`);
+  assert.match(definition, /SET search_path = /, `${rpc} must fix search_path`);
 }
 
 const requestSignature = migration.match(
@@ -99,6 +109,43 @@ assert.doesNotMatch(
   accountFunctions,
   /(?:rpc|role)\.error\.message|throw error|JSON\.stringify\(error/,
 );
+const resumeHandler = accountFunctions.slice(
+  accountFunctions.indexOf("export const resumeAccountDeletion"),
+);
+assert.match(resumeHandler, /createServerFn\(\{ method: "POST" \}\)/);
+assert.match(resumeHandler, /middleware\(\[requireSupabaseAuth\]\)/);
+assert.match(resumeHandler, /executeAccountDeletionAsAdmin/);
+assert.match(resumeHandler, /return \{ ok: true as const, status: result\.status \}/);
+assert.doesNotMatch(resumeHandler, /userId:\s*data|data\.userId|data\.user_id/);
+assert.match(accountAdmin, /AccountDeletionAdminRoleLookup/);
+assert.match(accountAdmin, /if \(role\.error \|\| !role\.data\)/);
+assert.match(accountAdmin, /statusCode|AccountDeletionWorkflowError/);
+assert.match(server, /caller\.rpc\("has_role"/);
+assert.match(server, /_role: "admin"/);
+assert.match(server, /return executeAccountDeletion\(jobId\)/);
+assert.doesNotMatch(accountAdmin + server, /email|access_token|refresh_token|storage.*path/i);
+
+const mutatingServerFiles = [
+  "src/lib/ai.functions.ts",
+  "src/lib/decks.functions.ts",
+  "src/lib/collections.functions.ts",
+  "src/lib/community.functions.ts",
+  "src/lib/friends.functions.ts",
+];
+for (const file of mutatingServerFiles) {
+  const source = await readFile(file, "utf8");
+  const starts = [...source.matchAll(/createServerFn\(\{ method: "POST" \}\)/g)].map(
+    (match) => match.index,
+  );
+  for (const [position, start] of starts.entries()) {
+    const end = starts[position + 1] ?? source.length;
+    assert.match(
+      source.slice(start, end),
+      /\.middleware\(\[requireSupabaseAuth\]\)/,
+      `${file} has a POST server function without pending-deletion middleware`,
+    );
+  }
+}
 
 assert.match(workflow, /ACCOUNT_DELETION_STORAGE_PAGE_SIZE = 100/);
 assert.match(workflow, /while \(true\)/);
@@ -112,6 +159,13 @@ assert.match(server, /supabaseAdmin\.auth\.admin\.deleteUser/);
 assert.match(server, /isMissingAuthUser/);
 assert.match(server, /supabaseAdmin\.storage\.from\("avatars"\)/);
 assert.doesNotMatch(server, /VITE_SUPABASE_SERVICE_ROLE_KEY/);
+assert.doesNotMatch(
+  server + accountAdmin + operatorScript,
+  /console\.(?:log|error)|JSON\.stringify\(error/,
+);
+assert.match(operatorScript, /JobIdSchema/);
+assert.match(operatorScript, /executeAccountDeletion\(jobId\.data\)/);
+assert.doesNotMatch(operatorScript, /user[_-]?id|email|token|storage.*path/i);
 
 assert.match(authMiddleware, /requireSupabaseSession/);
 assert.match(authMiddleware, /is_account_deletion_pending/);
@@ -142,6 +196,7 @@ assert.match(workflowFile, /npm run check:account-deletion/);
 assert.match(workflowFile, /supabase db reset --local/);
 assert.match(workflowFile, /supabase test db/);
 assert.match(workflowFile, /verify-account-deletion\.ts/);
+assert.match(workflowFile, /resume-account-deletion-job\.ts/);
 assert.match(workflowFile, /Verify service-role credentials are absent from browser assets/);
 assert.match(documentation, /Supabase Storage and Supabase Auth are separate services/);
 assert.match(
@@ -149,5 +204,8 @@ assert.match(
   /Completed jobs retain only pseudonymous operational metadata for 30 days/,
 );
 assert.match(documentation, /does\s+not claim to provide universal recent reauthentication/);
+assert.match(documentation, /npm run account-deletion:resume -- --job-id <job-id>/);
+assert.match(documentation, /No automatic retry scheduler is installed/);
+assert.match(documentation, /future operational task/i);
 
 console.log("Account deletion static audit passed.");
