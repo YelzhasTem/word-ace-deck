@@ -7,6 +7,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "scripts/**"
+      - "tests/**"
       - "src/**"
       - "supabase/**"
   push:
@@ -16,6 +17,7 @@ on:
       - "package.json"
       - "package-lock.json"
       - "scripts/**"
+      - "tests/**"
       - "src/**"
       - "supabase/**"
   workflow_dispatch:
@@ -39,6 +41,8 @@ jobs:
       - run: npm ci
       - run: npm run check:database-integrity
       - run: npm run check:atomic-deck-creation
+      - run: node --experimental-strip-types --test tests/marketplace-errors.test.ts tests/marketplace-static.test.mjs
+      - run: npx eslint scripts/verify-marketplace-reconciliation.mjs src/lib/marketplace-errors.ts src/lib/collections.functions.ts tests/marketplace-boundaries.test.mjs tests/marketplace-errors.test.ts tests/marketplace-static.test.mjs
       - run: npx eslint scripts/check-database-integrity-static.mjs scripts/check-atomic-deck-creation-static.mjs src/lib/ai.functions.ts src/lib/decks.functions.ts src/lib/community.functions.ts src/lib/deck-creation-errors.ts src/lib/decks.ts src/routes/dashboard.tsx src/routes/community.tsx 'src/routes/community.$deckId.tsx'
       - run: npm run build
 
@@ -74,6 +78,8 @@ jobs:
         run: node --env-file=.env.security scripts/verify-collection-report-validation.mjs
       - name: Test atomic deck creation and concurrent retries through Supabase JS
         run: node --env-file=.env.security scripts/verify-atomic-deck-creation.mjs
+      - name: Test marketplace privileges, moderation, aggregates, replay and concurrency
+        run: node --env-file=.env.security --test tests/marketplace-boundaries.test.mjs
       - name: Test profile privacy through REST and Supabase JS
         run: node --env-file=.env.security scripts/run-profile-email-privacy-fixture.mjs
       - name: Test study integrity through REST, Supabase JS, and RPC
@@ -82,6 +88,10 @@ jobs:
         run: node --env-file=.env.security scripts/verify-ai-security-quotas.mjs
         env:
           AI_SECURITY_TEST_CONFIG_MUTATION: "true"
+      - name: Rehearse marketplace upgrade from existing inconsistent totals
+        run: node --env-file=.env.security scripts/verify-marketplace-reconciliation.mjs
+        env:
+          MARKETPLACE_RECONCILIATION_RESET_LOCAL: "true"
       - name: Stop isolated Supabase
         if: always()
         run: supabase stop --no-backup

@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getMarketplaceError } from "@/lib/marketplace-errors";
+import { httpError } from "@/lib/server-http-error";
 
 const CollectionVisibility = z.enum(["private", "unlisted", "public"]);
 
@@ -127,10 +129,12 @@ export const updateCollectionPublishingRecord = createServerFn({ method: "POST" 
       .update({
         visibility: data.visibility,
         keywords: data.keywords.map((word) => word.trim()).filter(Boolean),
-        published_at: data.visibility === "public" ? new Date().toISOString() : null,
       })
       .eq("id", data.collectionId)
       .eq("user_id", context.userId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      const safe = getMarketplaceError(error);
+      httpError(safe.status, safe.code, safe.message);
+    }
     return { ok: true };
   });
