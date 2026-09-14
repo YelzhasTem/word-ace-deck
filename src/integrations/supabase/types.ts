@@ -1685,10 +1685,27 @@ export type Database = {
         Returns: string;
       };
       mark_deck_studied: { Args: { p_deck_id: string }; Returns: string };
+      moderate_marketplace_report: {
+        Args: {
+          p_action: string;
+          p_report_id: string;
+          p_resource_type: string;
+        };
+        Returns: {
+          hidden_at: string | null;
+          report_id: string;
+          resource_id: string;
+          status: Database["public"]["Enums"]["report_status"];
+        }[];
+      };
       normalize_study_answer: { Args: { _value: string }; Returns: string };
       normalize_username: {
         Args: { _fallback?: string; _value: string };
         Returns: string;
+      };
+      record_marketplace_view: {
+        Args: { p_resource_id: string; p_resource_type: string };
+        Returns: number;
       };
       record_study_answer: {
         Args: {

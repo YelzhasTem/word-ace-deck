@@ -4,11 +4,18 @@ import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 import { getDeckCreationErrorMessage } from "@/lib/deck-creation-errors";
+import { getMarketplaceError } from "@/lib/marketplace-errors";
+import { httpError } from "@/lib/server-http-error";
 import {
   parseCollectionReportInput,
   parseDeckReportInput,
   reportDatabaseErrorMessage,
 } from "@/lib/report-validation";
+
+function failMarketplace(error: Parameters<typeof getMarketplaceError>[0]): never {
+  const safe = getMarketplaceError(error);
+  return httpError(safe.status, safe.code, safe.message);
+}
 
 export const DECK_CATEGORIES = [
   "General English",
@@ -441,20 +448,21 @@ export const getPublicDeckDetails = createServerFn({ method: "GET" })
       .in("visibility", ["public", "unlisted"])
       .is("hidden_at", null)
       .single();
-    if (error || !deck) throw new Error(error?.message ?? "Deck not found");
+    if (error || !deck) failMarketplace(error);
 
-    await supabase
-      .from("decks")
-      .update({ view_count: (deck.view_count ?? 0) + 1 })
-      .eq("id", deck.id);
+    const { data: views, error: viewError } = await supabase.rpc("record_marketplace_view", {
+      p_resource_type: "deck",
+      p_resource_id: deck.id,
+    });
+    if (viewError || views === null) failMarketplace(viewError);
 
-    const [meta] = await attachCommunityMeta(supabase, [deck], userId);
+    const [meta] = await attachCommunityMeta(supabase, [{ ...deck, view_count: views }], userId);
     const { data: cards, error: cardsError } = await supabase
       .from("cards")
       .select("id, term, definition, position")
       .eq("deck_id", deck.id)
       .order("position", { ascending: true });
-    if (cardsError) throw new Error(cardsError.message);
+    if (cardsError) failMarketplace(cardsError);
 
     return { deck: meta, cards: cards ?? [] };
   });
@@ -477,14 +485,13 @@ export const updateDeckPublishing = createServerFn({ method: "POST" })
       visibility: data.visibility,
       category: data.category,
       keywords: data.keywords.map((word) => word.trim()).filter(Boolean),
-      published_at: data.visibility === "public" ? new Date().toISOString() : null,
     };
     const { error } = await supabase
       .from("decks")
       .update(update)
       .eq("id", data.deckId)
       .eq("user_id", userId);
-    if (error) throw new Error(error.message);
+    if (error) failMarketplace(error);
     return { ok: true };
   });
 
@@ -493,30 +500,29 @@ export const toggleDeckLike = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ deckId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { data: existing } = await supabase
+    const { data: existing, error: existingError } = await supabase
       .from("deck_likes")
       .select("id")
       .eq("deck_id", data.deckId)
       .eq("user_id", userId)
       .maybeSingle();
+    if (existingError) failMarketplace(existingError);
     if (existing?.id) {
       const { error } = await supabase.from("deck_likes").delete().eq("id", existing.id);
-      if (error) throw new Error(error.message);
+      if (error) failMarketplace(error);
     } else {
       const { error } = await supabase
         .from("deck_likes")
         .insert({ deck_id: data.deckId, user_id: userId });
-      if (error) throw new Error(error.message);
+      if (error) failMarketplace(error);
     }
-    const { count } = await supabase
-      .from("deck_likes")
-      .select("id", { count: "exact", head: true })
-      .eq("deck_id", data.deckId);
-    await supabase
+    const { data: totals, error: totalsError } = await supabase
       .from("decks")
-      .update({ like_count: count ?? 0 })
-      .eq("id", data.deckId);
-    return { liked: !existing?.id, likes: count ?? 0 };
+      .select("like_count")
+      .eq("id", data.deckId)
+      .single();
+    if (totalsError || !totals) failMarketplace(totalsError);
+    return { liked: !existing?.id, likes: totals.like_count };
   });
 
 export const toggleDeckSave = createServerFn({ method: "POST" })
@@ -555,19 +561,17 @@ export const rateDeck = createServerFn({ method: "POST" })
         { deck_id: data.deckId, user_id: userId, rating: data.rating },
         { onConflict: "deck_id,user_id" },
       );
-    if (error) throw new Error(error.message);
-    const { data: ratings, error: ratingsError } = await supabase
-      .from("deck_ratings")
-      .select("rating")
-      .eq("deck_id", data.deckId);
-    if (ratingsError) throw new Error(ratingsError.message);
-    const rating_sum = (ratings ?? []).reduce(
-      (sum: number, row: { rating: number }) => sum + row.rating,
-      0,
-    );
-    const rating_count = ratings?.length ?? 0;
-    await supabase.from("decks").update({ rating_sum, rating_count }).eq("id", data.deckId);
-    return { rating: rating_count ? rating_sum / rating_count : 0, ratingCount: rating_count };
+    if (error) failMarketplace(error);
+    const { data: totals, error: totalsError } = await supabase
+      .from("decks")
+      .select("rating_sum,rating_count")
+      .eq("id", data.deckId)
+      .single();
+    if (totalsError || !totals) failMarketplace(totalsError);
+    return {
+      rating: totals.rating_count ? totals.rating_sum / totals.rating_count : 0,
+      ratingCount: totals.rating_count,
+    };
   });
 
 export const rateCollection = createServerFn({ method: "POST" })
@@ -585,22 +589,17 @@ export const rateCollection = createServerFn({ method: "POST" })
         { collection_id: data.collectionId, user_id: userId, rating: data.rating },
         { onConflict: "collection_id,user_id" },
       );
-    if (error) throw new Error(error.message);
-    const { data: ratings, error: ratingsError } = await supabase
-      .from("collection_ratings")
-      .select("rating")
-      .eq("collection_id", data.collectionId);
-    if (ratingsError) throw new Error(ratingsError.message);
-    const rating_sum = (ratings ?? []).reduce(
-      (sum: number, row: { rating: number }) => sum + row.rating,
-      0,
-    );
-    const rating_count = ratings?.length ?? 0;
-    await supabase
+    if (error) failMarketplace(error);
+    const { data: totals, error: totalsError } = await supabase
       .from("collections")
-      .update({ rating_sum, rating_count })
-      .eq("id", data.collectionId);
-    return { rating: rating_count ? rating_sum / rating_count : 0, ratingCount: rating_count };
+      .select("rating_sum,rating_count")
+      .eq("id", data.collectionId)
+      .single();
+    if (totalsError || !totals) failMarketplace(totalsError);
+    return {
+      rating: totals.rating_count ? totals.rating_sum / totals.rating_count : 0,
+      ratingCount: totals.rating_count,
+    };
   });
 
 export const reportDeck = createServerFn({ method: "POST" })
@@ -757,20 +756,13 @@ export const reviewDeckReport = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    if (data.action === "hide") {
-      const { error: deckError } = await context.supabase
-        .from("decks")
-        .update({ hidden_at: new Date().toISOString() })
-        .eq("id", data.deckId);
-      if (deckError) throw new Error(deckError.message);
-    }
-    const { error } = await context.supabase
-      .from("deck_reports")
-      .update({
-        status: data.action === "hide" ? "hidden" : "dismissed",
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq("id", data.reportId);
-    if (error) throw new Error(error.message);
+    // Keep the existing frontend contract; the database derives the deck from
+    // the report and never trusts the independently supplied deckId.
+    const { error } = await context.supabase.rpc("moderate_marketplace_report", {
+      p_resource_type: "deck",
+      p_report_id: data.reportId,
+      p_action: data.action,
+    });
+    if (error) failMarketplace(error);
     return { ok: true };
   });
