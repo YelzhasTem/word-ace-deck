@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { getCollectionReplacementError } from "@/lib/collection-replacement-errors";
 import { getMarketplaceError } from "@/lib/marketplace-errors";
 import { httpError } from "@/lib/server-http-error";
 
@@ -91,23 +92,13 @@ export const setCollectionDecksRecord = createServerFn({ method: "POST" })
       .parse(input),
   )
   .handler(async ({ data, context }) => {
-    const { supabase, userId } = context;
-    const { error: delErr } = await supabase
-      .from("collection_decks")
-      .delete()
-      .eq("collection_id", data.collectionId)
-      .eq("user_id", userId);
-    if (delErr) throw new Error(delErr.message);
-    if (data.deckIds.length > 0) {
-      const { error: insErr } = await supabase.from("collection_decks").insert(
-        data.deckIds.map((deck_id, position) => ({
-          collection_id: data.collectionId,
-          deck_id,
-          user_id: userId,
-          position,
-        })),
-      );
-      if (insErr) throw new Error(insErr.message);
+    const { error } = await context.supabase.rpc("replace_collection_decks_atomic", {
+      p_collection_id: data.collectionId,
+      p_deck_ids: data.deckIds,
+    });
+    if (error) {
+      const safe = getCollectionReplacementError(error);
+      httpError(safe.status, safe.code, safe.message);
     }
     return { ok: true };
   });
