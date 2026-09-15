@@ -1773,6 +1773,10 @@ export type Database = {
           wrong_count: number;
         }[];
       };
+      replace_collection_decks_atomic: {
+        Args: { p_collection_id: string; p_deck_ids: string[] };
+        Returns: number;
+      };
       reset_deck_known: { Args: { p_deck_id: string }; Returns: number };
       schedule_recall_card: { Args: { p_card_id: string }; Returns: boolean };
       search_friend_profiles: {

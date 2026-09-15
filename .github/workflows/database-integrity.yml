@@ -42,6 +42,8 @@ jobs:
       - run: npm run check:database-integrity
       - run: npm run check:atomic-deck-creation
       - run: node --experimental-strip-types --test tests/marketplace-errors.test.ts tests/marketplace-static.test.mjs
+      - run: node --experimental-strip-types --test tests/collection-replacement-errors.test.ts tests/collection-replacement-static.test.mjs
+      - run: npx eslint src/lib/collection-replacement-errors.ts tests/collection-replacement-errors.test.ts tests/collection-replacement-static.test.mjs tests/collection-replacement.test.mjs
       - run: npx eslint scripts/verify-marketplace-reconciliation.mjs src/lib/marketplace-errors.ts src/lib/collections.functions.ts tests/marketplace-boundaries.test.mjs tests/marketplace-errors.test.ts tests/marketplace-static.test.mjs
       - run: npx eslint scripts/check-database-integrity-static.mjs scripts/check-atomic-deck-creation-static.mjs src/lib/ai.functions.ts src/lib/decks.functions.ts src/lib/community.functions.ts src/lib/deck-creation-errors.ts src/lib/decks.ts src/routes/dashboard.tsx src/routes/community.tsx 'src/routes/community.$deckId.tsx'
       - run: npm run build
@@ -78,6 +80,8 @@ jobs:
         run: node --env-file=.env.security scripts/verify-collection-report-validation.mjs
       - name: Test atomic deck creation and concurrent retries through Supabase JS
         run: node --env-file=.env.security scripts/verify-atomic-deck-creation.mjs
+      - name: Test atomic collection replacement through Supabase JS and PostgREST
+        run: node --env-file=.env.security --test tests/collection-replacement.test.mjs
       - name: Test marketplace privileges, moderation, aggregates, replay and concurrency
         run: node --env-file=.env.security --test tests/marketplace-boundaries.test.mjs
       - name: Test profile privacy through REST and Supabase JS
