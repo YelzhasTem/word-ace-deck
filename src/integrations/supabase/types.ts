@@ -1719,6 +1719,12 @@ export type Database = {
           verification_type: string;
         }[];
       };
+      list_account_deletion_avatars: {
+        Args: { p_job_id: string; p_lease_token: string };
+        Returns: {
+          name: string;
+        }[];
+      };
       list_friendships: {
         Args: never;
         Returns: {
@@ -1739,11 +1745,7 @@ export type Database = {
       };
       mark_deck_studied: { Args: { p_deck_id: string }; Returns: string };
       moderate_marketplace_report: {
-        Args: {
-          p_action: string;
-          p_report_id: string;
-          p_resource_type: string;
-        };
+        Args: { p_action: string; p_report_id: string; p_resource_type: string };
         Returns: {
           hidden_at: string | null;
           report_id: string;
@@ -1827,13 +1829,13 @@ export type Database = {
           wrong_count: number;
         }[];
       };
-      replace_collection_decks_atomic: {
-        Args: { p_collection_id: string; p_deck_ids: string[] };
-        Returns: number;
-      };
       renew_account_deletion_lease: {
         Args: { p_job_id: string; p_lease_token: string };
         Returns: boolean;
+      };
+      replace_collection_decks_atomic: {
+        Args: { p_collection_id: string; p_deck_ids: string[] };
+        Returns: number;
       };
       request_account_deletion: {
         Args: never;

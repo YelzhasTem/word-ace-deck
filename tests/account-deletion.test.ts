@@ -14,10 +14,25 @@ import {
   type AccountDeletionStorage,
 } from "../src/lib/account-deletion-workflow.ts";
 import { getAccountDeletionErrorMessage } from "../src/lib/account-deletion-errors.ts";
+import { requireLocalDeletionFixture } from "../scripts/account-deletion-local-guard.ts";
+
+test("Destructive fixture rejects non-loopback configuration before creating clients", () => {
+  for (const url of [
+    undefined,
+    "https://example.supabase.co",
+    "http://localhost.evil.test",
+    "http://user@localhost",
+    "file:///tmp/local",
+    "http://localhost/rest/v1",
+  ])
+    assert.throws(() => requireLocalDeletionFixture(url));
+  for (const url of ["http://127.0.0.1:54321", "http://localhost:54321", "http://[::1]:54321"])
+    assert.equal(requireLocalDeletionFixture(url), url);
+});
 
 class FakeStorage implements AccountDeletionStorage {
   readonly files: Set<string>;
-  readonly offsets: number[] = [];
+  readonly pageSizes: number[] = [];
   removeCalls = 0;
   failRemoveCall: number | null = null;
 
@@ -25,27 +40,12 @@ class FakeStorage implements AccountDeletionStorage {
     this.files = new Set(paths);
   }
 
-  async list(prefix: string, options: { limit: number; offset: number }) {
-    this.offsets.push(options.offset);
-    const base = prefix ? `${prefix}/` : "";
-    const entries = new Map<string, { name: string; id: string | null }>();
-
-    for (const path of this.files) {
-      if (!path.startsWith(base)) continue;
-      const remainder = path.slice(base.length);
-      if (!remainder) continue;
-      const slash = remainder.indexOf("/");
-      if (slash >= 0) {
-        const name = remainder.slice(0, slash);
-        entries.set(name, { name, id: null });
-      } else {
-        entries.set(remainder, { name: remainder, id: path });
-      }
-    }
-
-    return [...entries.values()]
-      .sort((left, right) => left.name.localeCompare(right.name))
-      .slice(options.offset, options.offset + options.limit);
+  async listOwned(userId: string, limit: number) {
+    this.pageSizes.push(limit);
+    return [...this.files]
+      .filter((path) => path.startsWith(`${userId}/`))
+      .sort()
+      .slice(0, limit);
   }
 
   async remove(paths: string[]) {
@@ -185,11 +185,39 @@ test("Storage cleanup traverses nested folders and every page beyond 1,000 objec
 
   assert.equal(deleted, 1_207);
   assert.equal(storage.files.size, 0);
-  assert.ok(storage.offsets.includes(100));
-  assert.ok(storage.offsets.includes(200));
-  assert.ok(storage.offsets.includes(1_000));
-  assert.ok(storage.offsets.includes(1_200));
+  assert.ok(storage.pageSizes.every((size) => size === 100));
   assert.ok(storage.removeCalls >= 13);
+});
+
+test("Storage work limit yields resumable progress without skipping names", async () => {
+  const storage = new FakeStorage(Array.from({ length: 5_101 }, (_, i) => `bounded/${i}.png`));
+  await assert.rejects(
+    cleanupAccountStorage(storage, "bounded"),
+    (e: unknown) => e instanceof AccountDeletionStepError && e.code === "WORKFLOW_TIMEOUT",
+  );
+  assert.equal(storage.files.size, 101);
+  assert.equal(await cleanupAccountStorage(storage, "bounded"), 101);
+});
+
+test("Lease loss after an external operation prevents advance and false completion", async () => {
+  const backend = new FakeBackend();
+  backend.deleteAuthUser = async () => {
+    backend.authCalls++;
+    backend.renewLease = async () => {
+      throw new AccountDeletionStepError("WORKFLOW_TIMEOUT");
+    };
+  };
+  await assert.rejects(runAccountDeletionWorkflow(backend, "expired-operation"));
+  assert.equal(backend.resumeStep, "auth_deletion");
+  assert.equal(backend.finalizeCalls, 0);
+  backend.renewLease = async () => {};
+  backend.deleteAuthUser = async () => {
+    backend.authCalls++;
+  };
+  assert.equal(
+    (await runAccountDeletionWorkflow(backend, "expired-operation")).status,
+    "completed",
+  );
 });
 
 test("Storage cleanup resumes safely after a partial batch failure", async () => {

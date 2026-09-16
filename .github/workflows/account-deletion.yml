@@ -9,7 +9,7 @@ on:
       - "package-lock.json"
       - "scripts/check-account-deletion-static.mjs"
       - "scripts/resume-account-deletion-job.ts"
-      - "scripts/verify-account-deletion.ts"
+      - "scripts/*account-deletion*"
       - "src/integrations/supabase/auth-middleware.ts"
       - "src/integrations/supabase/client.server.ts"
       - "src/integrations/supabase/types.ts"
@@ -18,7 +18,7 @@ on:
       - "src/routes/profile.tsx"
       - "supabase/migrations/**"
       - "supabase/tests/**"
-      - "tests/account-deletion.test.ts"
+      - "tests/account-deletion*.ts"
   push:
     branches: [main]
     paths:
@@ -28,7 +28,7 @@ on:
       - "package-lock.json"
       - "scripts/check-account-deletion-static.mjs"
       - "scripts/resume-account-deletion-job.ts"
-      - "scripts/verify-account-deletion.ts"
+      - "scripts/*account-deletion*"
       - "src/integrations/supabase/auth-middleware.ts"
       - "src/integrations/supabase/client.server.ts"
       - "src/integrations/supabase/types.ts"
@@ -37,7 +37,7 @@ on:
       - "src/routes/profile.tsx"
       - "supabase/migrations/**"
       - "supabase/tests/**"
-      - "tests/account-deletion.test.ts"
+      - "tests/account-deletion*.ts"
   workflow_dispatch:
 
 permissions:
@@ -63,7 +63,10 @@ jobs:
           scripts/check-account-deletion-static.mjs
           scripts/resume-account-deletion-job.ts
           scripts/verify-account-deletion.ts
-          tests/account-deletion.test.ts
+          scripts/account-deletion-*.ts
+          scripts/verify-account-deletion-upgrade.mjs
+          scripts/verify-account-deletion-ai-boundary.mjs
+          tests/account-deletion*.ts
           src/integrations/supabase/auth-middleware.ts
           src/integrations/supabase/types.ts
           src/lib/account-deletion-errors.ts
@@ -73,9 +76,11 @@ jobs:
           src/lib/account.functions.ts
           src/routes/profile.tsx
       - run: npm run build
+        env:
+          NITRO_PRESET: vercel
       - name: Verify service-role credentials are absent from browser assets
         run: |
-          if grep -R -E "SUPABASE_SERVICE_ROLE_KEY|service_role" .vercel/output/static; then
+          if grep -R -l -E "SUPABASE_SERVICE_ROLE_KEY|service_role|runAccountDeletionWorkflow|list_account_deletion_avatars|claim_account_deletion_job" .vercel/output/static; then
             echo "A service-role marker was found in browser assets."
             exit 1
           fi
@@ -110,6 +115,18 @@ jobs:
             > .env.security
       - name: Test resumable account deletion through Auth, Storage, RPC, and Supabase JS
         run: node --env-file=.env.security --experimental-strip-types scripts/verify-account-deletion.ts
+      - name: Test current-schema deletion races and real Storage capabilities
+        run: node --env-file=.env.security --experimental-strip-types --test tests/account-deletion-integration.test.ts
+      - name: Build isolated Vercel handler for AI pending-account checks
+        run: npm run build
+        env:
+          NITRO_PRESET: vercel
+      - name: Test all AI handlers reject pending and deleted accounts before provider calls
+        run: node --env-file=.env.security scripts/verify-account-deletion-ai-boundary.mjs
+      - name: Test Stage 1 and Stage 2 static and unit regressions
+        run: node --experimental-strip-types --test tests/marketplace-static.test.mjs tests/marketplace-errors.test.ts tests/collection-replacement-static.test.mjs tests/collection-replacement-errors.test.ts
+      - name: Test Stage 1 and Stage 2 API and concurrency regressions
+        run: node --env-file=.env.security --experimental-strip-types --test --test-concurrency=1 tests/marketplace-boundaries.test.mjs tests/collection-replacement.test.mjs
       - name: Test atomic deck creation regression
         run: node --env-file=.env.security scripts/verify-atomic-deck-creation.mjs
       - name: Test collection report validation regression
@@ -122,6 +139,10 @@ jobs:
         run: node --env-file=.env.security scripts/verify-ai-security-quotas.mjs
         env:
           AI_SECURITY_TEST_CONFIG_MUTATION: "true"
+      - name: Rehearse Stage 2 to Stage 3 upgrade with preserved synthetic content
+        run: node --env-file=.env.security scripts/verify-account-deletion-upgrade.mjs
+        env:
+          ACCOUNT_DELETION_RESET_LOCAL: "true"
       - name: Stop isolated Supabase
         if: always()
         run: supabase stop --no-backup

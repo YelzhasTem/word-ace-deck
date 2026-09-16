@@ -2,13 +2,19 @@ import assert from "node:assert/strict";
 import { setTimeout as delay } from "node:timers/promises";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
+import { requireLocalDeletionFixture } from "./account-deletion-local-guard.ts";
+import {
+  deletionFixtureSql,
+  fixtureUuid,
+  listFixtureAvatars,
+} from "./account-deletion-fixture-db.ts";
 import { requireAccountDeletionAdmin } from "../src/lib/account-deletion-admin.ts";
 import {
   AccountDeletionWorkflowError,
   cleanupAccountStorage,
 } from "../src/lib/account-deletion-workflow.ts";
 
-const url = process.env.SUPABASE_URL;
+const url = requireLocalDeletionFixture(process.env.SUPABASE_URL);
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !publishableKey || !serviceRoleKey) {
@@ -46,16 +52,8 @@ async function signIn(email: string, password: string) {
 
 async function storageAdapter() {
   return {
-    async list(prefix: string, options: { limit: number; offset: number }) {
-      const result = await bucket.list(prefix, {
-        ...options,
-        sortBy: { column: "name", order: "asc" },
-      });
-      if (result.error) throw result.error;
-      return (result.data ?? []).map((entry) => ({
-        name: entry.name,
-        id: typeof entry.id === "string" ? entry.id : null,
-      }));
+    async listOwned(userId: string) {
+      return listFixtureAvatars(userId);
     },
     async remove(paths: string[]) {
       const result = await bucket.remove(paths);
@@ -263,6 +261,7 @@ async function seedUserData(
   if (usage.error) throw new Error("Could not seed AI usage");
   return {
     otherUserId,
+    collectionId: created.data[0].collection_id,
     deckId,
     cardId,
     otherDeckId,
@@ -290,6 +289,74 @@ async function assertUserMutationsBlocked(
   phase: "requested" | "completed",
 ) {
   const checks: Array<[string, () => MutationResult]> = [
+    [
+      "Stage 2 replacement",
+      () =>
+        client.rpc("replace_collection_decks_atomic", {
+          p_collection_id: fixture.collectionId,
+          p_deck_ids: [fixture.deckId],
+        }),
+    ],
+    [
+      "Stage 1 view",
+      () =>
+        client.rpc("record_marketplace_view", {
+          p_resource_type: "deck",
+          p_resource_id: fixture.otherDeckId,
+        }),
+    ],
+    [
+      "Stage 1 collection view",
+      () =>
+        client.rpc("record_marketplace_view", {
+          p_resource_type: "collection",
+          p_resource_id: fixture.otherCollectionId,
+        }),
+    ],
+    [
+      "collection copy",
+      () =>
+        client.rpc("duplicate_public_collection_atomic", {
+          p_source_collection_id: fixture.otherCollectionId,
+          p_idempotency_key: randomUUID(),
+        }),
+    ],
+    [
+      "collection like",
+      () =>
+        client
+          .from("collection_likes")
+          .insert({ user_id: userId, collection_id: fixture.otherCollectionId }),
+    ],
+    [
+      "collection save",
+      () =>
+        client
+          .from("collection_saves")
+          .insert({ user_id: userId, collection_id: fixture.otherCollectionId }),
+    ],
+    [
+      "collection rating",
+      () =>
+        client
+          .from("collection_ratings")
+          .insert({ user_id: userId, collection_id: fixture.otherCollectionId, rating: 5 }),
+    ],
+    [
+      "atomic deck creation",
+      () =>
+        client.rpc("create_deck_with_cards", {
+          p_name: "Blocked creation",
+          p_description: null,
+          p_cover_color: null,
+          p_target_language: "en",
+          p_definition_language: "ru",
+          p_cards: [{ term: "one", definition: "один", position: 0 }],
+          p_collection_id: null,
+          p_use_default_collection: false,
+          p_idempotency_key: randomUUID(),
+        }),
+    ],
     [
       "profile update",
       () => client.from("profiles").update({ display_name: "Must not save" }).eq("user_id", userId),
@@ -484,14 +551,18 @@ try {
   });
   if (authAdvance.error) throw new Error("Could not advance Auth step");
 
-  // Recreate a Storage residue after Auth deletion to force the database
-  // finalizer to fail. The user can no longer authenticate at this point.
+  // The real elevated Storage API is now fenced. Fault injection below is
+  // privileged local SQL only, modeling residue from before this migration.
   const lateAvatarPath = `${userA.id}/late-after-auth-delete.png`;
   const lateAvatar = await bucket.upload(lateAvatarPath, new Uint8Array([137, 80, 78, 71]), {
     contentType: "image/png",
     upsert: true,
   });
-  if (lateAvatar.error) throw new Error("Could not seed post-Auth Storage failure");
+  assert.ok(lateAvatar.error, "elevated late Storage upload must be fenced");
+  deletionFixtureSql(`BEGIN; SET LOCAL session_replication_role=replica;
+    INSERT INTO storage.objects(bucket_id,name,owner_id) VALUES
+    ('avatars', ${fixtureUuid(userA.id)}::text || '/legacy-residue.png', ${fixtureUuid(userA.id)}::text);
+    COMMIT;`);
   const failedFinalizer = await admin.rpc("finalize_account_deletion_database", {
     p_job_id: jobId,
     p_lease_token: leaseToken,
@@ -596,8 +667,24 @@ try {
     "PASS resumable account deletion removed Auth, Storage, database, AI, study, marketplace, and private user data\n",
   );
 } finally {
+  const cleanupFailures: string[] = [];
   for (const userId of createdUserIds) {
-    await cleanupStorage(userId).catch(() => undefined);
-    await admin.auth.admin.deleteUser(userId).catch(() => undefined);
+    try {
+      await cleanupStorage(userId);
+      const existing = await admin.auth.admin.getUserById(userId);
+      if (existing.data.user) {
+        const deleted = await admin.auth.admin.deleteUser(userId);
+        assert.equal(deleted.error, null, "Fixture Auth cleanup failed");
+      }
+      assert.equal((await admin.auth.admin.getUserById(userId)).data.user, null);
+      assert.equal(await cleanupStorage(userId), 0);
+    } catch {
+      cleanupFailures.push("Fixture cleanup incomplete; reset the disposable local stack");
+    }
+  }
+  assert.deepEqual(cleanupFailures, [], "Fixture cleanup must succeed");
+  if (createdUserIds.length) {
+    deletionFixtureSql(`DELETE FROM private.account_deletion_jobs WHERE user_ref_hash IN
+      (SELECT private.account_deletion_user_hash(id) FROM unnest(ARRAY[${createdUserIds.map(fixtureUuid).join(",")}]) id)`);
   }
 }

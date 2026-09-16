@@ -1,6 +1,7 @@
 export const ACCOUNT_DELETION_STORAGE_PAGE_SIZE = 100;
 export const ACCOUNT_DELETION_STORAGE_BATCH_SIZE = 100;
-const MAX_STORAGE_CLEANUP_PASSES = 20;
+export const ACCOUNT_DELETION_MAX_BATCHES = 50;
+export const ACCOUNT_DELETION_DEADLINE_MS = 120_000;
 
 export type AccountDeletionResumeStep =
   | "storage_cleanup"
@@ -60,16 +61,8 @@ export class AccountDeletionStepError extends Error {
   }
 }
 
-export type AccountDeletionStorageEntry = {
-  name: string;
-  id: string | null;
-};
-
 export type AccountDeletionStorage = {
-  list(
-    prefix: string,
-    options: { limit: number; offset: number },
-  ): Promise<AccountDeletionStorageEntry[]>;
+  listOwned(userId: string, limit: number): Promise<string[]>;
   remove(paths: string[]): Promise<void>;
 };
 
@@ -87,7 +80,12 @@ export type AccountDeletionClaim = {
 export type AccountDeletionBackend = {
   claim(jobId: string): Promise<AccountDeletionClaim>;
   renewLease(jobId: string, leaseToken: string): Promise<void>;
-  cleanupStorage(userId: string, onProgress: () => Promise<void>): Promise<number>;
+  cleanupStorage(
+    userId: string,
+    onProgress: () => Promise<void>,
+    jobId: string,
+    leaseToken: string,
+  ): Promise<number>;
   deleteAuthUser(userId: string): Promise<void>;
   advance(
     jobId: string,
@@ -105,58 +103,28 @@ export type AccountDeletionBackend = {
   finalizeDatabase(jobId: string, leaseToken: string): Promise<{ removedRows: number }>;
 };
 
-function joinStoragePath(prefix: string, name: string) {
-  return prefix ? `${prefix}/${name}` : name;
-}
-
-async function collectStorageFiles(
-  storage: AccountDeletionStorage,
-  prefix: string,
-  onProgress: () => Promise<void>,
-): Promise<string[]> {
-  const files: string[] = [];
-  let offset = 0;
-
-  while (true) {
-    const entries = await storage.list(prefix, {
-      limit: ACCOUNT_DELETION_STORAGE_PAGE_SIZE,
-      offset,
-    });
-    await onProgress();
-
-    for (const entry of entries) {
-      const path = joinStoragePath(prefix, entry.name);
-      if (entry.id) files.push(path);
-      else files.push(...(await collectStorageFiles(storage, path, onProgress)));
-    }
-
-    if (entries.length < ACCOUNT_DELETION_STORAGE_PAGE_SIZE) break;
-    offset += entries.length;
-  }
-
-  return files;
-}
-
 export async function cleanupAccountStorage(
   storage: AccountDeletionStorage,
   userId: string,
   onProgress: () => Promise<void> = async () => undefined,
 ) {
   let deleted = 0;
+  const deadline = Date.now() + ACCOUNT_DELETION_DEADLINE_MS;
 
-  for (let pass = 0; pass < MAX_STORAGE_CLEANUP_PASSES; pass += 1) {
-    const paths = await collectStorageFiles(storage, userId, onProgress);
+  for (let batch = 0; batch < ACCOUNT_DELETION_MAX_BATCHES; batch += 1) {
+    if (Date.now() >= deadline) throw new AccountDeletionStepError("WORKFLOW_TIMEOUT");
+    await onProgress();
+    const paths = await storage.listOwned(userId, ACCOUNT_DELETION_STORAGE_PAGE_SIZE);
+    if (paths.length > ACCOUNT_DELETION_STORAGE_BATCH_SIZE)
+      throw new AccountDeletionStepError("STORAGE_TEMPORARY");
     if (paths.length === 0) return deleted;
-
-    for (let index = 0; index < paths.length; index += ACCOUNT_DELETION_STORAGE_BATCH_SIZE) {
-      const batch = paths.slice(index, index + ACCOUNT_DELETION_STORAGE_BATCH_SIZE);
-      await storage.remove(batch);
-      deleted += batch.length;
-      await onProgress();
-    }
+    await onProgress();
+    await storage.remove(paths);
+    deleted += paths.length;
+    await onProgress();
   }
 
-  throw new AccountDeletionStepError("STORAGE_TEMPORARY");
+  throw new AccountDeletionStepError("WORKFLOW_TIMEOUT");
 }
 
 function stepErrorFor(
@@ -205,26 +173,33 @@ export async function runAccountDeletionWorkflow(
   const leaseToken = claim.leaseToken;
   const userId = claim.userId;
   let step = claim.resumeStep;
+  const deadline = Date.now() + ACCOUNT_DELETION_DEADLINE_MS;
+  const checkpoint = async () => {
+    if (Date.now() >= deadline) throw new AccountDeletionStepError("WORKFLOW_TIMEOUT");
+    await backend.renewLease(jobId, leaseToken);
+  };
 
   try {
     if (step === "storage_cleanup") {
-      const deleted = await backend.cleanupStorage(userId, () =>
-        backend.renewLease(jobId, leaseToken),
-      );
+      const deleted = await backend.cleanupStorage(userId, checkpoint, jobId, leaseToken);
+      await checkpoint();
       await backend.advance(jobId, leaseToken, "storage_cleanup", "auth_deletion", deleted);
       step = "auth_deletion";
     }
 
     if (step === "auth_deletion") {
+      await checkpoint();
       await backend.deleteAuthUser(userId);
+      await checkpoint();
       await backend.advance(jobId, leaseToken, "auth_deletion", "database_verification", 0);
       step = "database_verification";
     }
 
     if (step === "database_verification") {
-      // A second idempotent scan closes the narrow race with an avatar upload
-      // that was already in flight when the deletion job was requested.
-      await backend.cleanupStorage(userId, () => backend.renewLease(jobId, leaseToken));
+      // The metadata trigger fences late uploads. This scan repairs leftovers;
+      // it is not the concurrency fence or a distributed rollback.
+      await backend.cleanupStorage(userId, checkpoint, jobId, leaseToken);
+      await checkpoint();
       const result = await backend.finalizeDatabase(jobId, leaseToken);
       return { status: "completed" as const, removedRows: result.removedRows };
     }

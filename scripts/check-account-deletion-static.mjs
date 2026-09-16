@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const migration = await readFile(
-  "supabase/migrations/20260803010000_atomic_account_deletion.sql",
+  "supabase/migrations/20260916010000_atomic_account_deletion.sql",
   "utf8",
 );
 const accountFunctions = await readFile("src/lib/account.functions.ts", "utf8");
@@ -43,6 +43,7 @@ const securityDefinerRpcs = [
   "fail_account_deletion_job",
   "finalize_account_deletion_database",
   "purge_expired_account_deletion_jobs",
+  "list_account_deletion_avatars",
 ];
 for (const rpc of securityDefinerRpcs) {
   assert.match(migration, new RegExp(`FUNCTION public\\.${rpc}\\(`), `Missing ${rpc}`);
@@ -84,7 +85,15 @@ assert.match(migration, /DELETE FROM public\.study_events WHERE user_id = v_user
 assert.match(migration, /DELETE FROM private\.content_creation_requests WHERE user_id = v_user_id/);
 assert.match(migration, /user_id = NULL,[\s\S]+status = 'completed'/);
 assert.match(migration, /INTERVAL '30 days'/);
-assert.match(migration, /INTERVAL '90 days'/);
+assert.doesNotMatch(migration, /INTERVAL '90 days'/);
+assert.match(migration, /WHERE job\.status = 'completed'/);
+assert.match(migration, /private\.marketplace_view_receipts/);
+assert.match(migration, /CREATE TRIGGER account_deletion_avatar_fence/);
+assert.match(
+  migration,
+  /pg_advisory_xact_lock_shared\(hashtextextended\(v_user::TEXT, 52017003\)\)/,
+);
+assert.match(migration, /OR NOT EXISTS \(SELECT 1 FROM auth\.users WHERE id = v_user\)/);
 assert.match(migration, /block_pending_account_mutation/);
 assert.match(migration, /NOT public\.is_account_deletion_pending\(\)/g);
 
@@ -123,7 +132,7 @@ assert.match(accountAdmin, /statusCode|AccountDeletionWorkflowError/);
 assert.match(server, /caller\.rpc\("has_role"/);
 assert.match(server, /_role: "admin"/);
 assert.match(server, /return executeAccountDeletion\(jobId\)/);
-assert.doesNotMatch(accountAdmin + server, /email|access_token|refresh_token|storage.*path/i);
+assert.doesNotMatch(accountAdmin + server, /email|access_token|refresh_token/i);
 
 const mutatingServerFiles = [
   "src/lib/ai.functions.ts",
@@ -148,16 +157,19 @@ for (const file of mutatingServerFiles) {
 }
 
 assert.match(workflow, /ACCOUNT_DELETION_STORAGE_PAGE_SIZE = 100/);
-assert.match(workflow, /while \(true\)/);
-assert.match(workflow, /collectStorageFiles\(storage, path, onProgress\)/);
-assert.match(workflow, /MAX_STORAGE_CLEANUP_PASSES/);
+assert.match(workflow, /ACCOUNT_DELETION_MAX_BATCHES = 50/);
+assert.match(workflow, /ACCOUNT_DELETION_DEADLINE_MS = 120_000/);
+assert.match(workflow, /storage\.listOwned/);
+assert.doesNotMatch(workflow, /collectStorageFiles|offset/);
 assert.match(workflow, /backend\.renewLease/);
 assert.match(workflow, /backend\.cleanupStorage\(userId/);
 assert.match(workflow, /backend\.deleteAuthUser\(userId\)/);
 assert.match(workflow, /backend\.finalizeDatabase/);
-assert.match(server, /supabaseAdmin\.auth\.admin\.deleteUser/);
+assert.match(server, /admin\.auth\.admin\.deleteUser/);
 assert.match(server, /isMissingAuthUser/);
-assert.match(server, /supabaseAdmin\.storage\.from\("avatars"\)/);
+assert.match(server, /admin\.storage\.from\("avatars"\)/);
+assert.match(server, /AbortSignal\.timeout\(15_000\)/);
+assert.match(server, /list_account_deletion_avatars/);
 assert.doesNotMatch(server, /VITE_SUPABASE_SERVICE_ROLE_KEY/);
 assert.doesNotMatch(
   server + accountAdmin + operatorScript,

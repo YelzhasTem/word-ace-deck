@@ -73,7 +73,7 @@ COMMENT ON TABLE private.account_deletion_jobs IS
 COMMENT ON COLUMN private.account_deletion_jobs.user_ref_hash IS
   'One-way SHA-256 reference derived from the random Auth UUID for idempotency and short-lived operational audit.';
 COMMENT ON COLUMN private.account_deletion_jobs.retention_until IS
-  'Completed jobs are retained for 30 days and terminal jobs for 90 days, then removed by the service-only purge function.';
+  'Only verified completed jobs expire after 30 days. Unresolved jobs never auto-purge; terminal recovery requires an audited operator decision.';
 
 CREATE OR REPLACE FUNCTION private.account_deletion_user_hash(p_user_id UUID)
 RETURNS TEXT
@@ -135,6 +135,11 @@ BEGIN
 
   v_hash := private.account_deletion_user_hash(v_user_id);
 
+  -- Separate from collection namespace 52017002. Metadata writers take the
+  -- shared counterpart before their final INSERT/UPDATE, including Storage's
+  -- elevated signed-upload path. Wait for admitted metadata transactions.
+  PERFORM pg_advisory_xact_lock(hashtextextended(v_user_id::TEXT, 52017003));
+
   INSERT INTO private.account_deletion_jobs (user_id, user_ref_hash)
   VALUES (v_user_id, v_hash)
   ON CONFLICT (user_ref_hash) DO NOTHING;
@@ -170,7 +175,7 @@ SET search_path = pg_catalog, private
 AS $function$
   SELECT job.id, job.status, job.attempt_count, job.next_retry_at
   FROM private.account_deletion_jobs AS job
-  WHERE job.user_id = auth.uid()
+  WHERE job.user_ref_hash = private.account_deletion_user_hash(auth.uid())
     AND auth.uid() IS NOT NULL;
 $function$;
 
@@ -239,7 +244,7 @@ BEGIN
         lease_token = NULL,
         lease_expires_at = NULL,
         next_retry_at = NULL,
-        retention_until = v_now + INTERVAL '90 days',
+        retention_until = NULL,
         updated_at = v_now
     WHERE job.id = v_job.id
     RETURNING * INTO v_job;
@@ -291,6 +296,7 @@ BEGIN
       updated_at = clock_timestamp()
   WHERE job.id = p_job_id
     AND job.lease_token = p_lease_token
+    AND job.lease_expires_at > clock_timestamp()
     AND job.status NOT IN ('completed', 'failed_terminal');
 
   IF NOT FOUND THEN
@@ -380,6 +386,7 @@ BEGIN
   FROM private.account_deletion_jobs AS job
   WHERE job.id = p_job_id
     AND job.lease_token = p_lease_token
+    AND job.lease_expires_at > clock_timestamp()
   FOR UPDATE;
 
   IF NOT FOUND THEN
@@ -401,10 +408,7 @@ BEGIN
         WHEN v_retryable THEN clock_timestamp() + make_interval(secs => LEAST(60, 5 * v_job.attempt_count))
         ELSE NULL
       END,
-      retention_until = CASE
-        WHEN v_retryable THEN NULL
-        ELSE clock_timestamp() + INTERVAL '90 days'
-      END,
+      retention_until = NULL,
       updated_at = clock_timestamp()
   WHERE job.id = v_job.id;
 
@@ -453,6 +457,7 @@ AS $function$
     + (SELECT count(*) FROM public.ai_rate_limit_rollups WHERE user_id = p_user_id)
     + (SELECT count(*) FROM private.content_creation_requests WHERE user_id = p_user_id)
     + (SELECT count(*) FROM private.user_default_collections WHERE user_id = p_user_id)
+    + (SELECT count(*) FROM private.marketplace_view_receipts WHERE user_id = p_user_id)
     + (SELECT count(*) FROM storage.objects
        WHERE bucket_id = 'avatars'
          AND (owner_id = p_user_id::TEXT OR name LIKE p_user_id::TEXT || '/%'));
@@ -529,6 +534,7 @@ BEGIN
   DELETE FROM public.creator_follows WHERE creator_id = v_user_id OR follower_id = v_user_id;
 
   DELETE FROM private.user_default_collections WHERE user_id = v_user_id;
+  DELETE FROM private.marketplace_view_receipts WHERE user_id = v_user_id;
   DELETE FROM private.content_creation_requests WHERE user_id = v_user_id;
   DELETE FROM public.collection_decks WHERE user_id = v_user_id;
   DELETE FROM public.cards WHERE user_id = v_user_id;
@@ -575,7 +581,11 @@ BEGIN
     RAISE EXCEPTION 'service role required' USING ERRCODE = '42501';
   END IF;
   DELETE FROM private.account_deletion_jobs AS job
-  WHERE job.retention_until IS NOT NULL
+  WHERE job.status = 'completed'
+    AND job.user_id IS NULL
+    AND job.completed_at IS NOT NULL
+    AND job.resume_step = 'done'
+    AND job.retention_until IS NOT NULL
     AND job.retention_until <= clock_timestamp();
   GET DIAGNOSTICS v_count = ROW_COUNT;
   RETURN v_count;
@@ -625,7 +635,7 @@ BEGIN
     );
   END LOOP;
 
-  FOREACH v_table IN ARRAY ARRAY['content_creation_requests', 'user_default_collections']
+  FOREACH v_table IN ARRAY ARRAY['content_creation_requests', 'user_default_collections', 'marketplace_view_receipts']
   LOOP
     EXECUTE format(
       'DROP TRIGGER IF EXISTS block_pending_account_mutation ON private.%I',
@@ -641,7 +651,82 @@ BEGIN
 END;
 $block$;
 
--- Avatar writes are blocked at the Storage boundary as well as in application code.
+-- Storage checks RLS before streaming bytes but finalizes metadata as an elevated
+-- role. Fence the final metadata write too, without modifying provider functions.
+-- Missing Auth identities remain fenced after a completed tombstone expires.
+-- This is not a transaction over the blob backend: Storage must still process
+-- its failed-upload ObjectAdminDelete cleanup. Re-test on provider upgrades.
+CREATE FUNCTION private.fence_account_avatar_write()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  v_user UUID;
+  v_identities TEXT[];
+BEGIN
+  IF NEW.bucket_id <> 'avatars' THEN RETURN NEW; END IF;
+  IF current_setting('transaction_isolation') <> 'read committed' THEN
+    RAISE EXCEPTION 'ACCOUNT_DELETION_STORAGE_FENCED' USING ERRCODE = 'P0001';
+  END IF;
+  v_identities := ARRAY[NEW.owner_id, split_part(NEW.name, '/', 1)];
+  IF TG_OP = 'UPDATE' THEN
+    v_identities := v_identities || ARRAY[OLD.owner_id, split_part(OLD.name, '/', 1)];
+  END IF;
+  FOR v_user IN
+    SELECT DISTINCT candidate::UUID FROM unnest(v_identities) AS candidate
+    WHERE candidate ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+    ORDER BY candidate::UUID
+  LOOP
+    PERFORM pg_advisory_xact_lock_shared(hashtextextended(v_user::TEXT, 52017003));
+    -- VOLATILE trigger: this query gets a fresh READ COMMITTED snapshot after
+    -- acquiring the lock. Never rely on auth.uid() for an elevated upload.
+    IF private.account_deletion_is_pending(v_user)
+       OR NOT EXISTS (SELECT 1 FROM auth.users WHERE id = v_user) THEN
+      RAISE EXCEPTION 'ACCOUNT_DELETION_STORAGE_FENCED' USING ERRCODE = 'P0001';
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$function$;
+REVOKE ALL ON FUNCTION private.fence_account_avatar_write() FROM PUBLIC, anon, authenticated;
+CREATE TRIGGER account_deletion_avatar_fence
+  BEFORE INSERT OR UPDATE ON storage.objects
+  FOR EACH ROW EXECUTE FUNCTION private.fence_account_avatar_write();
+
+-- Read provider metadata only; all blob deletions continue through Storage API.
+-- Repeated first-page deletion is a durable cursor: nested names and legacy
+-- owner-matched objects outside the canonical prefix cannot be skipped.
+CREATE FUNCTION public.list_account_deletion_avatars(p_job_id UUID, p_lease_token UUID)
+RETURNS TABLE (name TEXT)
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+DECLARE
+  v_user UUID;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service role required' USING ERRCODE = '42501';
+  END IF;
+  SELECT job.user_id INTO v_user FROM private.account_deletion_jobs AS job
+  WHERE job.id = p_job_id AND job.lease_token = p_lease_token
+    AND job.lease_expires_at > clock_timestamp()
+    AND job.status NOT IN ('completed', 'failed_terminal');
+  IF v_user IS NULL THEN
+    RAISE EXCEPTION 'ACCOUNT_DELETION_ALREADY_IN_PROGRESS' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN QUERY SELECT objects.name FROM storage.objects AS objects
+  WHERE objects.bucket_id = 'avatars'
+    AND (objects.owner_id = v_user::TEXT OR objects.name LIKE v_user::TEXT || '/%')
+  ORDER BY objects.name LIMIT 100;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.list_account_deletion_avatars(UUID, UUID) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.list_account_deletion_avatars(UUID, UUID) TO service_role;
+
+-- Avatar writes are also blocked for fresh requests at the RLS boundary.
 DROP POLICY IF EXISTS "Users can upload their own avatars" ON storage.objects;
 DROP POLICY IF EXISTS "Users can update their own avatars" ON storage.objects;
 DROP POLICY IF EXISTS "Users can delete their own avatars" ON storage.objects;

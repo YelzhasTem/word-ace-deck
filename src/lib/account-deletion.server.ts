@@ -1,6 +1,5 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { supabaseAdmin } from "../integrations/supabase/client.server.ts";
 import type { Database } from "../integrations/supabase/types.ts";
 import { requireAccountDeletionAdmin } from "./account-deletion-admin.ts";
 import {
@@ -64,12 +63,33 @@ function databaseStepError() {
   return new AccountDeletionStepError("DATABASE_TEMPORARY");
 }
 
-export function createAccountDeletionBackend(): AccountDeletionBackend {
-  const bucket = supabaseAdmin.storage.from("avatars");
+function deletionAdminClient() {
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw databaseStepError();
+  return createClient<Database>(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: {
+      fetch: (input, init) =>
+        fetch(input, {
+          ...init,
+          signal: AbortSignal.any([
+            AbortSignal.timeout(15_000),
+            ...(init?.signal ? [init.signal] : []),
+          ]),
+        }),
+    },
+  });
+}
+
+export function createAccountDeletionBackend(
+  admin: SupabaseClient<Database> = deletionAdminClient(),
+): AccountDeletionBackend {
+  const bucket = admin.storage.from("avatars");
 
   return {
     async claim(jobId) {
-      const { data, error } = await supabaseAdmin.rpc("claim_account_deletion_job", {
+      const { data, error } = await admin.rpc("claim_account_deletion_job", {
         p_job_id: jobId,
       });
       if (error || !data?.[0]) {
@@ -84,27 +104,23 @@ export function createAccountDeletionBackend(): AccountDeletionBackend {
     },
 
     async renewLease(jobId, leaseToken) {
-      const { error } = await supabaseAdmin.rpc("renew_account_deletion_lease", {
+      const { error } = await admin.rpc("renew_account_deletion_lease", {
         p_job_id: jobId,
         p_lease_token: leaseToken,
       });
       if (error) throw databaseStepError();
     },
 
-    async cleanupStorage(userId, onProgress) {
+    async cleanupStorage(userId, onProgress, jobId, leaseToken) {
       return cleanupAccountStorage(
         {
-          async list(prefix, options) {
-            const { data, error } = await bucket.list(prefix, {
-              limit: options.limit,
-              offset: options.offset,
-              sortBy: { column: "name", order: "asc" },
+          async listOwned() {
+            const { data, error } = await admin.rpc("list_account_deletion_avatars", {
+              p_job_id: jobId,
+              p_lease_token: leaseToken,
             });
             if (error) throw new AccountDeletionStepError("STORAGE_TEMPORARY");
-            return (data ?? []).map((entry) => ({
-              name: entry.name,
-              id: typeof entry.id === "string" ? entry.id : null,
-            }));
+            return (data ?? []).map((entry) => entry.name);
           },
           async remove(paths) {
             const { error } = await bucket.remove(paths);
@@ -117,20 +133,20 @@ export function createAccountDeletionBackend(): AccountDeletionBackend {
     },
 
     async deleteAuthUser(userId) {
-      const lookup = await supabaseAdmin.auth.admin.getUserById(userId);
+      const lookup = await admin.auth.admin.getUserById(userId);
       if (lookup.error) {
         if (isMissingAuthUser(lookup.error)) return;
         throw new AccountDeletionStepError("AUTH_TEMPORARY");
       }
 
-      const deleted = await supabaseAdmin.auth.admin.deleteUser(userId);
+      const deleted = await admin.auth.admin.deleteUser(userId);
       if (deleted.error && !isMissingAuthUser(deleted.error)) {
         throw new AccountDeletionStepError("AUTH_TEMPORARY");
       }
     },
 
     async advance(jobId, leaseToken, expectedStep, nextStep, storageFilesDeleted) {
-      const { error } = await supabaseAdmin.rpc("advance_account_deletion_job", {
+      const { error } = await admin.rpc("advance_account_deletion_job", {
         p_job_id: jobId,
         p_lease_token: leaseToken,
         p_expected_step: expectedStep,
@@ -141,7 +157,7 @@ export function createAccountDeletionBackend(): AccountDeletionBackend {
     },
 
     async fail(jobId, leaseToken, errorCode, retryable) {
-      const { data, error } = await supabaseAdmin.rpc("fail_account_deletion_job", {
+      const { data, error } = await admin.rpc("fail_account_deletion_job", {
         p_job_id: jobId,
         p_lease_token: leaseToken,
         p_error_code: errorCode,
@@ -154,7 +170,7 @@ export function createAccountDeletionBackend(): AccountDeletionBackend {
     },
 
     async finalizeDatabase(jobId, leaseToken) {
-      const { data, error } = await supabaseAdmin.rpc("finalize_account_deletion_database", {
+      const { data, error } = await admin.rpc("finalize_account_deletion_database", {
         p_job_id: jobId,
         p_lease_token: leaseToken,
       });
