@@ -415,10 +415,19 @@ SELECT extensions.lives_ok(
     current_setting('test.account_deletion_job_id'),
     current_setting('test.account_deletion_lease'),
     'auth_deletion',
-    'database_verification'
+    'capability_drain'
   ),
-  'the surviving job advances to database verification'
+  'the surviving job advances to capability drain'
 );
+RESET ROLE;
+
+UPDATE private.account_deletion_jobs
+SET capability_drain_started_at=now()-interval '25 hours 1 second',
+    capability_drain_until=now()-interval '1 second'
+WHERE id=current_setting('test.account_deletion_job_id')::UUID;
+SET LOCAL ROLE service_role;
+SELECT set_config('test.account_deletion_lease', lease_token::text, true)
+FROM public.claim_account_deletion_job(current_setting('test.account_deletion_job_id')::UUID);
 RESET ROLE;
 
 -- Create synthetic legacy leftovers with FK triggers disabled. The finalizer
@@ -521,27 +530,30 @@ RESET ROLE;
 -- Retention cleanup is deliberately service-only and must never remove active
 -- or retryable work while pruning expired completed audit records.
 INSERT INTO private.account_deletion_jobs (
-  id, user_id, user_ref_hash, status, resume_step, next_retry_at
+  id, user_id, user_ref_hash, status, resume_step, next_retry_at,
+  capability_drain_started_at, capability_drain_until
 )
 VALUES
   (
     'd1000000-0000-4000-8000-000000000001',
     'd2000000-0000-4000-8000-000000000001',
-    repeat('c', 64), 'requested', 'storage_cleanup', NULL
+    repeat('c', 64), 'requested', 'storage_cleanup', NULL, NULL, NULL
   ),
   (
     'd1000000-0000-4000-8000-000000000002',
     'd2000000-0000-4000-8000-000000000002',
-    repeat('d', 64), 'failed_retryable', 'database_verification', now() + interval '1 hour'
+    repeat('d', 64), 'failed_retryable', 'database_verification', now() + interval '1 hour',
+    now()-interval '26 hours', now()-interval '1 hour'
   );
 INSERT INTO private.account_deletion_jobs (
   id, user_id, user_ref_hash, status, resume_step,
-  completed_at, retention_until
+  completed_at, retention_until, capability_drain_started_at, capability_drain_until
 )
 VALUES (
   'd1000000-0000-4000-8000-000000000003',
   NULL, repeat('e', 64), 'completed', 'done',
-  now() - interval '31 days', now() - interval '1 day'
+  now() - interval '31 days', now() - interval '1 day',
+  now()-interval '33 days', now()-interval '33 days'+interval '25 hours'
 );
 
 SET LOCAL ROLE service_role;

@@ -1585,6 +1585,7 @@ export type Database = {
         Returns: {
           job_status: string;
           resume_step: string;
+          retry_after_seconds: number;
         }[];
       };
       can_study_card: { Args: { _card_id: string }; Returns: boolean };
@@ -1717,6 +1718,18 @@ export type Database = {
           question_direction: string;
           question_id: string;
           verification_type: string;
+        }[];
+      };
+      list_account_deletion_attention: {
+        Args: { p_after_job_id?: string; p_limit?: number };
+        Returns: {
+          age_seconds: number;
+          attempt_count: number;
+          job_id: string;
+          job_status: string;
+          last_error_code: string | null;
+          next_retry_at: string | null;
+          resume_step: string;
         }[];
       };
       list_account_deletion_avatars: {

@@ -47,11 +47,51 @@ type ProfileRow = {
 };
 
 function ProfileRoute() {
+  const [deletionPending, setDeletionPending] = useState(false);
+  const [sessionCleared, setSessionCleared] = useState(false);
+
+  useEffect(() => {
+    if (!deletionPending) return;
+    // AuthGate has unmounted before sign-out emits its session-change event.
+    void clearAccountBrowserSession()
+      .then(() => setSessionCleared(true))
+      .catch(() => toast.error("Could not clear this browser session. Please close this page."));
+  }, [deletionPending]);
+
+  if (deletionPending) {
+    return (
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="text-2xl font-semibold">Account deletion requested</h1>
+        <p className="mt-4 text-muted-foreground">
+          Your sign-in has been removed. Final file cleanup is pending for at least 25 hours.
+          Contact Memora support to confirm completion.
+        </p>
+        <Button
+          className="mt-6"
+          disabled={!sessionCleared}
+          onClick={() => window.location.replace("/")}
+        >
+          Continue
+        </Button>
+      </main>
+    );
+  }
+
   return (
     <AuthGate requireAuth>
-      <ProfilePage />
+      <ProfilePage onDeletionPending={() => setDeletionPending(true)} />
     </AuthGate>
   );
+}
+
+async function clearAccountBrowserSession() {
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // Auth may be unreachable after deletion; still remove local session data.
+  }
+  localStorage.clear();
+  sessionStorage.clear();
 }
 
 function fileExtension(file: File) {
@@ -63,7 +103,7 @@ function fileExtension(file: File) {
   return "jpg";
 }
 
-function ProfilePage() {
+function ProfilePage({ onDeletionPending }: { onDeletionPending: () => void }) {
   const navigate = useNavigate();
   const deleteAccountFn = useServerFn(deleteMyAccount);
   const [session, setSession] = useState<Session | null>(null);
@@ -280,7 +320,7 @@ function ProfilePage() {
     setDeleting(true);
 
     try {
-      await deleteAccountFn({ data: { confirmation: deleteConfirmation } });
+      const result = await deleteAccountFn({ data: { confirmation: deleteConfirmation } });
       setDeleteDialogOpen(false);
       window.dispatchEvent(new CustomEvent("memora:username-updated", { detail: "" }));
       window.dispatchEvent(
@@ -288,14 +328,11 @@ function ProfilePage() {
           detail: { username: "", displayName: null, avatarUrl: null },
         }),
       );
-      try {
-        await supabase.auth.signOut({ scope: "local" });
-      } catch {
-        // Clearing browser storage below removes the local session even when
-        // the Auth endpoint is unreachable after server-side deletion.
+      if (result.status === "capability_drain_pending") {
+        onDeletionPending();
+        return;
       }
-      localStorage.clear();
-      sessionStorage.clear();
+      await clearAccountBrowserSession();
       window.location.replace("/");
     } catch (error) {
       toast.error(getAccountDeletionErrorMessage(error));

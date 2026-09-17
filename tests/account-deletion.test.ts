@@ -15,6 +15,42 @@ import {
 } from "../src/lib/account-deletion-workflow.ts";
 import { getAccountDeletionErrorMessage } from "../src/lib/account-deletion-errors.ts";
 import { requireLocalDeletionFixture } from "../scripts/account-deletion-local-guard.ts";
+import { readFileSync } from "node:fs";
+
+test("Stage 3.1 retains metadata fence in addition to durable capability drain", () => {
+  const sql = readFileSync(
+    new URL("../supabase/migrations/20260916010000_atomic_account_deletion.sql", import.meta.url),
+    "utf8",
+  );
+  assert.match(sql, /capability_drain_until/);
+  assert.match(sql, /INTERVAL '25 hours'/);
+  assert.match(sql, /CREATE CONSTRAINT TRIGGER account_deletion_avatar_fence/);
+  assert.match(sql, /pg_advisory_xact_lock_shared\(hashtextextended\(v_user::TEXT, 52017003\)\)/);
+  assert.doesNotMatch(sql, /(?:DELETE FROM|UPDATE|INSERT INTO)\s+storage\.s3_multipart/i);
+  assert.match(sql, /storage\.s3_multipart_uploads_parts/);
+});
+
+test("Auth deletion does not imply completed account deletion", async () => {
+  const backend = new FakeBackend();
+  const result = await runAccountDeletionWorkflow(backend, "drain-regression");
+  assert.equal(result.status, "capability_drain_pending");
+  assert.equal(backend.finalizeCalls, 0);
+});
+
+test("pending cleanup notice survives AuthGate sign-out and never implies completion", () => {
+  const profile = readFileSync(new URL("../src/routes/profile.tsx", import.meta.url), "utf8");
+  const route = profile.slice(
+    profile.indexOf("function ProfileRoute()"),
+    profile.indexOf("async function clearAccountBrowserSession"),
+  );
+  assert.ok(route.indexOf("if (deletionPending)") < route.indexOf("<AuthGate"));
+  assert.match(route, /useEffect\([\s\S]*clearAccountBrowserSession/);
+  assert.match(route, /Final file cleanup is pending/);
+  assert.match(
+    profile,
+    /result\.status === "capability_drain_pending"[\s\S]*onDeletionPending\(\)/,
+  );
+});
 
 test("Destructive fixture rejects non-loopback configuration before creating clients", () => {
   for (const url of [
@@ -67,6 +103,8 @@ class FakeBackend implements AccountDeletionBackend {
   finalizeCalls = 0;
   failAuthAttempts = 0;
   failDatabaseAttempts = 0;
+  now = 0;
+  drainUntil = 0;
   readonly userId = "a1000000-0000-4000-8000-000000000001";
   readonly leaseToken = "a2000000-0000-4000-8000-000000000001";
 
@@ -94,6 +132,22 @@ class FakeBackend implements AccountDeletionBackend {
         claimed: false,
         retryAfterSeconds: 0,
       };
+    }
+    if (this.resumeStep === "capability_drain" && this.now < this.drainUntil) {
+      return {
+        jobId,
+        userId: this.userId,
+        status: "capability_drain_pending",
+        resumeStep: this.resumeStep,
+        leaseToken: null,
+        attemptCount: this.attemptCount,
+        claimed: false,
+        retryAfterSeconds: this.drainUntil - this.now,
+      };
+    }
+    if (this.resumeStep === "capability_drain") {
+      this.resumeStep = "database_verification";
+      this.status = "database_verification_pending";
     }
     if (this.leaseActive) {
       return {
@@ -141,11 +195,17 @@ class FakeBackend implements AccountDeletionBackend {
     _jobId: string,
     _leaseToken: string,
     _expectedStep: "storage_cleanup" | "auth_deletion",
-    nextStep: "auth_deletion" | "database_verification",
+    nextStep: "auth_deletion" | "capability_drain",
   ) {
     this.resumeStep = nextStep;
     this.status =
-      nextStep === "auth_deletion" ? "auth_deletion_pending" : "database_verification_pending";
+      nextStep === "auth_deletion" ? "auth_deletion_pending" : "capability_drain_pending";
+    if (nextStep === "capability_drain") {
+      this.drainUntil = this.now + 90000;
+      this.leaseActive = false;
+      this.attemptCount--;
+    }
+    return { retryAfterSeconds: nextStep === "capability_drain" ? 90000 : 0 };
   }
 
   async fail(
@@ -216,7 +276,7 @@ test("Lease loss after an external operation prevents advance and false completi
   };
   assert.equal(
     (await runAccountDeletionWorkflow(backend, "expired-operation")).status,
-    "completed",
+    "capability_drain_pending",
   );
 });
 
@@ -246,8 +306,13 @@ test("Storage cleanup treats an already empty prefix as success", async () => {
   assert.equal(storage.removeCalls, 0);
 });
 
-test("Workflow completes Storage, Auth, final Storage scan, and database verification", async () => {
+test("Workflow completes only after durable drain, final Storage scan, and database verification", async () => {
   const backend = new FakeBackend();
+  assert.equal(
+    (await runAccountDeletionWorkflow(backend, "job-a")).status,
+    "capability_drain_pending",
+  );
+  backend.now = backend.drainUntil;
   const result = await runAccountDeletionWorkflow(backend, "job-a", backend.userId);
 
   assert.deepEqual(result, { status: "completed", removedRows: 0 });
@@ -270,14 +335,16 @@ test("Auth failure stays retryable and resumes from Auth without repeating compl
   assert.equal(backend.storageCalls, 1);
 
   const result = await runAccountDeletionWorkflow(backend, "job-b", backend.userId);
-  assert.equal(result.status, "completed");
-  assert.equal(backend.storageCalls, 2);
+  assert.equal(result.status, "capability_drain_pending");
+  assert.equal(backend.storageCalls, 1);
   assert.equal(backend.authCalls, 2);
 });
 
 test("Database verification failure resumes without reporting false completion", async () => {
   const backend = new FakeBackend();
   backend.failDatabaseAttempts = 1;
+  await runAccountDeletionWorkflow(backend, "job-c");
+  backend.now = backend.drainUntil;
 
   await assert.rejects(
     runAccountDeletionWorkflow(backend, "job-c", backend.userId),
@@ -306,6 +373,37 @@ test("Two concurrent workflow requests allow only one active lease", async () =>
   assert.ok(rejected.reason instanceof AccountDeletionWorkflowError);
   assert.equal(rejected.reason.code, "ACCOUNT_DELETION_ALREADY_IN_PROGRESS");
   assert.equal(backend.authCalls, 1);
+});
+
+test("Early resumes including modeled signed 2h and TUS 24h windows do not consume attempts", async () => {
+  const backend = new FakeBackend();
+  await runAccountDeletionWorkflow(backend, "clock");
+  const count = backend.attemptCount;
+  for (const elapsed of [0, 7200, 86400, 89999]) {
+    backend.now = elapsed;
+    for (let i = 0; i < 20; i++) {
+      const result = await runAccountDeletionWorkflow(backend, "clock");
+      assert.equal(result.status, "capability_drain_pending");
+      assert.equal(backend.attemptCount, count);
+      assert.equal(backend.finalizeCalls, 0);
+    }
+  }
+  backend.now = 90000;
+  assert.equal((await runAccountDeletionWorkflow(backend, "clock")).status, "completed");
+});
+
+test("Multipart/provider residual leaves an incomplete retryable job", async () => {
+  const backend = new FakeBackend();
+  await runAccountDeletionWorkflow(backend, "multipart");
+  backend.now = backend.drainUntil;
+  const finalizer = backend.finalizeDatabase.bind(backend);
+  backend.finalizeDatabase = async () => {
+    throw new AccountDeletionStepError("PROVIDER_RESIDUAL");
+  };
+  await assert.rejects(runAccountDeletionWorkflow(backend, "multipart"));
+  assert.equal(backend.status, "failed_retryable");
+  backend.finalizeDatabase = finalizer;
+  assert.equal((await runAccountDeletionWorkflow(backend, "multipart")).status, "completed");
 });
 
 test("Expected-user mismatch cannot delete another account", async () => {

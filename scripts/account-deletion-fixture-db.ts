@@ -34,6 +34,16 @@ export function fixtureUuid(value: string) {
   return `'${value}'::uuid`;
 }
 
+// Test-only DB-clock simulation, guarded by loopback URL and local Docker.
+// No production RPC accepts a clock/deadline override.
+export function elapseFixtureCapabilityDrain(jobId: string) {
+  deletionFixtureSql(`UPDATE private.account_deletion_jobs
+    SET capability_drain_started_at=now()-interval '25 hours 1 second',
+        capability_drain_until=now()-interval '1 second'
+    WHERE id=${fixtureUuid(jobId)} AND resume_step='capability_drain'
+      AND NOT EXISTS (SELECT 1 FROM auth.users WHERE id=user_id)`);
+}
+
 export function listFixtureAvatars(userId: string): string[] {
   const id = fixtureUuid(userId);
   const value: unknown = JSON.parse(

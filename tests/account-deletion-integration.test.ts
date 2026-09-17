@@ -16,6 +16,7 @@ import {
   deletionFixtureSql as sql,
   fixtureUuid as uuid,
   listFixtureAvatars,
+  elapseFixtureCapabilityDrain,
 } from "../scripts/account-deletion-fixture-db.ts";
 
 const url = requireLocalDeletionFixture(process.env.SUPABASE_URL);
@@ -25,6 +26,7 @@ assert.ok(key && serviceKey);
 const options = { auth: { persistSession: false, autoRefreshToken: false } };
 const admin = createClient<Database>(url, serviceKey, options);
 const users: string[] = [];
+const multipartUploads: { key: string; uploadId: string }[] = [];
 const bucket = admin.storage.from("avatars");
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 function ok<T>(result: { data: T; error: unknown }): T {
@@ -70,16 +72,351 @@ async function cleanupUser(id: string) {
   assert.equal(sql(`SELECT private.account_deletion_residual_count(${uuid(id)})`), "0");
 }
 after(async () => {
+  for (const upload of multipartUploads)
+    multipartApi("abort", upload.key, undefined, upload.uploadId);
   for (const id of users.toReversed()) await cleanupUser(id);
   sql(`DELETE FROM private.account_deletion_jobs WHERE user_ref_hash IN
     (SELECT private.account_deletion_user_hash(id) FROM unnest(ARRAY[${users.map(uuid).join(",")}]) id)`);
+});
+
+// Use the provider container's existing AWS SDK and LOCAL CLI S3 credentials.
+// No generated key is created, and no direct multipart metadata DML is used.
+// Sign the public /storage/v1 prefix; the local transport strips it just like
+// the gateway, preserving the signed Host and avoiding proxy host rewriting.
+function multipartApi(
+  operation: "create" | "part" | "abort" | "complete" | "put",
+  path: string,
+  token?: string,
+  uploadId?: string,
+  etag?: string,
+): { uploadId?: string; etag?: string } {
+  requireLocalDeletionFixture(url);
+  const result = execFileSync(
+    "docker",
+    [
+      "exec",
+      "-i",
+      "supabase_storage_monfppjrvkyepjkfexqm",
+      "node",
+      "-e",
+      `
+    const fs=require('node:fs'); const input=JSON.parse(fs.readFileSync(0,'utf8'));
+      const {S3Client,CreateMultipartUploadCommand,UploadPartCommand,AbortMultipartUploadCommand,CompleteMultipartUploadCommand,PutObjectCommand}=require('@aws-sdk/client-s3');
+      const {NodeHttpHandler}=require('@smithy/node-http-handler');
+      const transport=new NodeHttpHandler({connectionTimeout:3000,requestTimeout:10000});
+      const credentials=input.token
+        ? {accessKeyId:process.env.TENANT_ID,secretAccessKey:process.env.ANON_KEY,sessionToken:input.token}
+        : {accessKeyId:process.env.S3_PROTOCOL_ACCESS_KEY_ID,secretAccessKey:process.env.S3_PROTOCOL_ACCESS_KEY_SECRET};
+      const client=new S3Client({region:'local',endpoint:'http://127.0.0.1:5000/storage/v1/s3',forcePathStyle:true,
+        credentials,maxAttempts:1,requestChecksumCalculation:'WHEN_REQUIRED',requestHandler:{
+          handle:(request,options)=>transport.handle({...request,path:request.path.slice('/storage/v1'.length)},options),
+          destroy:()=>transport.destroy()
+        }});
+    const common={Bucket:'avatars',Key:input.path,UploadId:input.uploadId};
+    const command=input.operation==='create' ? new CreateMultipartUploadCommand({...common,ContentType:'image/png'})
+      : input.operation==='part' ? new UploadPartCommand({...common,PartNumber:1,Body:Buffer.from([137,80,78,71,13,10,26,10])})
+      : input.operation==='complete' ? new CompleteMultipartUploadCommand({...common,MultipartUpload:{Parts:[{PartNumber:1,ETag:input.etag}]}})
+      : input.operation==='put' ? new PutObjectCommand({...common,ContentType:'image/png',Body:Buffer.from([137,80,78,71,13,10,26,10])})
+      : new AbortMultipartUploadCommand(common);
+    client.send(command).then(result=>process.stdout.write(JSON.stringify({uploadId:result.UploadId,etag:result.ETag})))
+      .catch(error=>{process.stderr.write('Local S3 fixture: '+error.name+' HTTP '+error.$metadata?.httpStatusCode);process.exitCode=1;})
+      .finally(()=>client.destroy());
+  `,
+    ],
+    {
+      input: JSON.stringify({ operation, path, token, uploadId, etag }),
+      encoding: "utf8",
+      timeout: 20_000,
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
+  const parsed: unknown = JSON.parse(result);
+  assert.ok(parsed && typeof parsed === "object");
+  const value: { uploadId?: string; etag?: string } = {};
+  if ("uploadId" in parsed) {
+    assert.equal(typeof parsed.uploadId, "string");
+    value.uploadId = String(parsed.uploadId);
+  }
+  if ("etag" in parsed) {
+    assert.equal(typeof parsed.etag, "string");
+    value.etag = String(parsed.etag);
+  }
+  return value;
+}
+
+test("multiple multipart uploads: stale completion fenced, partial abort retry and other-user isolation", async () => {
+  const user = await actor();
+  const other = await actor();
+  const uploads = [user, user, other].map((owner, i) => {
+    const path = `${owner.id}/parts-${i}.png`;
+    const created = multipartApi("create", path, owner.token);
+    assert.ok(created.uploadId);
+    const entry = { key: path, uploadId: created.uploadId };
+    multipartUploads.push(entry);
+    const part = multipartApi("part", path, owner.token, created.uploadId);
+    assert.ok(part.etag);
+    return { entry, etag: part.etag };
+  });
+  const job = await requested(user);
+  const backend = createAccountDeletionBackend(admin);
+  // Existing user token remains cryptographically valid, but the final metadata
+  // fence must reject completion both while pending and after Auth is gone.
+  // Elevated completion bypasses admission RLS but cannot bypass the commit fence.
+  // The backend may have completed bytes already; metadata and parts remain until abort.
+  assert.throws(() =>
+    multipartApi(
+      "complete",
+      uploads[0].entry.key,
+      undefined,
+      uploads[0].entry.uploadId,
+      uploads[0].etag,
+    ),
+  );
+  assert.equal(listFixtureAvatars(user.id).length, 0);
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "capability_drain_pending");
+  assert.throws(() =>
+    multipartApi(
+      "complete",
+      uploads[1].entry.key,
+      user.token,
+      uploads[1].entry.uploadId,
+      uploads[1].etag,
+    ),
+  );
+  assert.throws(() => multipartApi("create", `${user.id}/fresh-multipart.png`, user.token));
+  elapseFixtureCapabilityDrain(job);
+  await assert.rejects(runAccountDeletionWorkflow(backend, job));
+  assert.equal(
+    sql(`SELECT private.account_deletion_provider_residual_count(${uuid(user.id)})`),
+    "4",
+  );
+  const abort = (entry: { key: string; uploadId: string }) => {
+    multipartApi("abort", entry.key, undefined, entry.uploadId);
+    multipartUploads.splice(multipartUploads.indexOf(entry), 1);
+  };
+  abort(uploads[0].entry);
+  // Operator/process failure between uploads leaves the second upload visible.
+  sql(
+    `UPDATE private.account_deletion_jobs SET next_retry_at=now()-interval '1 second' WHERE id=${uuid(job)}`,
+  );
+  await assert.rejects(runAccountDeletionWorkflow(backend, job));
+  assert.equal(
+    sql(`SELECT private.account_deletion_provider_residual_count(${uuid(user.id)})`),
+    "2",
+  );
+  assert.equal(
+    sql(`SELECT private.account_deletion_provider_residual_count(${uuid(other.id)})`),
+    "2",
+  );
+  abort(uploads[1].entry);
+  const providerFileCount = (path: string) =>
+    execFileSync(
+      "docker",
+      [
+        "exec",
+        "supabase_storage_monfppjrvkyepjkfexqm",
+        "find",
+        "/mnt",
+        "-type",
+        "f",
+        "-path",
+        `*${path}*`,
+      ],
+      { encoding: "utf8", timeout: 5000 },
+    )
+      .trim()
+      .split("\n")
+      .filter(Boolean).length;
+  const cleanupDeadline = Date.now() + 10_000;
+  while (providerFileCount(uploads[0].entry.key) && Date.now() < cleanupDeadline) await delay(50);
+  assert.equal(
+    providerFileCount(uploads[0].entry.key),
+    0,
+    "rejected completion bytes cleaned by local provider",
+  );
+  assert.equal(
+    providerFileCount(uploads[1].entry.key),
+    0,
+    "abort removes local incomplete part bytes",
+  );
+  assert.ok(providerFileCount(uploads[2].entry.key) > 0, "unrelated user part bytes remain");
+  sql(
+    `UPDATE private.account_deletion_jobs SET next_retry_at=now()-interval '1 second' WHERE id=${uuid(job)}`,
+  );
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "completed");
+  assert.equal(
+    sql(`SELECT private.account_deletion_provider_residual_count(${uuid(other.id)})`),
+    "2",
+  );
+  abort(uploads[2].entry);
+});
+
+test("S3 single PUT works normally but stale JWT and elevated late PUT are fenced", async () => {
+  const user = await actor();
+  multipartApi("put", `${user.id}/s3-put.png`, user.token);
+  assert.equal(listFixtureAvatars(user.id).length, 1);
+  const job = await requested(user);
+  assert.throws(() => multipartApi("put", `${user.id}/pending-put.png`, user.token));
+  await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), job);
+  assert.throws(() => multipartApi("put", `${user.id}/late-put.png`, user.token));
+  assert.throws(() => multipartApi("put", `${user.id}/elevated-put.png`));
+  assert.equal(listFixtureAvatars(user.id).length, 0);
+});
+
+test("real TUS creation/finalization works and pre-deletion upload cannot finish with stale JWT", async () => {
+  const user = await actor();
+  const headers = { Authorization: `Bearer ${user.token}`, apikey: key!, "Tus-Resumable": "1.0.0" };
+  const create = async (name: string) => {
+    const metadata = Object.entries({
+      bucketName: "avatars",
+      objectName: name,
+      contentType: "image/png",
+    })
+      .map(([field, value]) => `${field} ${Buffer.from(value).toString("base64")}`)
+      .join(",");
+    const response = await fetch(`${url}/storage/v1/upload/resumable`, {
+      method: "POST",
+      headers: { ...headers, "Upload-Length": String(png.length), "Upload-Metadata": metadata },
+      signal: AbortSignal.timeout(10_000),
+    });
+    await response.arrayBuffer();
+    assert.equal(response.status, 201, "local TUS creation supported");
+    const location = new URL(response.headers.get("location")!);
+    const path = location.pathname.startsWith("/storage/v1/")
+      ? location.pathname
+      : `/storage/v1${location.pathname}`;
+    return `${url}${path}`;
+  };
+  const patch = async (target: string) => {
+    const response = await fetch(target, {
+      method: "PATCH",
+      headers: {
+        ...headers,
+        "Upload-Offset": "0",
+        "Content-Type": "application/offset+octet-stream",
+      },
+      body: png,
+      signal: AbortSignal.timeout(10_000),
+    });
+    await response.arrayBuffer();
+    return response.status;
+  };
+  assert.equal(await patch(await create(`${user.id}/tus-normal.png`)), 204);
+  const pending = await create(`${user.id}/tus-pending.png`);
+  const job = await requested(user);
+  assert.ok((await patch(pending)) >= 400);
+  await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), job);
+  assert.ok((await patch(pending)) >= 400);
+  assert.equal(listFixtureAvatars(user.id).length, 0);
+  // Supported TUS termination with the LOCAL server credential removes temporary
+  // file-store state; no direct provider metadata manipulation.
+  const termination = await fetch(pending, {
+    method: "DELETE",
+    headers: {
+      "Tus-Resumable": "1.0.0",
+      Authorization: `Bearer ${serviceKey}`,
+      apikey: key!,
+    },
+    signal: AbortSignal.timeout(10_000),
+  });
+  await termination.arrayBuffer();
+  assert.ok([204, 404, 410].includes(termination.status), "local TUS termination succeeds");
+});
+
+test("real S3 multipart and parts block completion until supported provider abort", async () => {
+  const user = await actor();
+  const path = `${user.id}/multipart.png`;
+  const upload = multipartApi("create", path, user.token);
+  assert.ok(upload.uploadId);
+  const tracked = { key: path, uploadId: upload.uploadId };
+  multipartUploads.push(tracked);
+  multipartApi("part", path, user.token, upload.uploadId);
+  assert.equal(
+    sql(`SELECT private.account_deletion_provider_residual_count(${uuid(user.id)})`),
+    "2",
+  );
+  const job = await requested(user);
+  const backend = createAccountDeletionBackend(admin);
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "capability_drain_pending");
+  elapseFixtureCapabilityDrain(job);
+  await assert.rejects(runAccountDeletionWorkflow(backend, job));
+  assert.equal(
+    sql(
+      `SELECT status || ':' || last_error_code FROM private.account_deletion_jobs WHERE id=${uuid(job)}`,
+    ),
+    "failed_retryable:PROVIDER_RESIDUAL",
+  );
+  assert.equal(
+    sql(`SELECT private.account_deletion_provider_residual_count(${uuid(user.id)})`),
+    "2",
+  );
+  multipartApi("abort", path, undefined, upload.uploadId);
+  multipartUploads.splice(multipartUploads.indexOf(tracked), 1);
+  assert.equal(
+    sql(`SELECT private.account_deletion_provider_residual_count(${uuid(user.id)})`),
+    "0",
+  );
+  sql(
+    `UPDATE private.account_deletion_jobs SET next_retry_at=now()-interval '1 second' WHERE id=${uuid(job)}`,
+  );
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "completed");
+});
+
+test("operator GET RPC is read-only, redacted and unavailable to ordinary users", async () => {
+  const user = await actor();
+  const job = await requested(user);
+  const before = sql(
+    `SELECT row_to_json(job)::text FROM private.account_deletion_jobs job WHERE id=${uuid(job)}`,
+  );
+  assert.ok((await user.client.rpc("list_account_deletion_attention", {}, { get: true })).error);
+  const rows = ok(await admin.rpc("list_account_deletion_attention", {}, { get: true }));
+  const row = rows.find((entry) => entry.job_id === job);
+  assert.ok(row);
+  assert.deepEqual(Object.keys(row).sort(), [
+    "age_seconds",
+    "attempt_count",
+    "job_id",
+    "job_status",
+    "last_error_code",
+    "next_retry_at",
+    "resume_step",
+  ]);
+  assert.equal(
+    sql(
+      `SELECT row_to_json(job)::text FROM private.account_deletion_jobs job WHERE id=${uuid(job)}`,
+    ),
+    before,
+  );
+  await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), job);
+  assert.ok(
+    !ok(await admin.rpc("list_account_deletion_attention", {}, { get: true })).some(
+      (entry) => entry.job_id === job,
+    ),
+    "future successful drain is not overdue",
+  );
 });
 
 test("real coordinator deletes an empty account and replay/status stay consistent", async () => {
   const user = await actor();
   const job = await requested(user);
   const backend = createAccountDeletionBackend(admin);
-  assert.equal((await runAccountDeletionWorkflow(backend, job, user.id)).status, "completed");
+  assert.equal(
+    (await runAccountDeletionWorkflow(backend, job, user.id)).status,
+    "capability_drain_pending",
+  );
+  const attempts = sql(
+    `SELECT attempt_count FROM private.account_deletion_jobs WHERE id=${uuid(job)}`,
+  );
+  for (let i = 0; i < 12; i++) {
+    const freshBackend = createAccountDeletionBackend(admin);
+    const result = await runAccountDeletionWorkflow(freshBackend, job);
+    assert.equal(result.status, "capability_drain_pending");
+  }
+  assert.equal(
+    sql(`SELECT attempt_count FROM private.account_deletion_jobs WHERE id=${uuid(job)}`),
+    attempts,
+  );
+  elapseFixtureCapabilityDrain(job);
   assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "completed");
   assert.equal(
     ok(await user.client.rpc("get_my_account_deletion_status"))?.[0]?.job_status,
@@ -136,6 +473,8 @@ test("real Storage: >1000 nested avatars, legacy owner paths, partial failure an
     `UPDATE private.account_deletion_jobs SET next_retry_at=now()-interval '1 second' WHERE id=${uuid(job)}`,
   );
   backend.cleanupStorage = original;
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "capability_drain_pending");
+  elapseFixtureCapabilityDrain(job);
   assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "completed");
   assert.equal(sql(`SELECT private.account_deletion_residual_count(${uuid(user.id)})`), "0");
 });
@@ -148,6 +487,8 @@ test("Auth succeeds, finalizer fails, two real resumes lease one worker", async 
   backend.finalizeDatabase = async () => {
     throw new AccountDeletionStepError("DATABASE_TEMPORARY");
   };
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "capability_drain_pending");
+  elapseFixtureCapabilityDrain(job);
   await assert.rejects(runAccountDeletionWorkflow(backend, job));
   assert.ok((await admin.auth.admin.getUserById(user.id)).error);
   assert.equal(
@@ -170,6 +511,47 @@ test("Auth succeeds, finalizer fails, two real resumes lease one worker", async 
     "2",
   );
   assert.equal(sql(`SELECT private.account_deletion_residual_count(${uuid(user.id)})`), "0");
+});
+
+test("lost Auth response and lost drain response resume without extending the deadline", async () => {
+  const user = await actor();
+  const job = await requested(user);
+  const backend = createAccountDeletionBackend(admin);
+  const removeAuth = backend.deleteAuthUser;
+  backend.deleteAuthUser = async (id) => {
+    await removeAuth(id);
+    throw new AccountDeletionStepError("AUTH_TEMPORARY");
+  };
+  await assert.rejects(runAccountDeletionWorkflow(backend, job));
+  assert.ok((await admin.auth.admin.getUserById(user.id)).error);
+  backend.deleteAuthUser = removeAuth;
+  sql(
+    `UPDATE private.account_deletion_jobs SET next_retry_at=now()-interval '1 second' WHERE id=${uuid(job)}`,
+  );
+  const advance = backend.advance;
+  backend.advance = async (...args) => {
+    await advance(...args);
+    throw new AccountDeletionStepError("DATABASE_TEMPORARY");
+  };
+  await assert.rejects(runAccountDeletionWorkflow(backend, job));
+  const deadline = sql(
+    `SELECT capability_drain_until FROM private.account_deletion_jobs WHERE id=${uuid(job)}`,
+  );
+  assert.equal(
+    sql(`SELECT status FROM private.account_deletion_jobs WHERE id=${uuid(job)}`),
+    "capability_drain_pending",
+  );
+  const restarted = createAccountDeletionBackend(admin);
+  assert.equal(
+    (await runAccountDeletionWorkflow(restarted, job)).status,
+    "capability_drain_pending",
+  );
+  assert.equal(
+    sql(`SELECT capability_drain_until FROM private.account_deletion_jobs WHERE id=${uuid(job)}`),
+    deadline,
+  );
+  elapseFixtureCapabilityDrain(job);
+  assert.equal((await runAccountDeletionWorkflow(restarted, job)).status, "completed");
 });
 
 test("marketplace receipts/cascades reconcile and independent copies survive source deletion", async () => {
@@ -245,9 +627,14 @@ test("marketplace receipts/cascades reconcile and independent copies survive sou
     sql(`SELECT count(*) FROM private.marketplace_view_receipts WHERE user_id=${uuid(owner.id)}`),
     "2",
   );
+  const deletionJob = await requested(owner);
   assert.equal(
-    (await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), await requested(owner)))
-      .status,
+    (await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), deletionJob)).status,
+    "capability_drain_pending",
+  );
+  elapseFixtureCapabilityDrain(deletionJob);
+  assert.equal(
+    (await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), deletionJob)).status,
     "completed",
   );
   const deck = ok(
@@ -329,34 +716,56 @@ test("pending admin cannot moderate using Stage 1 RPC; unrelated resources are n
   );
 });
 
-test("signed upload issued before request is rejected pending, completed, and after tombstone purge", async () => {
+test("pre-issued signed upload is fenced during drain and after tombstone purge", async () => {
   const user = await actor();
   const path = `${user.id}/signed.png`;
   const signed = ok(await user.client.storage.from("avatars").createSignedUploadUrl(path));
   assert.ok(signed);
   const job = await requested(user);
-  for (const phase of ["pending", "completed", "purged"]) {
-    if (phase === "completed")
-      await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), job);
-    if (phase === "purged") {
-      sql(
-        `UPDATE private.account_deletion_jobs SET retention_until=now()-interval '1 second' WHERE id=${uuid(job)}`,
-      );
-      ok(await admin.rpc("purge_expired_account_deletion_jobs"));
-    }
-    assert.ok(
-      (
-        await user.client.storage
-          .from("avatars")
-          .uploadToSignedUrl(path, signed.token, png, { contentType: "image/png" })
-      ).error,
-      phase,
-    );
-    assert.equal(listFixtureAvatars(user.id).length, 0);
-  }
+  const backend = createAccountDeletionBackend(admin);
+  assert.ok(
+    (
+      await user.client.storage
+        .from("avatars")
+        .upload(`${user.id}/fresh.png`, png, { contentType: "image/png" })
+    ).error,
+    "RLS blocks fresh requests",
+  );
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "capability_drain_pending");
+  assert.ok(
+    (
+      await user.client.storage
+        .from("avatars")
+        .uploadToSignedUrl(path, signed.token, png, { contentType: "image/png" })
+    ).error,
+  );
+  assert.equal(listFixtureAvatars(user.id).length, 0);
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "capability_drain_pending");
+  // This advances only the LOCAL DB clock, not the actual signed URL expiry.
+  // The still-valid local capability must also fail after tombstone purge:
+  // the fence checks Auth absence independently of tombstone retention.
+  elapseFixtureCapabilityDrain(job);
+  assert.equal((await runAccountDeletionWorkflow(backend, job)).status, "completed");
+  assert.equal(listFixtureAvatars(user.id).length, 0);
+  sql(
+    `UPDATE private.account_deletion_jobs SET retention_until=now()-interval '1 second' WHERE id=${uuid(job)}`,
+  );
+  ok(await admin.rpc("purge_expired_account_deletion_jobs"));
+  assert.equal(
+    sql(`SELECT count(*) FROM private.account_deletion_jobs WHERE id=${uuid(job)}`),
+    "0",
+  );
+  assert.ok(
+    (
+      await user.client.storage
+        .from("avatars")
+        .uploadToSignedUrl(path, signed.token, png, { contentType: "image/png" })
+    ).error,
+  );
+  assert.equal(listFixtureAvatars(user.id).length, 0);
 });
 
-test("real streamed upload admitted before deletion cannot finalize after completion", async () => {
+test("real admitted stream is fenced at finalization and provider cleans rejected bytes", async () => {
   const user = await actor();
   const path = `${user.id}/in-flight.png`;
   // Kong buffers request bodies. Reach the actual local Storage listener inside
@@ -408,17 +817,24 @@ test("real streamed upload admitted before deletion cannot finalize after comple
     const deadline = Date.now() + 8000;
     while (!files() && Date.now() < deadline) await delay(50);
     assert.ok(files(), "upload must be admitted and streaming before deletion");
-    await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), await requested(user));
+    const job = await requested(user);
+    assert.equal(
+      (await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), job)).status,
+      "capability_drain_pending",
+    );
     uploader.stdin.write("finish\n");
     assert.equal(await closed, 0);
-    assert.ok(
-      Number(output.match(/STATUS:(\d+)/)?.[1]) >= 400,
-      "late metadata finalization must fail",
+    assert.ok(Number(output.match(/STATUS:(\d+)/)?.[1]) >= 400, "late metadata is rejected");
+    assert.equal(listFixtureAvatars(user.id).length, 0);
+    elapseFixtureCapabilityDrain(job);
+    assert.equal(
+      (await runAccountDeletionWorkflow(createAccountDeletionBackend(admin), job)).status,
+      "completed",
     );
     assert.equal(listFixtureAvatars(user.id).length, 0);
     const cleanupDeadline = Date.now() + 10000;
     while (files() && Date.now() < cleanupDeadline) await delay(50);
-    assert.equal(files(), "", "Storage must remove rejected upload backend bytes");
+    assert.equal(files(), "", "local provider cleans rejected upload backend bytes");
   } finally {
     uploader.stdin.end();
     await closed;

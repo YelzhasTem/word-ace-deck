@@ -7,6 +7,7 @@ import {
   deletionFixtureSql,
   fixtureUuid,
   listFixtureAvatars,
+  elapseFixtureCapabilityDrain,
 } from "./account-deletion-fixture-db.ts";
 import { requireAccountDeletionAdmin } from "../src/lib/account-deletion-admin.ts";
 import {
@@ -546,28 +547,28 @@ try {
     p_job_id: jobId,
     p_lease_token: leaseToken,
     p_expected_step: "auth_deletion",
-    p_next_step: "database_verification",
+    p_next_step: "capability_drain",
     p_storage_files_deleted: 0,
   });
   if (authAdvance.error) throw new Error("Could not advance Auth step");
 
-  // The real elevated Storage API is now fenced. Fault injection below is
-  // privileged local SQL only, modeling residue from before this migration.
+  assert.equal(authAdvance.data?.[0]?.job_status, "capability_drain_pending");
+  const waiting = await admin.rpc("claim_account_deletion_job", { p_job_id: jobId });
+  assert.equal(waiting.data?.[0]?.claimed, false);
+  elapseFixtureCapabilityDrain(jobId);
+  const drained = await admin.rpc("claim_account_deletion_job", { p_job_id: jobId });
+  assert.ok(drained.data?.[0]?.claimed && drained.data[0].lease_token);
+  leaseToken = drained.data[0].lease_token;
+
+  // An elevated provider finalizer must also respect the local metadata fence.
   const lateAvatarPath = `${userA.id}/late-after-auth-delete.png`;
   const lateAvatar = await bucket.upload(lateAvatarPath, new Uint8Array([137, 80, 78, 71]), {
     contentType: "image/png",
     upsert: true,
   });
-  assert.ok(lateAvatar.error, "elevated late Storage upload must be fenced");
-  deletionFixtureSql(`BEGIN; SET LOCAL session_replication_role=replica;
-    INSERT INTO storage.objects(bucket_id,name,owner_id) VALUES
-    ('avatars', ${fixtureUuid(userA.id)}::text || '/legacy-residue.png', ${fixtureUuid(userA.id)}::text);
-    COMMIT;`);
-  const failedFinalizer = await admin.rpc("finalize_account_deletion_database", {
-    p_job_id: jobId,
-    p_lease_token: leaseToken,
-  });
-  assert.ok(failedFinalizer.error, "database finalizer must reject non-empty Storage");
+  assert.ok(lateAvatar.error, "late elevated avatar write must be fenced");
+  // Model a database timeout before finalization; SQL/integration tests separately
+  // verify actual provider residuals prevent finalization.
   const failedDatabase = await admin.rpc("fail_account_deletion_job", {
     p_job_id: jobId,
     p_lease_token: leaseToken,

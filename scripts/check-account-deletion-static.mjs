@@ -44,6 +44,7 @@ const securityDefinerRpcs = [
   "finalize_account_deletion_database",
   "purge_expired_account_deletion_jobs",
   "list_account_deletion_avatars",
+  "list_account_deletion_attention",
 ];
 for (const rpc of securityDefinerRpcs) {
   assert.match(migration, new RegExp(`FUNCTION public\\.${rpc}\\(`), `Missing ${rpc}`);
@@ -88,12 +89,24 @@ assert.match(migration, /INTERVAL '30 days'/);
 assert.doesNotMatch(migration, /INTERVAL '90 days'/);
 assert.match(migration, /WHERE job\.status = 'completed'/);
 assert.match(migration, /private\.marketplace_view_receipts/);
-assert.match(migration, /CREATE TRIGGER account_deletion_avatar_fence/);
+assert.match(migration, /CREATE CONSTRAINT TRIGGER account_deletion_avatar_fence/);
+assert.match(
+  migration,
+  /AFTER INSERT OR UPDATE ON storage.objects\s+DEFERRABLE INITIALLY DEFERRED/,
+);
 assert.match(
   migration,
   /pg_advisory_xact_lock_shared\(hashtextextended\(v_user::TEXT, 52017003\)\)/,
 );
-assert.match(migration, /OR NOT EXISTS \(SELECT 1 FROM auth\.users WHERE id = v_user\)/);
+assert.match(migration, /NOT EXISTS \(SELECT 1 FROM auth.users WHERE id = v_user\)/);
+assert.doesNotMatch(migration, /(?:DELETE FROM|UPDATE|INSERT INTO)\s+storage\./i);
+assert.match(
+  migration,
+  /capability_drain_until = capability_drain_started_at \+ INTERVAL '25 hours'/,
+);
+assert.match(migration, /storage\.s3_multipart_uploads_parts AS part/);
+assert.match(migration, /upload\.id = part\.upload_id/);
+assert.match(migration, /account_deletion_provider_residual_count\(v_user_id\) <> 0/);
 assert.match(migration, /block_pending_account_mutation/);
 assert.match(migration, /NOT public\.is_account_deletion_pending\(\)/g);
 

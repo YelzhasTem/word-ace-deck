@@ -6,6 +6,7 @@ export const ACCOUNT_DELETION_DEADLINE_MS = 120_000;
 export type AccountDeletionResumeStep =
   | "storage_cleanup"
   | "auth_deletion"
+  | "capability_drain"
   | "database_verification"
   | "done";
 
@@ -13,6 +14,7 @@ export type AccountDeletionStatus =
   | "requested"
   | "storage_cleanup_pending"
   | "auth_deletion_pending"
+  | "capability_drain_pending"
   | "database_verification_pending"
   | "completed"
   | "failed_retryable"
@@ -28,6 +30,7 @@ export type AccountDeletionStepErrorCode =
   | "STORAGE_TEMPORARY"
   | "AUTH_TEMPORARY"
   | "DATABASE_TEMPORARY"
+  | "PROVIDER_RESIDUAL"
   | "WORKFLOW_TIMEOUT";
 
 export class AccountDeletionWorkflowError extends Error {
@@ -90,10 +93,10 @@ export type AccountDeletionBackend = {
   advance(
     jobId: string,
     leaseToken: string,
-    expectedStep: Exclude<AccountDeletionResumeStep, "done" | "database_verification">,
-    nextStep: Exclude<AccountDeletionResumeStep, "done" | "storage_cleanup">,
+    expectedStep: "storage_cleanup" | "auth_deletion",
+    nextStep: "auth_deletion" | "capability_drain",
     storageFilesDeleted: number,
-  ): Promise<void>;
+  ): Promise<{ retryAfterSeconds: number }>;
   fail(
     jobId: string,
     leaseToken: string,
@@ -144,6 +147,14 @@ export async function runAccountDeletionWorkflow(
 ) {
   const claim = await backend.claim(jobId);
 
+  if (expectedUserId && claim.userId && claim.userId !== expectedUserId) {
+    throw new AccountDeletionWorkflowError(
+      "ACCOUNT_DELETION_FAILED",
+      403,
+      "This deletion request cannot be processed.",
+    );
+  }
+
   if (claim.status === "completed") {
     return { status: "completed" as const, removedRows: 0 };
   }
@@ -153,6 +164,12 @@ export async function runAccountDeletionWorkflow(
       500,
       "Account deletion needs support assistance.",
     );
+  }
+  if (claim.status === "capability_drain_pending" && !claim.claimed) {
+    return {
+      status: "capability_drain_pending" as const,
+      retryAfterSeconds: claim.retryAfterSeconds,
+    };
   }
   if (!claim.claimed || !claim.leaseToken) {
     throw new AccountDeletionWorkflowError(
@@ -191,13 +208,24 @@ export async function runAccountDeletionWorkflow(
       await checkpoint();
       await backend.deleteAuthUser(userId);
       await checkpoint();
-      await backend.advance(jobId, leaseToken, "auth_deletion", "database_verification", 0);
-      step = "database_verification";
+      const drain = await backend.advance(
+        jobId,
+        leaseToken,
+        "auth_deletion",
+        "capability_drain",
+        0,
+      );
+      // Auth absence is verified and the absolute deadline is persisted by SQL.
+      // The handoff releases the lease. No timer/worker is kept alive here.
+      return {
+        status: "capability_drain_pending" as const,
+        retryAfterSeconds: drain.retryAfterSeconds,
+      };
     }
 
     if (step === "database_verification") {
-      // The metadata trigger fences late uploads. This scan repairs leftovers;
-      // it is not the concurrency fence or a distributed rollback.
+      // SQL only grants this step after the capability deadline. Delete late
+      // uploads through the provider API, then verify all provider metadata.
       await backend.cleanupStorage(userId, checkpoint, jobId, leaseToken);
       await checkpoint();
       const result = await backend.finalizeDatabase(jobId, leaseToken);
@@ -226,7 +254,7 @@ export async function runAccountDeletionWorkflow(
       "ACCOUNT_DELETION_RETRYABLE",
       503,
       "Account deletion is not complete yet. Please try again shortly.",
-      5,
+      safeError.code === "PROVIDER_RESIDUAL" ? 3600 : 5,
     );
   }
 }

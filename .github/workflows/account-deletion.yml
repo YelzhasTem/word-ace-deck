@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/account-deletion.yml"
-      - "docs/account-deletion.md"
+      - "docs/account-deletion*.md"
       - "package.json"
       - "package-lock.json"
       - "scripts/check-account-deletion-static.mjs"
@@ -23,7 +23,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/account-deletion.yml"
-      - "docs/account-deletion.md"
+      - "docs/account-deletion*.md"
       - "package.json"
       - "package-lock.json"
       - "scripts/check-account-deletion-static.mjs"
@@ -62,6 +62,8 @@ jobs:
           npx eslint
           scripts/check-account-deletion-static.mjs
           scripts/resume-account-deletion-job.ts
+          scripts/check-account-deletion-runtime.ts
+          scripts/list-account-deletion-jobs.ts
           scripts/verify-account-deletion.ts
           scripts/account-deletion-*.ts
           scripts/verify-account-deletion-upgrade.mjs
@@ -80,7 +82,7 @@ jobs:
           NITRO_PRESET: vercel
       - name: Verify service-role credentials are absent from browser assets
         run: |
-          if grep -R -l -E "SUPABASE_SERVICE_ROLE_KEY|service_role|runAccountDeletionWorkflow|list_account_deletion_avatars|claim_account_deletion_job" .vercel/output/static; then
+          if grep -R -l -E "SUPABASE_SERVICE_ROLE_KEY|service_role|runAccountDeletionWorkflow|list_account_deletion_avatars|list_account_deletion_attention|claim_account_deletion_job" .vercel/output/static; then
             echo "A service-role marker was found in browser assets."
             exit 1
           fi

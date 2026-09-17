@@ -15,6 +15,7 @@ const AccountDeletionStatusSchema = z.enum([
   "requested",
   "storage_cleanup_pending",
   "auth_deletion_pending",
+  "capability_drain_pending",
   "database_verification_pending",
   "completed",
   "failed_retryable",
@@ -24,6 +25,7 @@ const AccountDeletionStatusSchema = z.enum([
 const AccountDeletionResumeStepSchema = z.enum([
   "storage_cleanup",
   "auth_deletion",
+  "capability_drain",
   "database_verification",
   "done",
 ]);
@@ -146,14 +148,15 @@ export function createAccountDeletionBackend(
     },
 
     async advance(jobId, leaseToken, expectedStep, nextStep, storageFilesDeleted) {
-      const { error } = await admin.rpc("advance_account_deletion_job", {
+      const { data, error } = await admin.rpc("advance_account_deletion_job", {
         p_job_id: jobId,
         p_lease_token: leaseToken,
         p_expected_step: expectedStep,
         p_next_step: nextStep,
         p_storage_files_deleted: storageFilesDeleted,
       });
-      if (error) throw databaseStepError();
+      if (error || !data?.[0]) throw databaseStepError();
+      return { retryAfterSeconds: data[0].retry_after_seconds };
     },
 
     async fail(jobId, leaseToken, errorCode, retryable) {
@@ -174,6 +177,9 @@ export function createAccountDeletionBackend(
         p_job_id: jobId,
         p_lease_token: leaseToken,
       });
+      if (error?.message === "ACCOUNT_DELETION_STORAGE_NOT_EMPTY") {
+        throw new AccountDeletionStepError("PROVIDER_RESIDUAL");
+      }
       if (error || !data?.[0] || data[0].job_status !== "completed") {
         throw databaseStepError();
       }

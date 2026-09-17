@@ -11,6 +11,7 @@ CREATE TABLE private.account_deletion_jobs (
     'requested',
     'storage_cleanup_pending',
     'auth_deletion_pending',
+    'capability_drain_pending',
     'database_verification_pending',
     'completed',
     'failed_retryable',
@@ -19,6 +20,7 @@ CREATE TABLE private.account_deletion_jobs (
   resume_step TEXT NOT NULL DEFAULT 'storage_cleanup' CHECK (resume_step IN (
     'storage_cleanup',
     'auth_deletion',
+    'capability_drain',
     'database_verification',
     'done'
   )),
@@ -32,16 +34,27 @@ CREATE TABLE private.account_deletion_jobs (
       'STORAGE_TEMPORARY',
       'AUTH_TEMPORARY',
       'DATABASE_TEMPORARY',
+      'PROVIDER_RESIDUAL',
       'WORKFLOW_TIMEOUT',
       'ATTEMPT_LIMIT_REACHED'
     )
   ),
   next_retry_at TIMESTAMPTZ,
+  capability_drain_started_at TIMESTAMPTZ,
+  capability_drain_until TIMESTAMPTZ,
   requested_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
   completed_at TIMESTAMPTZ,
   retention_until TIMESTAMPTZ,
   CHECK ((lease_token IS NULL) = (lease_expires_at IS NULL)),
+  CHECK (
+    (capability_drain_started_at IS NULL AND capability_drain_until IS NULL
+      AND resume_step IN ('storage_cleanup', 'auth_deletion'))
+    OR
+    (capability_drain_started_at IS NOT NULL AND capability_drain_until IS NOT NULL
+      AND capability_drain_until = capability_drain_started_at + INTERVAL '25 hours'
+      AND resume_step IN ('capability_drain', 'database_verification', 'done'))
+  ),
   CHECK (
     (status = 'completed'
       AND resume_step = 'done'
@@ -74,6 +87,8 @@ COMMENT ON COLUMN private.account_deletion_jobs.user_ref_hash IS
   'One-way SHA-256 reference derived from the random Auth UUID for idempotency and short-lived operational audit.';
 COMMENT ON COLUMN private.account_deletion_jobs.retention_until IS
   'Only verified completed jobs expire after 30 days. Unresolved jobs never auto-purge; terminal recovery requires an audited operator decision.';
+COMMENT ON COLUMN private.account_deletion_jobs.capability_drain_until IS
+  'DB-clock deadline after verified Auth absence: 25 hours covers documented signed upload (2h), TUS and S3 multipart (24h) windows. Requires bounded in-flight writes, no unrestricted S3 keys, and provider lifetime attestation; see docs/account-deletion.md.';
 
 CREATE OR REPLACE FUNCTION private.account_deletion_user_hash(p_user_id UUID)
 RETURNS TEXT
@@ -135,9 +150,8 @@ BEGIN
 
   v_hash := private.account_deletion_user_hash(v_user_id);
 
-  -- Separate from collection namespace 52017002. Metadata writers take the
-  -- shared counterpart before their final INSERT/UPDATE, including Storage's
-  -- elevated signed-upload path. Wait for admitted metadata transactions.
+  -- Drain already-admitted metadata transactions before publishing the fence.
+  -- Separate from the unchanged collection lock namespace 52017002.
   PERFORM pg_advisory_xact_lock(hashtextextended(v_user_id::TEXT, 52017003));
 
   INSERT INTO private.account_deletion_jobs (user_id, user_ref_hash)
@@ -214,6 +228,8 @@ BEGIN
     RAISE EXCEPTION 'ACCOUNT_DELETION_FAILED' USING ERRCODE = 'P0001';
   END IF;
 
+  v_now := clock_timestamp();
+
   IF v_job.status IN ('completed', 'failed_terminal') THEN
     RETURN QUERY SELECT
       v_job.id, v_job.user_id, v_job.status, v_job.resume_step,
@@ -226,6 +242,15 @@ BEGIN
     RETURN QUERY SELECT
       v_job.id, v_job.user_id, v_job.status, v_job.resume_step,
       NULL::UUID, v_job.lease_expires_at, v_job.attempt_count, FALSE, v_retry;
+    RETURN;
+  END IF;
+
+  -- Waiting is not an attempt. No lease, write or provider call is needed.
+  IF v_job.resume_step = 'capability_drain' AND v_job.capability_drain_until > v_now THEN
+    v_retry := GREATEST(1, CEIL(EXTRACT(EPOCH FROM (v_job.capability_drain_until - v_now)))::INTEGER);
+    RETURN QUERY SELECT
+      v_job.id, v_job.user_id, 'capability_drain_pending'::TEXT, v_job.resume_step,
+      NULL::UUID, NULL::TIMESTAMPTZ, v_job.attempt_count, FALSE, v_retry;
     RETURN;
   END IF;
 
@@ -260,8 +285,11 @@ BEGIN
   SET status = CASE v_job.resume_step
         WHEN 'storage_cleanup' THEN 'storage_cleanup_pending'
         WHEN 'auth_deletion' THEN 'auth_deletion_pending'
+        WHEN 'capability_drain' THEN 'database_verification_pending'
         WHEN 'database_verification' THEN 'database_verification_pending'
       END,
+      resume_step = CASE WHEN v_job.resume_step = 'capability_drain'
+        THEN 'database_verification' ELSE v_job.resume_step END,
       attempt_count = v_job.attempt_count + 1,
       lease_token = v_lease,
       lease_expires_at = v_now + INTERVAL '10 minutes',
@@ -313,27 +341,42 @@ CREATE OR REPLACE FUNCTION public.advance_account_deletion_job(
   p_next_step TEXT,
   p_storage_files_deleted INTEGER DEFAULT 0
 )
-RETURNS TABLE (job_status TEXT, resume_step TEXT)
+RETURNS TABLE (job_status TEXT, resume_step TEXT, retry_after_seconds INTEGER)
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = pg_catalog, private
 AS $function$
 DECLARE
   v_status TEXT;
+  v_job private.account_deletion_jobs%ROWTYPE;
+  v_now TIMESTAMPTZ;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'service role required' USING ERRCODE = '42501';
   END IF;
   IF NOT (
     (p_expected_step = 'storage_cleanup' AND p_next_step = 'auth_deletion')
-    OR (p_expected_step = 'auth_deletion' AND p_next_step = 'database_verification')
+    OR (p_expected_step = 'auth_deletion' AND p_next_step = 'capability_drain')
   ) OR p_storage_files_deleted < 0 THEN
     RAISE EXCEPTION 'ACCOUNT_DELETION_FAILED' USING ERRCODE = 'P0001';
   END IF;
 
+  SELECT * INTO v_job FROM private.account_deletion_jobs AS job
+  WHERE job.id = p_job_id AND job.lease_token = p_lease_token
+    AND job.resume_step = p_expected_step
+  FOR UPDATE;
+  v_now := clock_timestamp();
+  IF NOT FOUND OR v_job.lease_expires_at <= v_now THEN
+    RAISE EXCEPTION 'ACCOUNT_DELETION_ALREADY_IN_PROGRESS' USING ERRCODE = 'P0001';
+  END IF;
+  IF p_next_step = 'capability_drain'
+    AND EXISTS (SELECT 1 FROM auth.users WHERE id = v_job.user_id) THEN
+    RAISE EXCEPTION 'ACCOUNT_DELETION_AUTH_STILL_PRESENT' USING ERRCODE = 'P0001';
+  END IF;
+
   v_status := CASE p_next_step
     WHEN 'auth_deletion' THEN 'auth_deletion_pending'
-    WHEN 'database_verification' THEN 'database_verification_pending'
+    WHEN 'capability_drain' THEN 'capability_drain_pending'
   END;
 
   UPDATE private.account_deletion_jobs AS job
@@ -342,8 +385,15 @@ BEGIN
       storage_files_deleted = job.storage_files_deleted + p_storage_files_deleted,
       last_error_code = NULL,
       next_retry_at = NULL,
-      lease_expires_at = clock_timestamp() + INTERVAL '10 minutes',
-      updated_at = clock_timestamp()
+      capability_drain_started_at = CASE WHEN p_next_step = 'capability_drain' THEN v_now ELSE NULL END,
+      capability_drain_until = CASE WHEN p_next_step = 'capability_drain' THEN v_now + INTERVAL '25 hours' ELSE NULL END,
+      -- A successful handoff is not a failure. Reserve the final verification
+      -- attempt even if Auth deletion succeeded on the last allowed attempt.
+      attempt_count = CASE WHEN p_next_step = 'capability_drain'
+        THEN GREATEST(0, job.attempt_count - 1) ELSE job.attempt_count END,
+      lease_token = CASE WHEN p_next_step = 'capability_drain' THEN NULL ELSE job.lease_token END,
+      lease_expires_at = CASE WHEN p_next_step = 'capability_drain' THEN NULL ELSE v_now + INTERVAL '10 minutes' END,
+      updated_at = v_now
   WHERE job.id = p_job_id
     AND job.lease_token = p_lease_token
     AND job.lease_expires_at > clock_timestamp()
@@ -353,7 +403,8 @@ BEGIN
     RAISE EXCEPTION 'ACCOUNT_DELETION_ALREADY_IN_PROGRESS' USING ERRCODE = 'P0001';
   END IF;
 
-  RETURN QUERY SELECT v_status, p_next_step;
+  RETURN QUERY SELECT v_status, p_next_step,
+    CASE WHEN p_next_step = 'capability_drain' THEN 90000 ELSE 0 END;
 END;
 $function$;
 
@@ -377,7 +428,7 @@ BEGIN
     RAISE EXCEPTION 'service role required' USING ERRCODE = '42501';
   END IF;
   IF p_error_code IS NULL OR p_error_code <> ALL (ARRAY[
-    'STORAGE_TEMPORARY', 'AUTH_TEMPORARY', 'DATABASE_TEMPORARY', 'WORKFLOW_TIMEOUT'
+    'STORAGE_TEMPORARY', 'AUTH_TEMPORARY', 'DATABASE_TEMPORARY', 'PROVIDER_RESIDUAL', 'WORKFLOW_TIMEOUT'
   ]) THEN
     RAISE EXCEPTION 'ACCOUNT_DELETION_FAILED' USING ERRCODE = 'P0001';
   END IF;
@@ -399,12 +450,13 @@ BEGIN
   UPDATE private.account_deletion_jobs AS job
   SET status = v_status,
       last_error_code = CASE
-        WHEN v_retryable THEN p_error_code
+        WHEN p_error_code = 'PROVIDER_RESIDUAL' OR v_retryable THEN p_error_code
         ELSE 'ATTEMPT_LIMIT_REACHED'
       END,
       lease_token = NULL,
       lease_expires_at = NULL,
       next_retry_at = CASE
+        WHEN v_retryable AND p_error_code = 'PROVIDER_RESIDUAL' THEN clock_timestamp() + INTERVAL '1 hour'
         WHEN v_retryable THEN clock_timestamp() + make_interval(secs => LEAST(60, 5 * v_job.attempt_count))
         ELSE NULL
       END,
@@ -415,6 +467,33 @@ BEGIN
   RETURN v_status;
 END;
 $function$;
+
+-- Provider metadata is READ ONLY. Include parts by their own identity/key and
+-- transitively through their parent upload, even when parts.owner_id is NULL.
+CREATE FUNCTION private.account_deletion_provider_residual_count(p_user_id UUID)
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+  SELECT
+    (SELECT count(*) FROM storage.objects
+      WHERE bucket_id = 'avatars'
+        AND (owner_id = p_user_id::TEXT OR name LIKE p_user_id::TEXT || '/%'))
+    + (SELECT count(*) FROM storage.s3_multipart_uploads
+      WHERE bucket_id = 'avatars'
+        AND (owner_id = p_user_id::TEXT OR key LIKE p_user_id::TEXT || '/%'))
+    + (SELECT count(*) FROM storage.s3_multipart_uploads_parts AS part
+      WHERE (part.bucket_id = 'avatars'
+        AND (part.owner_id = p_user_id::TEXT OR part.key LIKE p_user_id::TEXT || '/%'))
+        OR EXISTS (
+          SELECT 1 FROM storage.s3_multipart_uploads AS upload
+          WHERE upload.id = part.upload_id AND upload.bucket_id = 'avatars'
+            AND (upload.owner_id = p_user_id::TEXT OR upload.key LIKE p_user_id::TEXT || '/%')
+        ));
+$function$;
+REVOKE ALL ON FUNCTION private.account_deletion_provider_residual_count(UUID) FROM PUBLIC, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION private.account_deletion_residual_count(p_user_id UUID)
 RETURNS BIGINT
@@ -458,9 +537,7 @@ AS $function$
     + (SELECT count(*) FROM private.content_creation_requests WHERE user_id = p_user_id)
     + (SELECT count(*) FROM private.user_default_collections WHERE user_id = p_user_id)
     + (SELECT count(*) FROM private.marketplace_view_receipts WHERE user_id = p_user_id)
-    + (SELECT count(*) FROM storage.objects
-       WHERE bucket_id = 'avatars'
-         AND (owner_id = p_user_id::TEXT OR name LIKE p_user_id::TEXT || '/%'));
+    + private.account_deletion_provider_residual_count(p_user_id);
 $function$;
 
 CREATE OR REPLACE FUNCTION public.finalize_account_deletion_database(
@@ -490,19 +567,19 @@ BEGIN
     AND job.resume_step = 'database_verification'
   FOR UPDATE;
 
-  IF NOT FOUND OR v_job.user_id IS NULL THEN
+  IF NOT FOUND OR v_job.user_id IS NULL OR v_job.lease_expires_at <= clock_timestamp() THEN
     RAISE EXCEPTION 'ACCOUNT_DELETION_ALREADY_IN_PROGRESS' USING ERRCODE = 'P0001';
   END IF;
   v_user_id := v_job.user_id;
 
+  IF v_job.capability_drain_until IS NULL OR v_job.capability_drain_until > clock_timestamp() THEN
+    RAISE EXCEPTION 'ACCOUNT_DELETION_DRAIN_PENDING' USING ERRCODE = 'P0001';
+  END IF;
+
   IF EXISTS (SELECT 1 FROM auth.users WHERE id = v_user_id) THEN
     RAISE EXCEPTION 'ACCOUNT_DELETION_AUTH_STILL_PRESENT' USING ERRCODE = 'P0001';
   END IF;
-  IF EXISTS (
-    SELECT 1 FROM storage.objects
-    WHERE bucket_id = 'avatars'
-      AND (owner_id = v_user_id::TEXT OR name LIKE v_user_id::TEXT || '/%')
-  ) THEN
+  IF private.account_deletion_provider_residual_count(v_user_id) <> 0 THEN
     RAISE EXCEPTION 'ACCOUNT_DELETION_STORAGE_NOT_EMPTY' USING ERRCODE = 'P0001';
   END IF;
 
@@ -651,11 +728,9 @@ BEGIN
 END;
 $block$;
 
--- Storage checks RLS before streaming bytes but finalizes metadata as an elevated
--- role. Fence the final metadata write too, without modifying provider functions.
--- Missing Auth identities remain fenced after a completed tombstone expires.
--- This is not a transaction over the blob backend: Storage must still process
--- its failed-upload ObjectAdminDelete cleanup. Re-test on provider upgrades.
+-- LOCAL DEFENSE IN DEPTH: hosted rollout remains blocked until Supabase confirms
+-- this fence's transaction, finalization and provider-cleanup guarantees.
+-- A timed drain alone is not an equivalent fence for unbounded in-flight writes.
 CREATE FUNCTION private.fence_account_avatar_write()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -680,8 +755,8 @@ BEGIN
     ORDER BY candidate::UUID
   LOOP
     PERFORM pg_advisory_xact_lock_shared(hashtextextended(v_user::TEXT, 52017003));
-    -- VOLATILE trigger: this query gets a fresh READ COMMITTED snapshot after
-    -- acquiring the lock. Never rely on auth.uid() for an elevated upload.
+    -- VOLATILE + READ COMMITTED refreshes the snapshot after the shared lock.
+    -- Elevated finalizers have no trustworthy auth.uid(); inspect stored identity.
     IF private.account_deletion_is_pending(v_user)
        OR NOT EXISTS (SELECT 1 FROM auth.users WHERE id = v_user) THEN
       RAISE EXCEPTION 'ACCOUNT_DELETION_STORAGE_FENCED' USING ERRCODE = 'P0001';
@@ -691,8 +766,13 @@ BEGIN
 END;
 $function$;
 REVOKE ALL ON FUNCTION private.fence_account_avatar_write() FROM PUBLIC, anon, authenticated;
-CREATE TRIGGER account_deletion_avatar_fence
-  BEFORE INSERT OR UPDATE ON storage.objects
+-- Storage canUpload() probes INSERT/UPSERT in a transaction it always rolls
+-- back, including before AbortMultipartUpload and TUS termination. A deferred
+-- constraint ignores these non-writes, but rejects every real metadata COMMIT.
+-- No role, token, request header or cleanup exemption bypasses the fence.
+CREATE CONSTRAINT TRIGGER account_deletion_avatar_fence
+  AFTER INSERT OR UPDATE ON storage.objects
+  DEFERRABLE INITIALLY DEFERRED
   FOR EACH ROW EXECUTE FUNCTION private.fence_account_avatar_write();
 
 -- Read provider metadata only; all blob deletions continue through Storage API.
@@ -725,6 +805,42 @@ END;
 $function$;
 REVOKE ALL ON FUNCTION public.list_account_deletion_avatars(UUID, UUID) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.list_account_deletion_avatars(UUID, UUID) TO service_role;
+
+-- Operator visibility only: bounded keyset pages, no user identity or paths.
+-- Include failed/backoff jobs, due drain jobs and expired worker leases.
+CREATE FUNCTION public.list_account_deletion_attention(
+  p_after_job_id UUID DEFAULT NULL, p_limit INTEGER DEFAULT 100
+)
+RETURNS TABLE (
+  job_id UUID, job_status TEXT, resume_step TEXT, attempt_count INTEGER,
+  next_retry_at TIMESTAMPTZ, age_seconds BIGINT, last_error_code TEXT
+)
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = pg_catalog
+AS $function$
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'service role required' USING ERRCODE = '42501';
+  END IF;
+  IF p_limit IS NULL OR p_limit < 1 OR p_limit > 100 THEN
+    RAISE EXCEPTION 'ACCOUNT_DELETION_INVALID_LIMIT' USING ERRCODE = 'P0001';
+  END IF;
+  RETURN QUERY SELECT job.id, job.status, job.resume_step, job.attempt_count,
+    job.next_retry_at, GREATEST(0, FLOOR(EXTRACT(EPOCH FROM
+      (statement_timestamp() - job.requested_at))))::BIGINT, job.last_error_code
+  FROM private.account_deletion_jobs AS job
+  WHERE job.status <> 'completed'
+    AND (p_after_job_id IS NULL OR job.id > p_after_job_id)
+    AND (job.lease_expires_at IS NULL OR job.lease_expires_at <= statement_timestamp())
+    AND (job.status IN ('failed_retryable', 'failed_terminal')
+      OR job.capability_drain_until IS NULL OR job.capability_drain_until <= statement_timestamp())
+  ORDER BY job.id LIMIT p_limit;
+END;
+$function$;
+REVOKE ALL ON FUNCTION public.list_account_deletion_attention(UUID, INTEGER) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.list_account_deletion_attention(UUID, INTEGER) TO service_role;
 
 -- Avatar writes are also blocked for fresh requests at the RLS boundary.
 DROP POLICY IF EXISTS "Users can upload their own avatars" ON storage.objects;
