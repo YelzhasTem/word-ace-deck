@@ -3,18 +3,66 @@
 ## Scope and decision
 
 - Research baseline: public Supabase Storage **v1.77.5**, commit **2f89775ead04da4b681da3b15d39f129366719ac** ([tag tree][tag], [immutable tree][commit]); official documentation reviewed 2026-09-17.
-- Local account-deletion integration suite **14/14 passed**, including protocol tests against Storage **v1.66.4**; **v1.77.5 is source-reviewed only, not run**. Production remains unverified. Broader unit/SQL/regression/build results belong in the final implementation report, not this source audit.
+- Historical local account-deletion integration suite **14/14 passed**, including protocol tests against Storage **v1.66.4**; **v1.77.5 is source-reviewed only, not run**. The actual deployed hosted version/backend is unconfirmed. This original result is preserved; subsequent CI evidence is recorded separately below.
 - This research made no production requests, inspected no credentials, and changed no implementation. Existing local implementation was read for review only.
 - **Production remains NO-GO** until version-matched lifecycle tests and provider confirmation cover commit failures, admitted streams, cancellation, and physical cleanup bounds.
 - Keep fail-closed `PROVIDER_RESIDUAL` handling. Do not add a production S3 adapter, provision keys, or mutate managed Storage rows through application SQL. Operator cleanup uses only an approved existing credential and supported API.
 
-## Reported local evidence: v1.66.4
+## Historical local evidence: v1.66.4
 
-The local integration suite completed at **14/14 passing**. Its protocol results validate that v1.66.4 runtime/backend, not hosted v1.77.5:
+The original local integration suite completed at **14/14 passing**. Its protocol results validate only that v1.66.4 runtime/backend, not the unconfirmed hosted runtime:
 - Multipart API abort succeeds after pending state and after Auth is gone. Elevated CompleteMultipartUpload after pending state rejects final metadata; parent and part rows remain until API abort. The attempted object's local file-provider bytes were observed at zero.
 - Partial-abort handling with two owned uploads and one other user's upload preserves unrelated-user isolation.
 - Normal TUS creation/PATCH works; a stale-user PATCH after pending state is rejected; server-side DELETE termination works. This does not claim that the blocked user can terminate with the same stale JWT, or that signed TUS was tested.
 - Signed REST and already-admitted REST uploads are fenced. The reported cases support the deferred rollback-probe/real-commit distinction; overwrite side effects, failure injection, exact-target races and hosted cleanup bounds remain review gates.
+
+## Evidence update: 5fc0cf8 (2026-09-20)
+
+This addendum preserves the original **2026-09-17** source audit and **14/14** result above.
+The independently checked local, remote and PR #10 head is
+`5fc0cf843932a9c6af01fe3cf89766ebae6df64a`; main is
+`6e9af59b1fe20b7e769c6995254c684172cd9d3c`. PR #10 is Open/Draft at this review.
+The linked logs completed on 2026-09-19 UTC (2026-09-20 Asia/Almaty); this docs-only pass
+did not rerun integration/reset, contact production or attest a hosted Storage version.
+
+| Evidence for this SHA | Result and source | Limit |
+| --- | --- | --- |
+| Account-deletion static/build | **58/58** unit tests, including **11** Docker guard tests; static audit, typecheck, scoped ESLint, build and configured browser-output marker scan passed ([job logs](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697298/job/105960229039)) | Offline mocks check helper arguments/fail-closed behavior, not Docker CLI resolution; marker scan is not a production credential audit. |
+| Account-deletion integration | **16/16**, zero failed/skipped; logs identify Storage **v1.66.4** ([job logs](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697298/job/105960228931)) | Disposable CI runtime, not hosted protocol/backend parity. |
+| SQL and upgrade | **423/423** SQL assertions across seven files, database lint and Stage 2-to-Stage 3 upgrade rehearsal passed ([same job logs](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697298/job/105960228931)) | Synthetic local data; not production schema verification. |
+| Other workflows | [Database integrity](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697320), [Profile privacy](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697306), [Study data integrity](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697325), [AI endpoint security](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697288): all success | Five workflows / ten Actions jobs passed in total; not production rollout authorization. |
+| Vercel Preview | GitHub Vercel check **SUCCESS** ([deployment check](https://vercel.com/yelzhas-tem-s-projects/word-ace-deck/CLr57jhNT4Wf91P6qX9XCZ7Z72YE)) | Not proof of hosted Storage, production `maxDuration`, environment credentials or browser flows. |
+
+### Exact concurrency evidence
+
+The [tests at the reviewed commit](https://github.com/YelzhasTem/word-ace-deck/blob/5fc0cf843932a9c6af01fe3cf89766ebae6df64a/tests/account-deletion-integration.test.ts)
+exercise real trigger/RPC code with two transaction sessions plus an independent observer:
+
+- **Metadata-first:** the INSERT initially leaves the constraint deferred. The test explicitly
+  runs `SET CONSTRAINTS storage.account_deletion_avatar_fence IMMEDIATE`, executing the real
+  trigger and retaining its shared lock. `request_account_deletion()` waits for exclusive.
+  Metadata COMMIT succeeds, the request proceeds, then request COMMIT publishes the job.
+  The committed object is found through the real leased `list_account_deletion_avatars` RPC.
+  This proves lock ordering, **not default deferred timing** for metadata-first.
+- **Deletion-first:** the real request retains exclusive while its job is uncommitted. INSERT
+  succeeds; without any `SET CONSTRAINTS` override, real COMMIT invokes the default deferred
+  trigger and waits for shared. Request COMMIT releases exclusive; a fresh pending-state read
+  rejects metadata COMMIT with `ACCOUNT_DELETION_STORAGE_FENCED`. The test verifies psql exit 3,
+  rollback, absence of the object, presence of the job and release of the locks.
+- The observer verifies concrete backend PIDs, `hashtextextended(user_uuid::text, 52017003)`
+  via the exact `classid`/`objid`/`objsubid`, database, ShareLock/ExclusiveLock, granted/waiting
+  state, blocking PID, wait event and blocked RPC/COMMIT statement. It does not acquire a
+  substitute lock to stand in for the implementation. Bounded catalog polling establishes the
+  barriers. Finally cleanup checks those sessions, locks and synthetic fixtures are absent.
+
+The CI log records metadata-first PIDs 660 (shared), 667 (exclusive waiter) and observer 674;
+deletion-first PIDs 779 (exclusive), 772 (shared COMMIT waiter) and observer 786. These are
+identifiers from that disposable run, not persistent production identities.
+
+Both ordering tests use synthetic metadata with **no provider bytes**. They do not prove hosted
+REST/signed/TUS/S3/multipart behavior or physical erasure by `completed`. The finalizer checks
+SQL-visible residuals only. Physical provider-byte cleanup, compensation/queue bounds and a
+browser check of the pending notice after sign-out remain validation gaps.
 
 ## Independent review: deferred commit fence
 
@@ -96,12 +144,20 @@ A 25-hour capability drain can only be a conditional deployment policy. Expiry d
 **Hosted custom triggers are officially permitted**, including on `storage.objects` and both multipart tables, by Supabase's hosted permissions announcement. Custom functions belong in an application-owned schema. General schema docs still discourage managed-schema alterations and require data mutations through Storage APIs. Permission to create the trigger does **not** promise this fence's lifecycle compatibility, transactional side effects, or bounded physical cleanup. [Hosted permission][hosted], [schema guidance][schema-doc].
 
 Before rollout, require:
-- Exact deployed Storage image/digest, migrations, backend, queue settings, PostgreSQL version/isolation and feature settings; v1.66.4 local results cannot attest v1.77.5 hosted behavior.
-- Repeat the reported passing cases on the exact target and cover new object/overwrite, pending/missing Auth, user/elevated/signed requests, old capabilities and abort/termination. Assert HTTP outcome, real COMMIT failure, retained prior object, both versions' bytes and multipart residuals; do not infer unreported protocol coverage.
-- Deterministic shared/exclusive lock orderings, in-flight boundary races, savepoint behavior, and tests of timeout/deadlock/queue/provider failure. Include pre-commit webhook and old-version deletion behavior explicitly.
+- Exact deployed Storage image/digest, migrations, backend, queue settings, PostgreSQL version/isolation and feature settings remain unknown; neither upstream v1.77.5 source nor local/CI v1.66.4 establishes the deployed hosted version or behavior.
+- Under a separately approved version-matched disposable/provider test plan, repeat the reported passing cases and cover new object/overwrite, pending/missing Auth, user/elevated/signed requests, old capabilities and abort/termination races. Assert HTTP outcome, real COMMIT failure, retained prior object, both versions' bytes and multipart residuals; do not infer unreported protocol coverage. This document authorizes no destructive production tests.
+- The two deterministic SQL lock orderings now have local/CI evidence with the distinct timing limits above. Hosted transaction/COMMIT-failure compensation, in-flight boundary races, savepoint behavior and timeout/deadlock/queue/provider failures remain open. Include pre-commit webhook and old-version deletion behavior explicitly.
 - Provider confirmation of maximum admitted-stream duration, finalization delay, retries/queue cleanup deadline, multipart SQL cleanup and provider-parts cleanup; verify how completed orphan versions are detected and removed.
 - Approved credential inventory and no uncontrolled elevated writers. Keep residual/operator state fail-closed after retries; an operator abort is not authority to mark physical cleanup verified.
 - Separate statements for active provider bytes, CDN caches, backups and retention. Do not describe metadata absence as guaranteed erasure of all retained copies.
+- Provider confirmation of compatibility with managed migrations and this specific deferred trigger, not merely general permission to create custom triggers. Elevated writers, unattributable identities and cross-bucket moves remain unverified.
+- Historical/alternate access-JWT acceptance plus clock skew/leeway must fit inside 30-day completed-tombstone retention. The supplied current issuance setting is **3600 seconds** (719 hours below 30 days before skew), not proof of historical token maxima. Pending/terminal jobs are not automatically purged.
+- Explicit operator ownership and approved resume access for **every** job after its durable **25-hour** drain, plus terminal and `PROVIDER_RESIDUAL` escalation. No automatic runner exists. Read-only listing and offline shape-only runtime preflight do not supply that operational readiness.
+- Actual Vercel runtime/`maxDuration`, production environment and merge/deployment separation remain unverified. Migration must precede matching app deployment under separate authorization; rollback must retain fence/jobs/tombstones and use only a compatible deletion-aware build. Never restore the legacy flow to bypass these gates.
+
+**Production rollout remains NO-GO.** Green CI and Preview are review evidence, not a provider
+attestation or permission to merge/deploy. See the operator and rollout sections in
+[account-deletion.md](account-deletion.md) for the current workflow and conditional runbook.
 
 ## Primary source links
 

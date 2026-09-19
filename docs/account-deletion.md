@@ -6,7 +6,9 @@ Memora does not describe account deletion as one distributed transaction. Postgr
 atomically update database rows, but Supabase Storage and Supabase Auth are separate services.
 The deletion workflow therefore uses durable state, idempotent steps, a lease, and final
 verification. A failure is either resumable or recorded as a terminal operational failure; it
-must never be reported as success while user data remains.
+must not be reported as success while the checked residuals remain. The finalizer verifies
+SQL-visible residuals, not every physical provider byte. Production completion guarantees remain
+conditional on the unverified hosted cleanup/lifetime gates below.
 
 The coordinator runs only on the server. `SUPABASE_SERVICE_ROLE_KEY` must never be imported by
 browser code, exposed through a `VITE_*` variable, logged, or returned to the client.
@@ -55,9 +57,10 @@ returns the same completed job so the client can safely clear its remaining loca
 7. At/after the deadline a new leased attempt cleans Storage through the API again. The commit
    fence rejects late signed/admitted metadata writes, while provider cleanup may still be in
    progress. Multipart metadata is inspected read-only; remaining uploads/parts block completion.
-8. `finalize_account_deletion_database()` independently checks the deadline and provider state,
+8. `finalize_account_deletion_database()` independently checks the deadline and SQL-visible provider metadata,
    then runs the database repair and residual verification in
    one PostgreSQL transaction, then marks the job completed and clears its transient `user_id`.
+   It does not inspect backing-store bytes, TUS internal parts, cleanup queues, caches or backups.
 
 If the request stops after Auth deletion, the user can no longer authenticate. An authenticated
 Memora admin can invoke the server-only operational resume action with the job ID. There is no
@@ -99,8 +102,9 @@ The current schema uses `ON DELETE CASCADE` from `auth.users` for these direct u
 
 Copied decks and collections use `SET NULL` for source references where preservation is intended;
 deleting the source owner must not delete another user's copy. The finalizer repeats targeted
-deletes only as an idempotent legacy repair, then checks every current user-linked table. A job is
-not completed if Auth, Storage, public rows, or private rows remain.
+deletes only as an idempotent legacy repair, then checks the current SQL residual inventory. A job
+is not completed if the checked Auth, Storage metadata, public or private rows remain. Empty SQL
+inventory is not proof that all provider bytes have been physically removed.
 
 When adding a new user-owned table, developers must add an explicit Auth/user foreign key with the
 correct deletion action, extend `account_deletion_residual_count`, extend the finalizer only if a
@@ -140,18 +144,36 @@ improvement; it must not change SMTP or Resend settings as part of this workflow
 
 ## Separate production rollout gates
 
-This local remediation is not production approval. Before any separately authorized rollout:
+This local remediation and green CI are not production approval. Merge approval and production
+deployment authorization are separate. Before any merge, an approved rollout plan must establish
+how automatic production deployment is held until the database prerequisites are verified.
+Do not assume GitHub/Vercel integration already provides that separation.
+
+Before any separately authorized rollout:
 
 1. Independently review the revised migration and matching application commit; keep PR #10 Draft.
 2. Attest historical JWT validity plus leeway is shorter than the 30-day tombstone retention.
-3. Confirm the 25-hour capability/in-flight bounds and provider cleanup behavior, and recheck
-   that no unrestricted generated S3 key/elevated writer can recreate avatar data.
+3. Confirm the actual hosted version/backend, transaction behavior, COMMIT-failure compensation,
+   queue and cleanup bounds, REST/signed/TUS/S3/multipart and abort races, admitted-stream limits,
+   elevated writers and cross-bucket moves. Confirm this deferred trigger's compatibility with
+   managed migrations; permission to create custom triggers is not that compatibility evidence.
 4. Assign an operator and follow-up queue for **every** deletion after its drain deadline,
    not only exceptional failures. Provide approved server-only resume access and a terminal-job
    escalation procedure. Without that operational ownership, production rollout is NO-GO.
-5. Apply and verify the DB migration before deploying matching middleware/coordinator code;
+5. Verify Vercel runtime, effective `maxDuration`, server-only configuration and the approved
+   operator runtime. The 120-second coordinator deadline and 15-second network timeout do not
+   prove the platform permits the attempt or guarantees external request cancellation.
+6. After a separately authorized production preflight, apply and verify only
+   `20260916010000_atomic_account_deletion.sql` before deploying matching middleware/coordinator code;
    the application calls `is_account_deletion_pending()` and fails closed if it is missing.
-6. Only then deploy, execute separately approved production smoke tests, and monitor residuals.
+7. Only then deploy under separate authorization, execute smoke tests under an independently
+   approved temporary-data/cleanup plan, and monitor jobs/residuals. No destructive production
+   fixtures are authorized by this document.
+
+If application deployment fails after migration, preserve fences, jobs and tombstones and repair
+the matching deployment. Rollback may select only a build compatible with the new deletion
+workflow, including capability-drain states. Never return to the legacy deletion flow or drop
+the database protections to make an older build work.
 
 Public avatar URLs may remain accessible during the drain or provider cache retention. A pending
 job is not a claim that all copies/bytes have already disappeared.
@@ -173,7 +195,7 @@ preferences, and pending client idempotency keys held by the application.
 
 Completed jobs retain only pseudonymous operational metadata for 30 days. Terminal jobs do NOT
 expire: they retain the transient identity and tombstone until an audited recovery completes.
-Automatic purge selects only `completed`, verified, identity-cleared jobs. Even a legacy terminal
+The purge RPC selects only `completed`, verified, identity-cleared jobs. Even a legacy terminal
 row with an expired retention timestamp is retained. The SHA-256 reference is derived from a random Auth UUID and
 an application namespace; it is not an email or username. `purge_expired_account_deletion_jobs()`
 is service-role-only and should be called by a trusted scheduled operation or an explicit operator
@@ -284,7 +306,10 @@ It is a conservative capability drain, NOT immediate revocation or a distributed
 | S3 multipart | automatically aborted after 24 hours | [S3 uploads](https://supabase.com/docs/guides/storage/uploads/s3-uploads) |
 | Current access JWT issuance | 1 hour | Prior production read-only Auth configuration review; historical maximum remains unverified |
 
-Production Storage **v1.77.5** source was read, not production-mutated:
+Public upstream Storage **v1.77.5** source was reviewed at commit
+[`2f89775ead04da4b681da3b15d39f129366719ac`](https://github.com/supabase/storage/tree/2f89775ead04da4b681da3b15d39f129366719ac)
+in the original **2026-09-17** source audit. It was not run or identified as the hosted version.
+Local protocol tests used **v1.66.4**; the actual deployed hosted version/backend is unconfirmed:
 - [TUS lifecycle](https://github.com/supabase/storage/blob/v1.77.5/src/http/routes/tus/lifecycle.ts):
   `onIncomingRequest` checks signed `x-signature` on each signed request, and ordinary
   requests run `canUpload`. A signed TUS initiation does not remove subsequent signature checks.
@@ -312,7 +337,7 @@ their own policies. Do not describe metadata absence as guaranteed physical eras
 
 ### Multipart inventory and supported handling
 
-In Storage v1.77.5:
+In the reviewed public upstream Storage v1.77.5 source (not an attested hosted schema):
 - `storage.s3_multipart_uploads`: text `id`, text `owner_id`, `bucket_id`, `key`,
   `version`, upload signature, timestamps/metadata; bucket FK, **no Auth FK**.
 - `storage.s3_multipart_uploads_parts`: UUID id, text `upload_id`, text `owner_id`,
@@ -366,6 +391,45 @@ Local time travel changes only guarded disposable job timestamps while preservin
 25-hour interval. No production RPC accepts a clock override or permits a shortened window.
 Actual provider token expiry is NOT accelerated by those fixtures. A still-valid signed URL is
 replayed after simulated completion/purge to test the independent missing-Auth fence, not expiry.
+
+### Evidence update: 5fc0cf8 (2026-09-20)
+
+Reviewed artifact: `5fc0cf843932a9c6af01fe3cf89766ebae6df64a`, based on main
+`6e9af59b1fe20b7e769c6995254c684172cd9d3c`. PR #10 remains Open/Draft. This is an
+addendum, not a replacement for the original 2026-09-17 source audit and historical **14/14**
+local result in [the Storage evidence document](account-deletion-storage.md).
+
+For this SHA, the [account-deletion static/build logs](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697298/job/105960229039)
+show static audit, **58/58** unit tests (including **11** offline Docker guard tests), typecheck,
+scoped ESLint, Nitro/Vercel build and the configured browser-output marker scan passing.
+The [integration logs](https://github.com/YelzhasTem/word-ace-deck/actions/runs/35466697298/job/105960228931)
+show Storage **v1.66.4**, **16/16** account-deletion integration tests with no skips,
+**423/423** SQL assertions across seven files, database lint, Stage 1/2 regressions and the
+Stage 2-to-Stage 3 upgrade rehearsal passing. These are recorded CI runs, not tests rerun by
+this documentation update. All five workflows (ten Actions jobs) succeeded, and the
+[Vercel Preview check](https://vercel.com/yelzhas-tem-s-projects/word-ace-deck/CLr57jhNT4Wf91P6qX9XCZ7Z72YE)
+reported success. Preview/build success does not establish production runtime readiness.
+
+The two added tests use separate metadata/request sessions and an observer, the actual fence
+and `request_account_deletion()`, and namespace `52017003`:
+
+- **Metadata-first:** `SET CONSTRAINTS storage.account_deletion_avatar_fence IMMEDIATE` executes
+  the real deferred trigger while the metadata transaction remains open. Its shared lock blocks
+  the request's exclusive lock. Real metadata COMMIT releases it, then the request publishes
+  its job on COMMIT; the leased avatar inventory includes the committed object. This proves
+  lock ordering, **not default deferred-trigger timing** for this ordering.
+- **Deletion-first:** no `SET CONSTRAINTS` override. INSERT succeeds, then the real COMMIT runs
+  the default deferred fence and waits for the request's exclusive lock. After request COMMIT,
+  fresh pending state causes `ACCOUNT_DELETION_STORAGE_FENCED`; metadata rolls back and no
+  object remains. The test checks the failed psql COMMIT exit as well as rows and released locks.
+- The observer compares specific backend PIDs, the hash key's `classid`/`objid`/`objsubid`,
+  database, ShareLock/ExclusiveLock mode, granted/waiting state, `pg_blocking_pids` and blocked
+  RPC/COMMIT statement. Bounded catalog polling, not elapsed sleeps, establishes ordering.
+  Finally blocks close all fixture sessions and verify their locks and synthetic rows are gone.
+
+These two tests insert synthetic metadata with **no provider bytes**. They prove neither hosted
+protocol behavior nor physical byte deletion at `completed`. Provider-byte/compensation/race
+gates remain open; browser verification of the pending notice after sign-out also remains open.
 
 ## Bounded work and leases
 
@@ -426,8 +490,11 @@ the Auth row still exists. Recent reauthentication remains a separate security a
 ## Local validation commands
 
 Use only a disposable local CLI stack, never `--linked`. Export local `.env.security` without
-printing credentials. The fixture guard rejects non-loopback URLs before constructing clients;
-Docker fault injection uses the local container socket and refuses remote DOCKER_HOST values.
+printing credentials. The fixture guard rejects non-loopback URLs before constructing clients.
+The shared account-deletion DB helper resolves an explicit `DOCKER_CONTEXT` by name, otherwise
+uses implicit metadata inspection, validates a canonical existing Unix socket, and pins that
+endpoint/environment for SQL, session startup and cleanup. Offline mocks test this contract,
+not Docker CLI behavior; do not generalize this helper's guard to every other Docker fixture.
 
 ```sh
 supabase db reset --local
