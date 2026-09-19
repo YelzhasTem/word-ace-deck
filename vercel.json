@@ -4,5 +4,10 @@
   "buildCommand": "npm run build",
   "env": {
     "NITRO_PRESET": "vercel"
+  },
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
   }
 }
