@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { execFileSync, spawn } from "node:child_process";
 import { setTimeout as delay } from "node:timers/promises";
+import { isDeepStrictEqual } from "node:util";
 import { after, test } from "node:test";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "../src/integrations/supabase/types.ts";
@@ -17,6 +18,7 @@ import {
   fixtureUuid as uuid,
   listFixtureAvatars,
   elapseFixtureCapabilityDrain,
+  openDeletionFixtureSession,
 } from "../scripts/account-deletion-fixture-db.ts";
 
 const url = requireLocalDeletionFixture(process.env.SUPABASE_URL);
@@ -78,6 +80,265 @@ after(async () => {
   sql(`DELETE FROM private.account_deletion_jobs WHERE user_ref_hash IN
     (SELECT private.account_deletion_user_hash(id) FROM unnest(ARRAY[${users.map(uuid).join(",")}]) id)`);
 });
+
+type FenceSession = Awaited<ReturnType<typeof openDeletionFixtureSession>>;
+type FenceFixture = {
+  user: Awaited<ReturnType<typeof actor>>;
+  metadata: FenceSession;
+  deletion: FenceSession;
+  observer: FenceSession;
+  objectId: string;
+  path: string;
+  lockKey: string;
+};
+
+async function withFenceFixture(run: (fixture: FenceFixture) => Promise<void>) {
+  const user = await actor();
+  const sessions: FenceSession[] = [];
+  const failures: unknown[] = [];
+  const objectId = randomUUID();
+  const path = `${user.id}/fence-${objectId}.png`;
+  try {
+    for (let index = 0; index < 3; index += 1) sessions.push(await openDeletionFixtureSession());
+    const [metadata, deletion, observer] = sessions;
+    assert.equal(new Set(sessions.map((session) => session.pid)).size, 3);
+    assert.equal(
+      await observer.query(`SELECT count(*) FROM pg_trigger
+        WHERE tgrelid='storage.objects'::regclass AND tgname='account_deletion_avatar_fence'
+          AND tgfoid='private.fence_account_avatar_write()'::regprocedure
+          AND tgenabled='O' AND tgdeferrable AND tginitdeferred;`),
+      "1",
+    );
+    const lockKey = await observer.query(
+      `SELECT hashtextextended(${uuid(user.id)}::text, 52017003);`,
+    );
+    assert.match(lockKey, /^-?\d+$/);
+    await run({ user, metadata, deletion, observer, objectId, path, lockKey });
+  } catch (error) {
+    failures.push(error);
+  } finally {
+    for (const session of sessions.toReversed()) {
+      try {
+        await session.close();
+      } catch (error) {
+        failures.push(error);
+      }
+    }
+    try {
+      if (sessions.length) {
+        const pids = sessions.map((session) => session.pid).join(",");
+        assert.equal(
+          sql(`SELECT (SELECT count(*) FROM pg_stat_activity WHERE pid IN (${pids}))
+            + (SELECT count(*) FROM pg_locks WHERE pid IN (${pids}))`),
+          "0",
+          "All three fixture backends and their locks must be gone",
+        );
+      }
+    } catch (error) {
+      failures.push(error);
+    }
+    try {
+      // Synthetic metadata has no provider bytes. Use the existing Storage API cleanup anyway.
+      await cleanupUser(user.id);
+      sql(`DELETE FROM private.account_deletion_jobs
+        WHERE user_ref_hash=private.account_deletion_user_hash(${uuid(user.id)})`);
+      assert.equal(
+        sql(`SELECT private.account_deletion_residual_count(${uuid(user.id)})
+          + (SELECT count(*) FROM auth.users WHERE id=${uuid(user.id)})
+          + (SELECT count(*) FROM storage.objects WHERE id=${uuid(objectId)})
+          + (SELECT count(*) FROM private.account_deletion_jobs
+             WHERE user_ref_hash=private.account_deletion_user_hash(${uuid(user.id)}))`),
+        "0",
+        "Only this test's fixtures must be fully cleaned",
+      );
+    } catch (error) {
+      failures.push(error);
+    }
+  }
+  if (failures.length) throw new AggregateError(failures, "Storage fence test or cleanup failed");
+}
+
+async function fenceLocks(fixture: FenceFixture): Promise<unknown> {
+  const { observer, metadata, deletion } = fixture;
+  return JSON.parse(
+    await observer.query(`SELECT coalesce(jsonb_agg(jsonb_build_object(
+      'pid', locks.pid, 'classid', locks.classid::text, 'objid', locks.objid::text,
+      'objsubid', locks.objsubid,
+      'same_database', locks.database=(SELECT oid FROM pg_database WHERE datname=current_database()),
+      'mode', locks.mode, 'granted', locks.granted,
+      'blockers', pg_blocking_pids(locks.pid),
+      'wait_event', CASE WHEN NOT locks.granted THEN activity.wait_event END,
+      'wait_event_type', CASE WHEN NOT locks.granted THEN activity.wait_event_type END,
+      'blocked_statement', CASE WHEN NOT locks.granted THEN
+        CASE WHEN activity.query='COMMIT;' THEN 'COMMIT'
+             WHEN activity.query LIKE '%public.request_account_deletion()%' THEN 'request_account_deletion'
+             ELSE activity.query END END
+    ) ORDER BY locks.pid), '[]') FROM pg_locks AS locks
+    JOIN pg_stat_activity AS activity ON activity.pid=locks.pid
+    WHERE locks.locktype='advisory' AND locks.pid IN (${metadata.pid},${deletion.pid});`),
+  );
+}
+
+function expectedFenceLock(
+  fixture: FenceFixture,
+  session: FenceSession,
+  mode: "ShareLock" | "ExclusiveLock",
+  blocked?: { by: FenceSession; statement: "COMMIT" | "request_account_deletion" },
+) {
+  const bits = BigInt.asUintN(64, BigInt(fixture.lockKey));
+  return {
+    pid: session.pid,
+    classid: (bits >> 32n).toString(),
+    objid: (bits & 0xffffffffn).toString(),
+    objsubid: 1,
+    same_database: true,
+    mode,
+    granted: !blocked,
+    blockers: blocked ? [blocked.by.pid] : [],
+    wait_event: blocked ? "advisory" : null,
+    wait_event_type: blocked ? "Lock" : null,
+    blocked_statement: blocked?.statement ?? null,
+  };
+}
+
+async function waitForFenceLocks(
+  fixture: FenceFixture,
+  expected: ReturnType<typeof expectedFenceLock>[],
+) {
+  const ordered = expected.toSorted((left, right) => left.pid - right.pid);
+  const deadline = Date.now() + 7000;
+  let observed: unknown;
+  do {
+    observed = await fenceLocks(fixture);
+    if (isDeepStrictEqual(observed, ordered)) return observed;
+    // Poll catalog evidence, never infer ordering from elapsed time.
+    await delay(20);
+  } while (Date.now() < deadline);
+  assert.deepEqual(observed, ordered, "Expected PID/key/grant/waiter barrier not reached");
+}
+
+async function beginFenceMetadata(fixture: FenceFixture) {
+  const { metadata, objectId, path, user } = fixture;
+  assert.match(
+    await metadata.query(`BEGIN ISOLATION LEVEL READ COMMITTED;
+      INSERT INTO storage.objects(id,bucket_id,name,owner_id,version)
+        VALUES (${uuid(objectId)},'avatars','${path}',${uuid(user.id)}::text,'${objectId}');
+      SELECT 'METADATA_INSERTED=' || count(*) FROM storage.objects WHERE id=${uuid(objectId)};`),
+    /^METADATA_INSERTED=1$/m,
+  );
+}
+
+async function beginFenceDeletion(fixture: FenceFixture) {
+  await fixture.deletion.query(`BEGIN ISOLATION LEVEL READ COMMITTED;
+    SET LOCAL ROLE authenticated;
+    SELECT set_config('request.jwt.claims',
+      '{"sub":"${fixture.user.id}","role":"authenticated"}',true);`);
+}
+
+function requestFenceDeletion(fixture: FenceFixture) {
+  return fixture.deletion.query("SELECT 'JOB=' || job_id FROM public.request_account_deletion();");
+}
+
+async function fenceRows(fixture: FenceFixture): Promise<unknown> {
+  return JSON.parse(
+    await fixture.observer.query(`SELECT jsonb_build_object(
+      'objects',(SELECT count(*) FROM storage.objects WHERE id=${uuid(fixture.objectId)}),
+      'jobs',(SELECT count(*) FROM private.account_deletion_jobs WHERE user_id=${uuid(fixture.user.id)}),
+      'users',(SELECT count(*) FROM auth.users WHERE id=${uuid(fixture.user.id)}));`),
+  );
+}
+
+test(
+  "Storage fence metadata-first: real shared lock drains before deletion publication",
+  { timeout: 60_000 },
+  async (t) => {
+    await withFenceFixture(async (fixture) => {
+      const { metadata, deletion, observer, lockKey, path } = fixture;
+      await beginFenceMetadata(fixture);
+      assert.deepEqual(
+        await fenceLocks(fixture),
+        [],
+        "Default deferred INSERT has not run the fence",
+      );
+      // Flush the REAL deferred trigger while keeping its transaction open. This first test
+      // proves lock ordering, not default COMMIT timing; the deletion-first test proves that.
+      await metadata.query("SET CONSTRAINTS storage.account_deletion_avatar_fence IMMEDIATE;");
+      await waitForFenceLocks(fixture, [expectedFenceLock(fixture, metadata, "ShareLock")]);
+      await beginFenceDeletion(fixture);
+      const request = requestFenceDeletion(fixture);
+      const waiting = await waitForFenceLocks(fixture, [
+        expectedFenceLock(fixture, metadata, "ShareLock"),
+        expectedFenceLock(fixture, deletion, "ExclusiveLock", {
+          by: metadata,
+          statement: "request_account_deletion",
+        }),
+      ]);
+      assert.deepEqual(await fenceRows(fixture), { objects: 0, jobs: 0, users: 1 });
+      t.diagnostic(
+        JSON.stringify({ namespace: 52017003, observer: observer.pid, lockKey, waiting }),
+      );
+      assert.match(await metadata.query("COMMIT;"), /^COMMIT$/m);
+      const result = await request;
+      const jobId = result.match(/^JOB=([0-9a-f-]+)$/m)?.[1];
+      assert.ok(jobId, "Real RPC must finish after metadata COMMIT");
+      await waitForFenceLocks(fixture, [expectedFenceLock(fixture, deletion, "ExclusiveLock")]);
+      assert.deepEqual(await fenceRows(fixture), { objects: 1, jobs: 0, users: 1 });
+      assert.match(await deletion.query("COMMIT;"), /^COMMIT$/m);
+      assert.deepEqual(await fenceRows(fixture), { objects: 1, jobs: 1, users: 1 });
+      assert.deepEqual(await fenceLocks(fixture), []);
+
+      const claim = await createAccountDeletionBackend(admin).claim(jobId);
+      assert.ok(claim.claimed && claim.leaseToken);
+      assert.deepEqual(
+        ok(
+          await admin.rpc("list_account_deletion_avatars", {
+            p_job_id: jobId,
+            p_lease_token: claim.leaseToken,
+          }),
+        ),
+        [{ name: path }],
+        "The actual leased cleanup inventory must include metadata committed before the job",
+      );
+    });
+  },
+);
+
+test(
+  "Storage fence deletion-first: deferred COMMIT sees pending job after exclusive lock",
+  { timeout: 60_000 },
+  async (t) => {
+    await withFenceFixture(async (fixture) => {
+      const { metadata, deletion, observer, lockKey } = fixture;
+      await beginFenceDeletion(fixture);
+      assert.match(await requestFenceDeletion(fixture), /^JOB=[0-9a-f-]+$/m);
+      await waitForFenceLocks(fixture, [expectedFenceLock(fixture, deletion, "ExclusiveLock")]);
+      assert.deepEqual(await fenceRows(fixture), { objects: 0, jobs: 0, users: 1 });
+      await beginFenceMetadata(fixture);
+      assert.deepEqual(await fenceLocks(fixture), [
+        expectedFenceLock(fixture, deletion, "ExclusiveLock"),
+      ]);
+      // No SET CONSTRAINTS: INSERT succeeded and only the real COMMIT invokes the fence.
+      const commit = metadata.query("COMMIT;");
+      const waiting = await waitForFenceLocks(fixture, [
+        expectedFenceLock(fixture, deletion, "ExclusiveLock"),
+        expectedFenceLock(fixture, metadata, "ShareLock", { by: deletion, statement: "COMMIT" }),
+      ]);
+      assert.deepEqual(await fenceRows(fixture), { objects: 0, jobs: 0, users: 1 });
+      t.diagnostic(
+        JSON.stringify({ namespace: 52017003, observer: observer.pid, lockKey, waiting }),
+      );
+      assert.match(await deletion.query("COMMIT;"), /^COMMIT$/m);
+      await assert.rejects(commit, /P0001: ACCOUNT_DELETION_STORAGE_FENCED/);
+      assert.equal(await metadata.exited, 3, "psql ON_ERROR_STOP reports the failed COMMIT");
+      assert.deepEqual(await fenceRows(fixture), { objects: 0, jobs: 1, users: 1 });
+      assert.deepEqual(
+        await fenceLocks(fixture),
+        [],
+        "Rejected COMMIT rolled back and released its locks",
+      );
+    });
+  },
+);
 
 // Use the provider container's existing AWS SDK and LOCAL CLI S3 credentials.
 // No generated key is created, and no direct multipart metadata DML is used.

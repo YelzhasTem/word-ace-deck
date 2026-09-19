@@ -19,7 +19,7 @@
     "check:account-deletion": "npm run test:account-deletion:static && npm run test:account-deletion:unit && npm run typecheck",
     "account-deletion:resume": "node --experimental-strip-types scripts/resume-account-deletion-job.ts",
     "test:account-deletion:static": "node scripts/check-account-deletion-static.mjs",
-    "test:account-deletion:unit": "node --experimental-strip-types --test tests/account-deletion.test.ts tests/account-deletion-runtime.test.ts tests/account-deletion-operator.test.ts",
+    "test:account-deletion:unit": "node --experimental-strip-types --test tests/account-deletion.test.ts tests/account-deletion-runtime.test.ts tests/account-deletion-operator.test.ts tests/account-deletion-docker-guard.test.ts",
     "test:account-deletion:fixture": "node --experimental-strip-types scripts/verify-account-deletion.ts",
     "test:database:integrity:static": "node scripts/check-database-integrity-static.mjs",
     "test:database:integrity:sql": "supabase test db",
