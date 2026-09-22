@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
+import { getAccountDeletionErrorMessage } from "@/lib/account-deletion-errors";
 import { getUserErrorMessage } from "@/lib/user-errors";
 
 export const Route = createFileRoute("/profile")({
@@ -46,11 +47,51 @@ type ProfileRow = {
 };
 
 function ProfileRoute() {
+  const [deletionPending, setDeletionPending] = useState(false);
+  const [sessionCleared, setSessionCleared] = useState(false);
+
+  useEffect(() => {
+    if (!deletionPending) return;
+    // AuthGate has unmounted before sign-out emits its session-change event.
+    void clearAccountBrowserSession()
+      .then(() => setSessionCleared(true))
+      .catch(() => toast.error("Could not clear this browser session. Please close this page."));
+  }, [deletionPending]);
+
+  if (deletionPending) {
+    return (
+      <main className="mx-auto max-w-3xl px-6 py-10">
+        <h1 className="text-2xl font-semibold">Account deletion requested</h1>
+        <p className="mt-4 text-muted-foreground">
+          Your sign-in has been removed. Final file cleanup is pending for at least 25 hours.
+          Contact Memora support to confirm completion.
+        </p>
+        <Button
+          className="mt-6"
+          disabled={!sessionCleared}
+          onClick={() => window.location.replace("/")}
+        >
+          Continue
+        </Button>
+      </main>
+    );
+  }
+
   return (
     <AuthGate requireAuth>
-      <ProfilePage />
+      <ProfilePage onDeletionPending={() => setDeletionPending(true)} />
     </AuthGate>
   );
+}
+
+async function clearAccountBrowserSession() {
+  try {
+    await supabase.auth.signOut({ scope: "local" });
+  } catch {
+    // Auth may be unreachable after deletion; still remove local session data.
+  }
+  localStorage.clear();
+  sessionStorage.clear();
 }
 
 function fileExtension(file: File) {
@@ -62,7 +103,7 @@ function fileExtension(file: File) {
   return "jpg";
 }
 
-function ProfilePage() {
+function ProfilePage({ onDeletionPending }: { onDeletionPending: () => void }) {
   const navigate = useNavigate();
   const deleteAccountFn = useServerFn(deleteMyAccount);
   const [session, setSession] = useState<Session | null>(null);
@@ -75,6 +116,7 @@ function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
 
   const previewUrl = useMemo(() => {
     if (!avatarFile) return null;
@@ -274,10 +316,11 @@ function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
+    if (deleteConfirmation !== "DELETE" || deleting) return;
     setDeleting(true);
 
     try {
-      await deleteAccountFn();
+      const result = await deleteAccountFn({ data: { confirmation: deleteConfirmation } });
       setDeleteDialogOpen(false);
       window.dispatchEvent(new CustomEvent("memora:username-updated", { detail: "" }));
       window.dispatchEvent(
@@ -285,11 +328,14 @@ function ProfilePage() {
           detail: { username: "", displayName: null, avatarUrl: null },
         }),
       );
-      await supabase.auth.signOut();
-      toast.success("Account deleted.");
-      await navigate({ to: "/auth", search: { mode: "login" }, replace: true });
+      if (result.status === "capability_drain_pending") {
+        onDeletionPending();
+        return;
+      }
+      await clearAccountBrowserSession();
+      window.location.replace("/");
     } catch (error) {
-      toast.error(getUserErrorMessage(error, "Could not delete your account."));
+      toast.error(getAccountDeletionErrorMessage(error));
     } finally {
       setDeleting(false);
     }
@@ -413,7 +459,14 @@ function ProfilePage() {
                 Permanently remove your account, decks, collections, progress, friends, and avatar.
               </p>
             </div>
-            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+            <AlertDialog
+              open={deleteDialogOpen}
+              onOpenChange={(open) => {
+                if (deleting) return;
+                setDeleteDialogOpen(open);
+                if (!open) setDeleteConfirmation("");
+              }}
+            >
               <AlertDialogTrigger asChild>
                 <Button type="button" variant="destructive" disabled={loading || deleting}>
                   <Trash2 className="h-4 w-4" />
@@ -425,21 +478,33 @@ function ProfilePage() {
                   <AlertDialogTitle>Delete your account?</AlertDialogTitle>
                   <AlertDialogDescription>
                     This permanently deletes your Memora account and learning data. This action
-                    cannot be undone.
+                    cannot be undone. Processing may need a safe retry before it finishes. Type
+                    DELETE to confirm.
                   </AlertDialogDescription>
                 </AlertDialogHeader>
+                <div className="space-y-2">
+                  <Label htmlFor="delete-account-confirmation">Confirmation</Label>
+                  <Input
+                    id="delete-account-confirmation"
+                    autoComplete="off"
+                    value={deleteConfirmation}
+                    disabled={deleting}
+                    onChange={(event) => setDeleteConfirmation(event.target.value)}
+                    placeholder="DELETE"
+                  />
+                </div>
                 <AlertDialogFooter>
                   <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
                   <AlertDialogAction
                     className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    disabled={deleting}
+                    disabled={deleting || deleteConfirmation !== "DELETE"}
                     onClick={(event) => {
                       event.preventDefault();
                       void handleDeleteAccount();
                     }}
                   >
                     {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Delete account
+                    {deleting ? "Deleting account..." : "Delete account"}
                   </AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
