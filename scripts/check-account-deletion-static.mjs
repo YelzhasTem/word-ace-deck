@@ -188,9 +188,18 @@ assert.doesNotMatch(
   server + accountAdmin + operatorScript,
   /console\.(?:log|error)|JSON\.stringify\(error/,
 );
-assert.match(operatorScript, /JobIdSchema/);
-assert.match(operatorScript, /executeAccountDeletion\(jobId\.data\)/);
-assert.doesNotMatch(operatorScript, /user[_-]?id|email|token|storage.*path/i);
+assert.match(operatorScript, /jobId: z\.string\(\)\.uuid\(\)/);
+assert.match(operatorScript, /--expected-project-ref/);
+assert.match(operatorScript, /validateAccountDeletionRuntimeEnv\(/);
+assert.match(operatorScript, /createClient<Database>\(url, key,/);
+assert.match(
+  operatorScript,
+  /runAccountDeletionWorkflow\(\s*createAccountDeletionBackend\(client\),\s*parsed\.jobId/,
+);
+assert.match(operatorScript, /import\.meta\.url === pathToFileURL\(process\.argv\[1\]\)\.href/);
+assert.match(operatorScript, /AbortSignal\.timeout\(15_000\)/);
+assert.doesNotMatch(operatorScript, /executeAccountDeletion|process\.argv\.indexOf/);
+assert.doesNotMatch(operatorScript, /user[_-]?id|email|storage.*path/i);
 
 assert.match(authMiddleware, /requireSupabaseSession/);
 assert.match(authMiddleware, /is_account_deletion_pending/);
@@ -216,6 +225,10 @@ for (const testName of [
 }
 
 assert.ok(packageJson.scripts["check:account-deletion"]);
+assert.match(
+  packageJson.scripts["test:account-deletion:unit"],
+  /tests\/account-deletion-resume\.test\.ts/,
+);
 assert.ok(packageJson.scripts["test:account-deletion:fixture"]);
 assert.match(workflowFile, /npm run check:account-deletion/);
 assert.match(workflowFile, /supabase db reset --local/);
@@ -229,7 +242,14 @@ assert.match(
   /Completed jobs retain only pseudonymous operational metadata for 30 days/,
 );
 assert.match(documentation, /does\s+not claim to provide universal recent reauthentication/);
-assert.match(documentation, /npm run account-deletion:resume -- --job-id <job-id>/);
+const resumeCommands = documentation.match(/npm run account-deletion:resume[^`\n]*/g);
+assert.ok(resumeCommands?.length);
+for (const command of resumeCommands) {
+  assert.equal(
+    command,
+    "npm run account-deletion:resume -- --expected-project-ref <expected-ref> --job-id <job-id>",
+  );
+}
 assert.match(documentation, /No automatic retry scheduler is installed/);
 assert.match(documentation, /future operational task/i);
 

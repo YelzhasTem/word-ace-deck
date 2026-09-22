@@ -71,11 +71,18 @@ background worker or pretend cron in this implementation.
 Use only a trusted server checkout with the production server environment already injected. Never
 paste the service-role key into the command line, a ticket, chat, or log.
 
+The CLI requires both `--expected-project-ref` and `--job-id` (in either order). It rejects
+missing, repeated, unknown arguments (including `--dry-run`), extra values and invalid ref/UUID
+formats before creating a client. Runtime validation rejects project mismatches, noncanonical
+URLs and invalid credential shapes before any request. The backend uses the same validated
+URL/key snapshot. This remains shape-only: it does not verify signatures, permissions or the
+project binding of opaque keys. Importing the module does not run the CLI.
+
 1. Obtain the job UUID through trusted read-only inspection of the private job table; select
    only id, status, resume_step, attempt_count, last_error_code and timestamps, never user data.
 2. Inspect `capability_drain_until`, `next_retry_at`, the safe `resume_step`, and attempt count.
    Schedule an operator follow-up at/after the deadline; there is no automatic runner.
-3. Run `npm run account-deletion:resume -- --job-id <job-id>` once.
+3. Run `npm run account-deletion:resume -- --expected-project-ref <expected-ref> --job-id <job-id>` once.
 4. `Account deletion status: capability_drain_pending` is expected before the deadline.
    Do not poll continuously. After a successful post-drain run, repeating the command returns
    `Account deletion status: completed` idempotently. Other outcomes require investigation,
@@ -263,7 +270,7 @@ can precede a prior cursor. The listing does not surface user UUIDs, hashes, pat
 
 | Situation | Required operator procedure |
 | --- | --- |
-| Retryable job | Inspect safe status/step/backoff. Resolve cause. Wait for retry/deadline and expired lease; invoke `npm run account-deletion:resume -- --job-id <job-id>` once, then list/status-check again. Never force `completed`. |
+| Retryable job | Inspect safe status/step/backoff. Resolve cause. Wait for retry/deadline and expired lease; invoke `npm run account-deletion:resume -- --expected-project-ref <expected-ref> --job-id <job-id>` once, then list/status-check again. Never force `completed`. |
 | Failed terminal | Stop automatic attempts. Record a recovery decision, inspect residuals privately, fix root cause, then separately authorize a narrowly scoped transaction to reset the attempt cycle/backoff and expired lease. Preserve identity/hash/step/drain timestamps. Resume normally; never purge unresolved jobs. |
 | Auth already deleted | Do not re-create user or use a stale owner session. Use the server job ID and service-only coordinator. Missing Auth is idempotent; still wait for drain and residual verification. |
 | Storage object residual | Coordinator re-enumerates owner/prefix metadata in batches of 100 and deletes via Storage API. Fix provider outage then resume. Never SQL-delete managed rows. |
