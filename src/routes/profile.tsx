@@ -52,7 +52,7 @@ function ProfileRoute() {
 
   useEffect(() => {
     if (!deletionPending) return;
-    // AuthGate has unmounted before sign-out emits its session-change event.
+    // Root delegates profile auth here; this route's guard unmounts before sign-out.
     void clearAccountBrowserSession()
       .then(() => setSessionCleared(true))
       .catch(() => toast.error("Could not clear this browser session. Please close this page."));
@@ -77,6 +77,7 @@ function ProfileRoute() {
     );
   }
 
+  // Normal profile content always requires this route-owned auth guard.
   return (
     <AuthGate requireAuth>
       <ProfilePage onDeletionPending={() => setDeletionPending(true)} />

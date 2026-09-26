@@ -1,5 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+} from "@tanstack/react-router";
 import { requireAccountDeletionAdmin } from "../src/lib/account-deletion-admin.ts";
 import {
   AccountDeletionStepError,
@@ -16,6 +22,7 @@ import {
 import { getAccountDeletionErrorMessage } from "../src/lib/account-deletion-errors.ts";
 import { requireLocalDeletionFixture } from "../scripts/account-deletion-local-guard.ts";
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 
 test("Stage 3.1 retains metadata fence in addition to durable capability drain", () => {
   const sql = readFileSync(
@@ -37,20 +44,98 @@ test("Auth deletion does not imply completed account deletion", async () => {
   assert.equal(backend.finalizeCalls, 0);
 });
 
-test("pending cleanup notice survives AuthGate sign-out and never implies completion", () => {
+function readRootAuthPolicy() {
+  const root = readFileSync(new URL("../src/routes/__root.tsx", import.meta.url), "utf8");
+  const publicPaths = root.match(/const PUBLIC_PATHS = new Set\((\[[^\n]+\])\);/);
+  const rootGuard = root.match(/function requiresRootAuth\(pathname: string\) \{([\s\S]*?)\n\}/);
+  assert.ok(publicPaths && rootGuard, "root must explicitly delegate profile auth");
+  const paths: string[] = JSON.parse(publicPaths[1]);
+  assert.deepEqual(paths, ["/", "/auth", "/reset-password"]);
+  const requiresRootAuth = runInNewContext(`(pathname) => {${rootGuard[1]}}`, {
+    PUBLIC_PATHS: new Set(paths),
+  }) as (pathname: string) => boolean;
+  return { root, requiresRootAuth };
+}
+
+test("profile auth delegation and pending notice have consistent source structure (not browser proof)", () => {
+  const { root, requiresRootAuth } = readRootAuthPolicy();
+  for (const path of [
+    "/",
+    "/auth",
+    "/reset-password",
+    "/profile",
+    "/profile/",
+    "/PROFILE",
+    "/PROFILE/",
+    "/PrOfIlE",
+    "/PrOfIlE/",
+  ])
+    assert.equal(requiresRootAuth(path), false, path);
+  for (const path of [
+    "/dashboard",
+    "/dashboard/",
+    "/DASHBOARD",
+    "/profile/child",
+    "/PROFILE/child",
+    "/profiles",
+    "/profile-old",
+    "/AUTH",
+    "/RESET-PASSWORD",
+  ])
+    assert.equal(requiresRootAuth(path), true, path);
+  assert.match(root, /const requireAuth = requiresRootAuth\(location\.pathname\);/);
+  assert.match(root, /<AuthGate requireAuth=\{requireAuth\}>[\s\S]*<Outlet \/>/);
+
   const profile = readFileSync(new URL("../src/routes/profile.tsx", import.meta.url), "utf8");
   const route = profile.slice(
     profile.indexOf("function ProfileRoute()"),
     profile.indexOf("async function clearAccountBrowserSession"),
   );
+  assert.match(route, /const \[deletionPending, setDeletionPending\] = useState\(false\);/);
   assert.ok(route.indexOf("if (deletionPending)") < route.indexOf("<AuthGate"));
+  assert.match(
+    route,
+    /<AuthGate requireAuth>\s*<ProfilePage onDeletionPending=\{\(\) => setDeletionPending\(true\)\} \/>\s*<\/AuthGate>/,
+  );
+  assert.equal(route.match(/setDeletionPending\(true\)/g)?.length, 1);
+  assert.doesNotMatch(route, /localStorage|sessionStorage|location\.(?:search|hash)|useSearch/);
   assert.match(route, /useEffect\([\s\S]*clearAccountBrowserSession/);
+  assert.match(route, /disabled=\{!sessionCleared\}/);
+  assert.match(route, /window\.location\.replace\("\/"\)/);
   assert.match(route, /Final file cleanup is pending/);
   assert.match(
     profile,
-    /result\.status === "capability_drain_pending"[\s\S]*onDeletionPending\(\)/,
+    /if \(result\.status === "capability_drain_pending"\) \{\s*onDeletionPending\(\);\s*return;/,
   );
 });
+
+for (const pathname of ["/PROFILE", "/PrOfIlE"]) {
+  test(
+    `installed Router and root policy agree for ${pathname} (offline, not browser deletion)`,
+    { timeout: 5000 },
+    async (t) => {
+      const fetch = t.mock.method(globalThis, "fetch", () => {
+        throw new Error("Unexpected network request in offline router regression");
+      });
+      const root = createRootRoute();
+      const profile = createRoute({ getParentRoute: () => root, path: "/profile" });
+      const history = createMemoryHistory({ initialEntries: [pathname] });
+      const router = createRouter({ routeTree: root.addChildren([profile]), history });
+      try {
+        assert.equal(router.options.caseSensitive, false);
+        await router.load();
+        assert.equal(router.state.statusCode, 200);
+        assert.equal(router.state.matches.at(-1)?.routeId, "/profile");
+        assert.equal(router.state.matches.at(-1)?.status, "success");
+        assert.equal(router.state.location.pathname, pathname);
+        assert.equal(readRootAuthPolicy().requiresRootAuth(router.state.location.pathname), false);
+        assert.equal(fetch.mock.callCount(), 0);
+      } finally {
+        history.destroy();
+      }
+    },
+  );
+}
 
 test("Destructive fixture rejects non-loopback configuration before creating clients", () => {
   for (const url of [
