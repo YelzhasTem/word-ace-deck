@@ -1,9 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useDeck } from "@/lib/decks";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { accuracyFor, recordSelfReportedAnswer, useDeckStats } from "@/lib/stats";
-import { prepareStudySession } from "@/lib/study-session";
+import { prepareStudySession, studyContentVersion } from "@/lib/study-session";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
@@ -44,16 +44,26 @@ function ReversePage() {
   const [startedAt, setStartedAt] = useState<number>(Date.now());
   const [pending, setPending] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const pendingRef = useRef(false);
+
+  // Stats and shuffle are read through refs so answering a card (which updates
+  // stats) or toggling shuffle mid-run does not rebuild the queue from scratch.
+  const statsRef = useRef(stats);
+  statsRef.current = stats;
+  const shuffleRef = useRef(shuffleEnabled);
+  shuffleRef.current = shuffleEnabled;
+  const cardsRef = useRef(deck?.cards ?? []);
+  cardsRef.current = deck?.cards ?? [];
+  const cardIdsKey = deck ? deck.cards.map((c) => c.id).join(",") : "";
 
   // Build weighted queue: weaker direction more likely; new directions on top.
-  const buildQueue = useMemo(
-    () => () => {
-      if (!deck) return [];
+  const buildQueue = useCallback(
+    () => {
       const items: { item: Item; weight: number; unseen: boolean }[] = [];
-      for (const c of deck.cards) {
+      for (const c of cardsRef.current) {
         const dirs: Dir[] = allowReverse ? ["fwd", "rev"] : ["fwd"];
         for (const dir of dirs) {
-          const s = stats[statKey(c.id, dir)];
+          const s = statsRef.current[statKey(c.id, dir)];
           const mastery = s?.mastery ?? 0;
           const unseen = !s;
           // Weight: lower mastery → higher weight. Unseen gets boost.
@@ -61,7 +71,7 @@ function ReversePage() {
           items.push({ item: { cardId: c.id, dir }, weight, unseen });
         }
       }
-      if (!shuffleEnabled) return items.map((x) => x.item);
+      if (!shuffleRef.current) return items.map((x) => x.item);
 
       // Weighted shuffle: sample without replacement by random^(1/weight)
       const sorted = items
@@ -70,7 +80,9 @@ function ReversePage() {
         .map((x) => x.item);
       return sorted;
     },
-    [deck, allowReverse, stats, shuffleEnabled],
+    // cardIdsKey rebuilds the queue when cards are added or removed.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allowReverse, cardIdsKey],
   );
 
   useEffect(() => {
@@ -90,8 +102,9 @@ function ReversePage() {
 
   useEffect(() => {
     if (!deck) return;
-    void prepareStudySession(deck.id, "reverse").catch((error: unknown) =>
-      setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
+    void prepareStudySession(deck.id, "reverse", undefined, studyContentVersion(deck.cards)).catch(
+      (error: unknown) =>
+        setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
     );
   }, [deck]);
 
@@ -102,8 +115,11 @@ function ReversePage() {
         if (e.repeat) return;
         e.preventDefault();
         setFlipped((f) => !f);
-      } else if (e.key === "ArrowRight" || e.key === "2") handle(true);
-      else if (e.key === "ArrowLeft" || e.key === "1") handle(false);
+      } else if (e.key === "ArrowRight" || e.key === "2") {
+        if (!e.repeat) handle(true);
+      } else if (e.key === "ArrowLeft" || e.key === "1") {
+        if (!e.repeat) handle(false);
+      }
     };
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
@@ -130,8 +146,10 @@ function ReversePage() {
   const reverseLabel = `${definitionLanguage.label} → ${learningLanguage.label}`;
 
   const handle = async (correct: boolean) => {
-    if (!current || pending) return;
+    if (!current || pendingRef.current) return;
     const ms = Date.now() - startedAt;
+    pendingRef.current = true;
+    let releaseLater = false;
     setPending(true);
     setSaveError("");
     try {
@@ -165,12 +183,22 @@ function ReversePage() {
         setFlipped(false);
       } else {
         setFlipped(false);
-        setTimeout(() => setIdx((i) => i + 1), 150);
+        // Keep input locked until the next card is shown so a quick second
+        // press cannot record another answer for the same card.
+        releaseLater = true;
+        setTimeout(() => {
+          setIdx((i) => i + 1);
+          pendingRef.current = false;
+          setPending(false);
+        }, 150);
       }
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save this answer");
     } finally {
-      setPending(false);
+      if (!releaseLater) {
+        pendingRef.current = false;
+        setPending(false);
+      }
     }
   };
 

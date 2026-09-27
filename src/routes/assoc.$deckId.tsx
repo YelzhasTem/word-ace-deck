@@ -11,7 +11,7 @@ import {
   toggleFavoriteAssoc,
   removeAssoc,
 } from "@/lib/stats";
-import { prepareStudySession } from "@/lib/study-session";
+import { prepareStudySession, studyContentVersion } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { OFFLINE_AI_MESSAGE, useOnlineStatus } from "@/lib/online-status";
@@ -73,10 +73,11 @@ function AssocPage() {
     setIdx(0);
     setRevealed(false);
     setMy("");
-    void prepareStudySession(deck.id, "assoc").catch((sessionError: unknown) =>
-      setError(
-        sessionError instanceof Error ? sessionError.message : "Could not start this session",
-      ),
+    void prepareStudySession(deck.id, "assoc", undefined, studyContentVersion(deck.cards)).catch(
+      (sessionError: unknown) =>
+        setError(
+          sessionError instanceof Error ? sessionError.message : "Could not start this session",
+        ),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [deck, deckCardIds]);
