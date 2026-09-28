@@ -59,6 +59,28 @@ async function ensureMigrated() {
   return userId;
 }
 
+let timeZoneSyncedFor: string | null = null;
+
+// Streak days are recorded by the server in the learner's time zone, so tell
+// it which one this browser uses. Failures are harmless: the server falls back
+// to UTC until a later sync succeeds.
+async function syncTimeZone(userId: string) {
+  if (timeZoneSyncedFor === userId) return;
+  let timeZone: string | undefined;
+  try {
+    timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  } catch {
+    return;
+  }
+  if (!timeZone) return;
+  const { error } = await supabase.rpc("set_my_time_zone", { p_time_zone: timeZone });
+  if (error) {
+    console.warn("[Streak] Could not save time zone:", error.message);
+    return;
+  }
+  timeZoneSyncedFor = userId;
+}
+
 async function hydrateStreakDays() {
   if (hydrationStarted) return;
   hydrationStarted = true;
@@ -70,6 +92,8 @@ async function hydrateStreakDays() {
     dispatchChanged();
     return;
   }
+
+  void syncTimeZone(userId);
 
   const { data, error } = await accountLearningDb()
     .from("streak_days")
@@ -103,7 +127,11 @@ function computeCurrentStreak(days: string[]): number {
   if (days.length === 0) return 0;
   const set = new Set(days);
   const today = todayKey();
-  const yesterday = todayKey(new Date(Date.now() - 86400000));
+  // Step back one calendar day rather than 24 hours, which lands on the
+  // wrong date around daylight-saving changes.
+  const yesterdayDate = new Date();
+  yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+  const yesterday = todayKey(yesterdayDate);
   // streak counts only if today or yesterday is present
   let cursor: string;
   if (set.has(today)) cursor = today;
