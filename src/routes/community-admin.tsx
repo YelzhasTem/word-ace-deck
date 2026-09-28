@@ -45,7 +45,9 @@ function CommunityAdminPage() {
           </span>
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">Admin review queue</h1>
-            <p className="text-sm text-muted-foreground">Review reported marketplace decks and hide inappropriate content.</p>
+            <p className="text-sm text-muted-foreground">
+              Review reported marketplace decks and hide inappropriate content.
+            </p>
           </div>
         </div>
 
@@ -65,14 +67,22 @@ function CommunityAdminPage() {
                     <p className="mt-2 text-sm text-muted-foreground">{report.reason}</p>
                     <div className="mt-3 flex flex-wrap gap-3 text-xs text-muted-foreground">
                       <span>{new Date(report.created_at).toLocaleString()}</span>
-                      <Link to="/community/$deckId" params={{ deckId: report.deck_id }} className="text-primary hover:underline">
+                      <Link
+                        to="/community/$deckId"
+                        params={{ deckId: report.deck_id }}
+                        className="text-primary hover:underline"
+                      >
                         Open deck
                       </Link>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => review(report, "dismiss")}>Dismiss</Button>
-                    <Button variant="destructive" onClick={() => review(report, "hide")}>Hide deck</Button>
+                    <Button variant="outline" onClick={() => review(report, "dismiss")}>
+                      Dismiss
+                    </Button>
+                    <Button variant="destructive" onClick={() => review(report, "hide")}>
+                      Hide deck
+                    </Button>
                   </div>
                 </div>
               </div>

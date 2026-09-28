@@ -5,7 +5,8 @@ let audioContext: AudioContext | null = null;
 function getAudioContext() {
   if (typeof window === "undefined") return null;
   const AudioContextCtor =
-    window.AudioContext || (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    window.AudioContext ||
+    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!AudioContextCtor) return null;
   audioContext ??= new AudioContextCtor();
   if (audioContext.state === "suspended") {
@@ -14,7 +15,13 @@ function getAudioContext() {
   return audioContext;
 }
 
-function tone(frequency: number, start: number, duration: number, gain: number, type: OscillatorType) {
+function tone(
+  frequency: number,
+  start: number,
+  duration: number,
+  gain: number,
+  type: OscillatorType,
+) {
   const ctx = getAudioContext();
   if (!ctx) return;
 
