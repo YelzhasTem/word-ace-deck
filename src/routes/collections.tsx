@@ -53,7 +53,10 @@ function CollectionsPage() {
     if (!colToEdit) return;
     setEditColName(colToEdit.name);
     setEditColDescription(colToEdit.description);
-  }, [colToEdit]);
+    // Fill the form once per opened collection; a background refetch must not
+    // overwrite what the user is typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editColId, Boolean(colToEdit)]);
 
   const openPicker = (collectionId: string, current: string[]) => {
     setPickerFor(collectionId);

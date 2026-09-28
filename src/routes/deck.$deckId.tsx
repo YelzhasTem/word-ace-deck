@@ -270,7 +270,9 @@ function DeckPage() {
     }
   };
 
-  if (isLoading || isFetching || (!deck && !didRetryLoad)) return <DeckLoading />;
+  // Only show the skeleton while there is no deck to show yet. A background
+  // refetch (after adding a card, on window focus) keeps the page mounted.
+  if (!deck && (isLoading || isFetching || !didRetryLoad)) return <DeckLoading />;
 
   if (!deck) {
     return (

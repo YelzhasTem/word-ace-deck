@@ -173,6 +173,10 @@ function Home() {
   const [name, setName] = useState("");
   const [desc, setDesc] = useState("");
   const [manualCards, setManualCards] = useState<ManualCardDraft[]>([]);
+  // Imports finish after an await; read the latest cards through a ref so
+  // edits made while an import was running are not overwritten.
+  const manualCardsRef = useRef(manualCards);
+  manualCardsRef.current = manualCards;
   const [wordInput, setWordInput] = useState("");
   const [definitionInput, setDefinitionInput] = useState("");
   const [importText, setImportText] = useState("");
@@ -358,35 +362,34 @@ function Home() {
     }
   };
 
-  const appendImportedCards = useCallback(
-    (cards: ManualCardDraft[]) => {
-      const seen = new Set(
-        manualCards.map(
-          (card) =>
-            `${card.term.toLocaleLowerCase("en-US")}::${card.definition.toLocaleLowerCase("en-US")}`,
-        ),
-      );
-      const nextCards = [...manualCards];
-      let reachedLimit = false;
+  const appendImportedCards = useCallback((cards: ManualCardDraft[]) => {
+    const currentCards = manualCardsRef.current;
+    const seen = new Set(
+      currentCards.map(
+        (card) =>
+          `${card.term.toLocaleLowerCase("en-US")}::${card.definition.toLocaleLowerCase("en-US")}`,
+      ),
+    );
+    const nextCards = [...currentCards];
+    let reachedLimit = false;
 
-      for (const card of cards) {
-        if (nextCards.length >= MAX_DECK_CARDS) {
-          reachedLimit = true;
-          break;
-        }
-        const term = card.term.trim();
-        const definition = card.definition.trim();
-        const key = `${term.toLocaleLowerCase("en-US")}::${definition.toLocaleLowerCase("en-US")}`;
-        if (!term || !definition || seen.has(key)) continue;
-        seen.add(key);
-        nextCards.push({ term, definition });
+    for (const card of cards) {
+      if (nextCards.length >= MAX_DECK_CARDS) {
+        reachedLimit = true;
+        break;
       }
+      const term = card.term.trim();
+      const definition = card.definition.trim();
+      const key = `${term.toLocaleLowerCase("en-US")}::${definition.toLocaleLowerCase("en-US")}`;
+      if (!term || !definition || seen.has(key)) continue;
+      seen.add(key);
+      nextCards.push({ term, definition });
+    }
 
-      setManualCards(nextCards);
-      return { added: nextCards.length - manualCards.length, reachedLimit };
-    },
-    [manualCards],
-  );
+    manualCardsRef.current = nextCards;
+    setManualCards(nextCards);
+    return { added: nextCards.length - currentCards.length, reachedLimit };
+  }, []);
 
   const handleImportText = async () => {
     const text = importText.trim();
@@ -1287,14 +1290,14 @@ function Home() {
                   </Tabs>
                 </DialogContent>
               </Dialog>
-              {decks[0] && (
+              {sortedDecks[0] && (
                 <Button
                   asChild
                   size="lg"
                   variant="outline"
                   className="rounded-full px-6 h-12 text-[15px] bg-card"
                 >
-                  <Link to="/study/$deckId" params={{ deckId: decks[0].id }}>
+                  <Link to="/study/$deckId" params={{ deckId: sortedDecks[0].id }}>
                     <BookOpen className="h-4 w-4" /> {t("home.continue")}
                   </Link>
                 </Button>
