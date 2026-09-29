@@ -133,13 +133,18 @@ export function isDeckDelayedRecallEnabled(deckId: string): boolean {
   return enabledDeckIds.has(deckId);
 }
 
-export function setDeckDelayedRecallEnabled(deckId: string, on: boolean) {
-  if (typeof window === "undefined") return;
+/**
+ * Resolves once the setting is saved, so callers can schedule cards after the
+ * server knows the deck has Delayed Recall on (schedule_recall_card refuses
+ * cards of decks where it is off).
+ */
+export function setDeckDelayedRecallEnabled(deckId: string, on: boolean): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
   if (on) enabledDeckIds.add(deckId);
   else enabledDeckIds.delete(deckId);
   dispatchChanged();
 
-  void (async () => {
+  return (async () => {
     const userId = await ensureMigrated();
     if (!userId) return;
     const { error } = await accountLearningDb().from("deck_learning_settings").upsert(
@@ -155,7 +160,9 @@ export function setDeckDelayedRecallEnabled(deckId: string, on: boolean) {
   })();
 }
 
-export function useDeckDelayedRecallEnabled(deckId: string): [boolean, (v: boolean) => void] {
+export function useDeckDelayedRecallEnabled(
+  deckId: string,
+): [boolean, (v: boolean) => Promise<void>] {
   const [on, setOn] = useState<boolean>(false);
   useEffect(() => {
     const sync = () => setOn(isDeckDelayedRecallEnabled(deckId));
@@ -239,10 +246,17 @@ function rowToEntry(row: {
   };
 }
 
+const schedulingKeys = new Set<string>();
+
+export function isDelayedRecallHydrated() {
+  return hydrated;
+}
+
 export function scheduleNewCard(deckId: string, cardId: string) {
   if (!isDeckDelayedRecallEnabled(deckId) || !isUuid(cardId)) return;
   const key = k(deckId, cardId);
-  if (recallState[key]) return;
+  if (recallState[key] || schedulingKeys.has(key)) return;
+  schedulingKeys.add(key);
   void (async () => {
     try {
       const { error } = await supabase.rpc("schedule_recall_card", { p_card_id: cardId });
@@ -250,6 +264,8 @@ export function scheduleNewCard(deckId: string, cardId: string) {
       await hydrateDelayedRecallState();
     } catch (error) {
       console.warn("[Delayed Recall] Could not schedule card:", error);
+    } finally {
+      schedulingKeys.delete(key);
     }
   })();
 }

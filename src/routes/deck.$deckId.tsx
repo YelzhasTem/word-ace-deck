@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { markDeckStudied } from "@/lib/last-studied";
 import { useServerFn } from "@tanstack/react-start";
 import { useDeck } from "@/lib/decks";
@@ -34,6 +34,7 @@ import {
   useDeckDelayedRecallEnabled,
   useDeckRecallSummary,
   scheduleNewCard,
+  isDelayedRecallHydrated,
 } from "@/lib/delayed-recall";
 import type { DeckCoverColor } from "@/lib/deck-colors";
 import { createAiIdempotencyKey, executeAiRequest } from "@/lib/ai-client";
@@ -191,13 +192,29 @@ function DeckPage() {
   const [recallEnabled, setRecallEnabled] = useDeckDelayedRecallEnabled(deckId);
   const recallSummary = useDeckRecallSummary(deckId);
 
+  const recallTogglePendingRef = useRef(false);
   const toggleRecall = (on: boolean) => {
-    setRecallEnabled(on);
-    // When turning ON, backfill schedule for this deck's existing cards.
-    if (on && deck) {
-      for (const c of deck.cards) scheduleNewCard(deck.id, c.id);
-    }
+    // Schedule only after the setting is saved: the server refuses to
+    // schedule cards of a deck whose Delayed Recall is still off.
+    recallTogglePendingRef.current = true;
+    void setRecallEnabled(on).then(() => {
+      recallTogglePendingRef.current = false;
+      if (on && deck) {
+        for (const c of deck.cards) scheduleNewCard(deck.id, c.id);
+      }
+    });
   };
+
+  // Cards added after Delayed Recall was turned on (or while scheduling was
+  // broken) are scheduled when the deck page opens. Already scheduled cards
+  // are skipped, and the server ignores duplicates.
+  const recallCardIds = deck?.cards.map((c) => c.id).join(",") ?? "";
+  useEffect(() => {
+    if (!deck || !recallEnabled || recallTogglePendingRef.current) return;
+    if (!isDelayedRecallHydrated()) return;
+    for (const c of deck.cards) scheduleNewCard(deck.id, c.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deck?.id, recallEnabled, recallCardIds, recallSummary]);
 
   const runGenerate = async (nextSeed: number) => {
     if (!deck || deck.cards.length === 0 || aiLoading) return;
