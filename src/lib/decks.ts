@@ -362,6 +362,7 @@ export function useDecks() {
       markCardMut.mutate({ cardId, known }),
     resetProgress: (deckId: string) => resetProgressMut.mutate(deckId),
     isFetching: query.isFetching,
+    isError: query.isError,
     refetchDecks: query.refetch,
   };
 }

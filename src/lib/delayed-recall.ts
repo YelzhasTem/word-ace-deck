@@ -106,11 +106,19 @@ export async function hydrateDelayedRecallState() {
         .eq("user_id", userId),
     ]);
 
-  if (settingsError) {
-    console.warn("[Delayed Recall] Could not load settings:", settingsError.message);
-  }
-  if (entriesError) {
-    console.warn("[Delayed Recall] Could not load entries:", entriesError.message);
+  if (settingsError || entriesError) {
+    // Keep the last known state rather than making every deck look switched
+    // off or empty after one failed request; the next hydration retries.
+    console.warn(
+      "[Delayed Recall] Could not load recall state:",
+      (settingsError ?? entriesError)?.message,
+    );
+    hydrationStarted = false;
+    if (!hydrated) {
+      hydrated = true;
+      dispatchChanged();
+    }
+    return;
   }
 
   enabledDeckIds.clear();
@@ -162,10 +170,16 @@ export function setDeckDelayedRecallEnabled(deckId: string, on: boolean): Promis
 
 export function useDeckDelayedRecallEnabled(
   deckId: string,
-): [boolean, (v: boolean) => Promise<void>] {
+): [boolean, (v: boolean) => Promise<void>, boolean] {
   const [on, setOn] = useState<boolean>(false);
+  // False until the account's settings have loaded, so pages can tell
+  // "turned off" apart from "not known yet".
+  const [ready, setReady] = useState<boolean>(false);
   useEffect(() => {
-    const sync = () => setOn(isDeckDelayedRecallEnabled(deckId));
+    const sync = () => {
+      setOn(isDeckDelayedRecallEnabled(deckId));
+      setReady(hydrated);
+    };
     sync();
     void hydrateDelayedRecallState();
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
@@ -180,7 +194,7 @@ export function useDeckDelayedRecallEnabled(
       window.removeEventListener("delayedRecall:changed", sync);
     };
   }, [deckId]);
-  return [on, (v: boolean) => setDeckDelayedRecallEnabled(deckId, v)];
+  return [on, (v: boolean) => setDeckDelayedRecallEnabled(deckId, v), ready];
 }
 
 // ===== Schedule + memory model =====

@@ -12,6 +12,7 @@ import {
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
+import { StudyDeckFallback } from "@/components/StudyDeckFallback";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Timer, Zap, Trophy, RotateCcw, Repeat, Shuffle } from "lucide-react";
 
@@ -42,7 +43,7 @@ function build(cards: Card[], reverseSides: boolean, shuffleQuestions: boolean):
 
 function SpeedPage() {
   const { deckId } = Route.useParams();
-  const { deck } = useDeck(deckId);
+  const { deck, isLoading, isFetching, isError, refetchDecks } = useDeck(deckId);
   const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const [duration, setDuration] = useState<Duration>(60);
@@ -108,15 +109,11 @@ function SpeedPage() {
 
   if (!deck) {
     return (
-      <div className="min-h-screen">
-        <SiteHeader />
-        <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">
-            Home
-          </Link>
-        </main>
-      </div>
+      <StudyDeckFallback
+        loading={isLoading || (isFetching && !isError)}
+        error={isError}
+        onRetry={() => void refetchDecks()}
+      />
     );
   }
 
