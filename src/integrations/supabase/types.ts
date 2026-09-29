@@ -1057,6 +1057,7 @@ export type Database = {
           native_language: string;
           streak_days: number;
           target_language: string;
+          time_zone: string | null;
           total_xp: number;
           updated_at: string;
           user_id: string;
@@ -1068,6 +1069,7 @@ export type Database = {
           native_language?: string;
           streak_days?: number;
           target_language?: string;
+          time_zone?: string | null;
           total_xp?: number;
           updated_at?: string;
           user_id: string;
@@ -1079,6 +1081,7 @@ export type Database = {
           native_language?: string;
           streak_days?: number;
           target_language?: string;
+          time_zone?: string | null;
           total_xp?: number;
           updated_at?: string;
           user_id?: string;
@@ -1795,6 +1798,7 @@ export type Database = {
         Args: { p_card_id: string; p_known: boolean };
         Returns: boolean;
       };
+      set_my_time_zone: { Args: { p_time_zone: string }; Returns: string };
       start_study_session: {
         Args: {
           p_client_session_key: string;

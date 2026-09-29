@@ -63,7 +63,8 @@ export function StreakCard() {
             "flex flex-col items-center gap-2 rounded-2xl py-3 px-1 border transition-colors";
           let cls = "border-border/60 bg-secondary/30 text-muted-foreground";
           if (d.active) cls = "border-accent/40 bg-accent/15 text-primary";
-          if (d.isFuture) cls = "border-dashed border-border/50 bg-transparent text-muted-foreground/60";
+          if (d.isFuture)
+            cls = "border-dashed border-border/50 bg-transparent text-muted-foreground/60";
           if (d.isToday)
             cls = d.active
               ? "border-primary bg-primary text-primary-foreground shadow-[var(--shadow-soft)]"
@@ -82,9 +83,7 @@ export function StreakCard() {
       </div>
 
       {current === 0 && (
-        <p className="mt-5 text-sm text-muted-foreground text-center">
-          {t("streak.empty")}
-        </p>
+        <p className="mt-5 text-sm text-muted-foreground text-center">{t("streak.empty")}</p>
       )}
     </div>
   );

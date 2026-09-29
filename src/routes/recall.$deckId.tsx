@@ -13,7 +13,7 @@ import {
   RECALL_STAGES,
   useDeckDelayedRecallEnabled,
 } from "@/lib/delayed-recall";
-import { prepareStudySession } from "@/lib/study-session";
+import { prepareStudySession, studyContentVersion } from "@/lib/study-session";
 import { recordStreakToday } from "@/lib/streak";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
@@ -77,12 +77,15 @@ function RecallPage() {
       setQueueIds([]);
       return;
     }
+    // Once the first answer is sent the queue is fixed for this run: answered
+    // cards leave the due list, and rebuilding would shift or skip cards.
+    if (sessionStartedRef.current) return;
     const due = dueRecallEntries(deckId).map((e) => e.cardId);
     const setDue = new Set(due);
     // Preserve deck order, only include ids that still exist
     setQueueIds(buildQueueIds(deck.cards.filter((c) => setDue.has(c.id)).map((c) => c.id)));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckId, deck, deckCardIds, enabled, recallTick]);
+  }, [deckId, Boolean(deck), deckCardIds, enabled, recallTick]);
 
   const cards: Card[] = useMemo(
     () =>
@@ -101,8 +104,11 @@ function RecallPage() {
 
   useEffect(() => {
     if (!deck || !enabled) return;
-    void prepareStudySession(deck.id, "recall").catch((error: unknown) =>
-      setSaveError(error instanceof Error ? error.message : "Could not start this recall session"),
+    void prepareStudySession(deck.id, "recall", undefined, studyContentVersion(deck.cards)).catch(
+      (error: unknown) =>
+        setSaveError(
+          error instanceof Error ? error.message : "Could not start this recall session",
+        ),
     );
   }, [deck, enabled]);
 
@@ -170,6 +176,9 @@ function RecallPage() {
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!current || verdict || pending) return;
+    // Must be set before the answer is recorded: recordRecallAnswer dispatches
+    // delayedRecall:changed synchronously, which would otherwise rebuild the queue.
+    sessionStartedRef.current = true;
     setPending(true);
     setSaveError("");
     try {
@@ -183,7 +192,6 @@ function RecallPage() {
       setServerExpected(result.expected_answer ?? expectedAnswer);
       if (ok) playCorrectSound();
       else playWrongSound();
-      sessionStartedRef.current = true;
       setVerdict(ok ? "ok" : "miss");
       if (ok) {
         setRight((r) => r + 1);

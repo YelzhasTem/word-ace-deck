@@ -58,14 +58,20 @@ function CreatorProfilePage() {
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-6 py-10">
         {!profile ? (
-          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">Loading creator...</div>
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
+            Loading creator...
+          </div>
         ) : (
           <>
             <section className="rounded-3xl border border-border bg-card p-6 md:p-8">
               <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
                 <div>
-                  <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">Creator Profile</p>
-                  <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">{profile.username}</h1>
+                  <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">
+                    Creator Profile
+                  </p>
+                  <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">
+                    {profile.username}
+                  </h1>
                 </div>
                 <Button className="rounded-full" onClick={onFollow}>
                   {profile.followed ? "Following" : "Follow creator"}
@@ -102,12 +108,23 @@ function CreatorProfilePage() {
                     className="rounded-2xl border border-border bg-card p-5 hover:border-primary transition-colors"
                   >
                     <h3 className="font-display text-xl font-bold">{deck.title}</h3>
-                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">{deck.description}</p>
+                    <p className="mt-2 line-clamp-2 text-sm text-muted-foreground">
+                      {deck.description}
+                    </p>
                     <div className="mt-4 grid grid-cols-4 gap-2 text-xs text-muted-foreground">
                       <span>{deck.cardCount} cards</span>
-                      <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" />{deck.totalLearners}</span>
-                      <span className="inline-flex items-center gap-1"><Heart className="h-3.5 w-3.5" />{deck.likes}</span>
-                      <span className="inline-flex items-center gap-1"><Star className="h-3.5 w-3.5" />{deck.rating || "New"}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {deck.totalLearners}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Heart className="h-3.5 w-3.5" />
+                        {deck.likes}
+                      </span>
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="h-3.5 w-3.5" />
+                        {deck.rating || "New"}
+                      </span>
                     </div>
                   </Link>
                 ))}

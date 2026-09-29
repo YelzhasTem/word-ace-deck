@@ -4,7 +4,7 @@ import { useDeck } from "@/lib/decks";
 import { useServerFn } from "@tanstack/react-start";
 import { recordStreakToday } from "@/lib/streak";
 import { recordSelfReportedAnswer } from "@/lib/stats";
-import { prepareStudySession } from "@/lib/study-session";
+import { prepareStudySession, studyContentVersion } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -41,6 +41,7 @@ function StudyPage() {
   const [pending, setPending] = useState(false);
   const [saveError, setSaveError] = useState("");
   const autoResetDeckRef = useRef<string | null>(null);
+  const pendingRef = useRef(false);
 
   const queueSource = useMemo(
     () => (deck ? deck.cards.filter((c) => !c.known).map((c) => c.id) : []),
@@ -62,8 +63,9 @@ function StudyPage() {
 
   useEffect(() => {
     if (!deck) return;
-    void prepareStudySession(deck.id, "study").catch((error: unknown) =>
-      setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
+    void prepareStudySession(deck.id, "study", undefined, studyContentVersion(deck.cards)).catch(
+      (error: unknown) =>
+        setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
     );
   }, [deck]);
 
@@ -100,9 +102,9 @@ function StudyPage() {
         e.preventDefault();
         setFlipped((f) => !f);
       } else if (e.key === "ArrowRight" || e.key === "2") {
-        handleKnown();
+        if (!e.repeat) handleKnown();
       } else if (e.key === "ArrowLeft" || e.key === "1") {
-        handleAgain();
+        if (!e.repeat) handleAgain();
       }
     };
     window.addEventListener("keydown", handler);
@@ -144,7 +146,8 @@ function StudyPage() {
   const backText = current ? (reverseSides ? current.term : current.definition) : "";
 
   const handleKnown = async () => {
-    if (!current || pending) return;
+    if (!current || pendingRef.current) return;
+    pendingRef.current = true;
     setPending(true);
     setSaveError("");
     try {
@@ -164,12 +167,14 @@ function StudyPage() {
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save this answer");
     } finally {
+      pendingRef.current = false;
       setPending(false);
     }
   };
 
   const handleAgain = async () => {
-    if (!current || pending) return;
+    if (!current || pendingRef.current) return;
+    pendingRef.current = true;
     setPending(true);
     setSaveError("");
     try {
@@ -197,6 +202,7 @@ function StudyPage() {
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : "Could not save this answer");
     } finally {
+      pendingRef.current = false;
       setPending(false);
     }
   };

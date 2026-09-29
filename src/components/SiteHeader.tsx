@@ -1,5 +1,13 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { BookOpenCheck, LogOut, Moon, Settings as SettingsIcon } from "lucide-react";
+import {
+  BookOpenCheck,
+  LogOut,
+  Moon,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  User as UserIcon,
+  Users,
+} from "lucide-react";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import type { Session } from "@supabase/supabase-js";
@@ -21,6 +29,7 @@ export function SiteHeader() {
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const t = useT();
 
@@ -50,6 +59,7 @@ export function SiteHeader() {
         setUsername("");
         setDisplayName("");
         setAvatarUrl(null);
+        setIsAdmin(false);
         return;
       }
 
@@ -69,13 +79,24 @@ export function SiteHeader() {
           : null,
       );
 
-      const { data } = await supabase
-        .from("profiles")
-        .select("username, display_name, avatar_url")
-        .eq("user_id", session.user.id)
-        .maybeSingle();
+      const [{ data }, { data: adminRole }] = await Promise.all([
+        supabase
+          .from("profiles")
+          .select("username, display_name, avatar_url")
+          .eq("user_id", session.user.id)
+          .maybeSingle(),
+        // Users can read only their own roles, so this just decides whether to
+        // show the moderation link; the admin page enforces access itself.
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", session.user.id)
+          .eq("role", "admin")
+          .maybeSingle(),
+      ]);
 
       if (!mounted) return;
+      setIsAdmin(Boolean(adminRole));
       setUsername(data?.username ?? metadataUsername);
       setDisplayName(data?.display_name ?? "");
       setAvatarUrl(data?.avatar_url ?? null);
@@ -274,6 +295,26 @@ export function SiteHeader() {
                     ) : null}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem asChild className="px-3 py-2.5">
+                    <Link to="/profile">
+                      <UserIcon className="h-4 w-4" />
+                      {t("nav.profile")}
+                    </Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild className="px-3 py-2.5">
+                    <Link to="/friends">
+                      <Users className="h-4 w-4" />
+                      {t("nav.friends")}
+                    </Link>
+                  </DropdownMenuItem>
+                  {isAdmin ? (
+                    <DropdownMenuItem asChild className="px-3 py-2.5">
+                      <Link to="/community-admin">
+                        <ShieldCheck className="h-4 w-4" />
+                        {t("nav.moderation")}
+                      </Link>
+                    </DropdownMenuItem>
+                  ) : null}
                   <DropdownMenuItem asChild className="px-3 py-2.5">
                     <Link to="/settings">
                       <SettingsIcon className="h-4 w-4" />
