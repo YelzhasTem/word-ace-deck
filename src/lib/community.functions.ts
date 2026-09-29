@@ -464,7 +464,18 @@ export const getPublicDeckDetails = createServerFn({ method: "GET" })
       .order("position", { ascending: true });
     if (cardsError) failMarketplace(cardsError);
 
-    return { deck: meta, cards: cards ?? [] };
+    const { data: myRating, error: myRatingError } = await supabase
+      .from("deck_ratings")
+      .select("rating")
+      .eq("deck_id", deck.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (myRatingError) failMarketplace(myRatingError);
+
+    return {
+      deck: { ...meta, myRating: myRating?.rating ?? null, isOwner: deck.user_id === userId },
+      cards: cards ?? [],
+    };
   });
 
 export const updateDeckPublishing = createServerFn({ method: "POST" })

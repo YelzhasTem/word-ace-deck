@@ -370,12 +370,19 @@ function ReversePage() {
 
             <div className="flip-scene h-[420px] mb-8">
               <div
+                // A new key per card mounts it unflipped with no transition, so
+                // the next answer is never shown on the back while turning.
+                key={`${idx}:${current?.cardId}:${current?.dir}`}
                 className={`flip-card cursor-pointer ${flipped ? "is-flipped" : ""}`}
                 onClick={() => setFlipped((f) => !f)}
                 role="button"
                 aria-label="Flip card"
+                aria-pressed={flipped}
               >
-                <div className="flip-face rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
+                <div
+                  aria-hidden={flipped}
+                  className="flip-face rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center"
+                >
                   <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold mb-6">
                     {current!.dir === "fwd" ? "Word" : "Translation"}
                   </span>
@@ -386,7 +393,10 @@ function ReversePage() {
                     Think, then click or press Space / Shift to reveal the answer
                   </span>
                 </div>
-                <div className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
+                <div
+                  aria-hidden={!flipped}
+                  className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center"
+                >
                   <span className="text-xs uppercase tracking-[0.2em] opacity-70 font-semibold mb-6">
                     {current!.dir === "fwd" ? "Translation" : "Word"}
                   </span>
