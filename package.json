@@ -20,6 +20,7 @@
     "test:database:integrity:sql": "supabase test db",
     "test:decks:atomic:static": "node scripts/check-atomic-deck-creation-static.mjs",
     "test:decks:atomic:unit": "node --experimental-strip-types --test tests/deck-creation-errors.test.ts",
+    "test:decks:csv:unit": "node --experimental-strip-types --test tests/deck-csv.test.ts",
     "test:decks:atomic:fixture": "node scripts/verify-atomic-deck-creation.mjs",
     "test:community:reports:unit": "node --experimental-strip-types --test tests/report-validation.test.ts",
     "test:community:reports:fixture": "node scripts/verify-collection-report-validation.mjs",

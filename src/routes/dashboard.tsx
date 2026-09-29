@@ -45,8 +45,10 @@ import {
   Search,
   FileText,
   Upload,
+  FileSpreadsheet,
 } from "lucide-react";
 import { useT } from "@/lib/i18n";
+import { CSV_MAX_FILE_BYTES, deckNameFromFileName, parseDeckCsv } from "@/lib/deck-csv";
 import { useLastStudied } from "@/lib/last-studied";
 import { useCollections } from "@/lib/collections";
 import { DeckColorPicker } from "@/components/DeckColorPicker";
@@ -165,6 +167,7 @@ function Home() {
   const [deckColor, setDeckColor] = useState<DeckCoverColor | null>(null);
   const deckToDelete = decks.find((d) => d.id === deleteDeckId);
   const imageImportInputRef = useRef<HTMLInputElement | null>(null);
+  const csvImportInputRef = useRef<HTMLInputElement | null>(null);
   const manualCreationRef = useRef<PendingCreation | null>(null);
   const aiCreationRef = useRef<PendingCreation | null>(null);
   const urlCreationRef = useRef<PendingCreation | null>(null);
@@ -486,6 +489,43 @@ function Home() {
     } finally {
       setImportMode(null);
       if (imageImportInputRef.current) imageImportInputRef.current.value = "";
+    }
+  };
+
+  // CSV import is parsed in the browser, so unlike the AI imports it also works offline.
+  const handleImportCsv = async (file?: File) => {
+    if (!file || importMode) return;
+    try {
+      if (manualCards.length >= MAX_DECK_CARDS) {
+        setImportError("This deck already has the maximum of 100 words.");
+        return;
+      }
+      if (file.size > CSV_MAX_FILE_BYTES) {
+        setImportError("CSV file must be 1 MB or smaller.");
+        return;
+      }
+      setImportError("");
+      const { cards, skipped } = parseDeckCsv(await file.text());
+      if (cards.length === 0) {
+        setImportError(
+          "No words found. Put the word in the first column and the translation in the second.",
+        );
+        return;
+      }
+      const { added, reachedLimit } = appendImportedCards(cards);
+      if (added > 0 && !name.trim()) setName(deckNameFromFileName(file.name));
+      const notes: string[] = [];
+      if (reachedLimit) notes.push(`a deck can contain at most ${MAX_DECK_CARDS} cards`);
+      if (skipped > 0) notes.push(`${skipped} rows were empty, incomplete or too long`);
+      if (added === 0) {
+        setImportError(`No new words were added${notes.length ? `: ${notes.join("; ")}` : "."}`);
+      } else if (notes.length) {
+        setImportError(`Added ${added} words. Some rows were skipped: ${notes.join("; ")}.`);
+      }
+    } catch {
+      setImportError("Could not read this CSV file.");
+    } finally {
+      if (csvImportInputRef.current) csvImportInputRef.current.value = "";
     }
   };
 
@@ -905,6 +945,26 @@ function Home() {
                               ? t("create.import.readingImage")
                               : t("create.import.image")}
                           </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="w-full sm:w-auto"
+                            onClick={() => csvImportInputRef.current?.click()}
+                            disabled={Boolean(importMode) || manualCards.length >= MAX_DECK_CARDS}
+                          >
+                            <FileSpreadsheet className="h-4 w-4" />
+                            {t("create.import.csv")}
+                          </Button>
+                          <input
+                            ref={csvImportInputRef}
+                            type="file"
+                            accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.currentTarget.files?.[0];
+                              void handleImportCsv(file);
+                            }}
+                          />
                           <input
                             ref={imageImportInputRef}
                             type="file"
