@@ -26,6 +26,7 @@ import {
   Highlighter,
   Hourglass,
   Globe2,
+  Repeat,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
@@ -472,6 +473,12 @@ function DeckPage() {
                   icon: Zap,
                   title: "Speed challenge",
                   desc: "30/60/120 sec. Combos and records.",
+                },
+                {
+                  to: "/reverse/$deckId",
+                  icon: Repeat,
+                  title: "Both directions",
+                  desc: "Word to translation and back, weakest side first.",
                 },
                 {
                   to: "/deep/$deckId",
