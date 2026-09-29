@@ -26,9 +26,11 @@ import {
   Highlighter,
   Hourglass,
   Globe2,
+  Download,
   Repeat,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
+import { downloadDeckCsv } from "@/lib/deck-csv";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import {
@@ -378,6 +380,14 @@ function DeckPage() {
               disabled={!deck.cards.length}
             >
               <RotateCcw className="h-4 w-4" /> Reset
+            </Button>
+            <Button
+              variant="outline"
+              className="rounded-full"
+              onClick={() => downloadDeckCsv(deck)}
+              disabled={!deck.cards.length}
+            >
+              <Download className="h-4 w-4" /> Export CSV
             </Button>
             <Button
               className="rounded-full"
