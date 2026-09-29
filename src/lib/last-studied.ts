@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isUuid } from "@/lib/uuid";
 import { accountLearningDb } from "@/lib/account-learning-db";
 
 const MIGRATION_KEY = "lingocards.accountLastStudiedMigrated.v1";
@@ -13,10 +14,6 @@ let migrationStarted = false;
 
 function dispatchChanged() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event("lastStudied:changed"));
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{12}$/i.test(value);
 }
 
 async function getUserId() {

@@ -58,7 +58,10 @@ function DecksPage() {
     setEditName(deckToEdit.name);
     setEditDescription(deckToEdit.description);
     setEditCoverColor(deckToEdit.coverColor);
-  }, [deckToEdit]);
+    // Fill the form once per opened deck; a background refetch must not
+    // overwrite what the user is typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editDeckId, Boolean(deckToEdit)]);
 
   const closeEdit = () => {
     setEditDeckId(null);
@@ -83,7 +86,9 @@ function DecksPage() {
   }, [decks, query]);
 
   const selectedCount = selectedDeckIds.size;
-  const allDeckIds = useMemo(() => decks.map((deck) => deck.id), [decks]);
+  // "Select all" covers only the decks the search currently shows, so a bulk
+  // delete never includes decks the user cannot see.
+  const allDeckIds = useMemo(() => filteredDecks.map((deck) => deck.id), [filteredDecks]);
   const allDecksSelected =
     allDeckIds.length > 0 && allDeckIds.every((id) => selectedDeckIds.has(id));
   const deleteRequestDecks = useMemo(() => {

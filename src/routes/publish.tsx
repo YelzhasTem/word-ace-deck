@@ -2,6 +2,7 @@ import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BookOpen, FolderOpen, Globe2, Save } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -20,7 +21,7 @@ import { DECK_CATEGORIES, updateDeckPublishing } from "@/lib/community.functions
 import { OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 
 type PublishType = "deck" | "collection";
-type PublishingVisibility = "unlisted" | "public";
+type PublishingVisibility = "private" | "unlisted" | "public";
 
 export const Route = createFileRoute("/publish")({
   component: PublishPage,
@@ -48,6 +49,8 @@ function readPublishTarget(search: unknown): { type: PublishType; id: string } |
   return null;
 }
 
+// A private item opened here is being published, so preselect Public; an item
+// that is already published keeps its current setting.
 function nextVisibility(current: string): PublishingVisibility {
   return current === "unlisted" ? "unlisted" : "public";
 }
@@ -66,6 +69,7 @@ function PublishPage() {
     updateCollectionPublishing,
   } = useCollections();
   const updateDeck = useServerFn(updateDeckPublishing);
+  const queryClient = useQueryClient();
 
   const selectedDeck = type === "deck" ? decks.find((deck) => deck.id === targetId) : undefined;
   const selectedCollection =
@@ -106,11 +110,16 @@ function PublishPage() {
             keywords: parseKeywords(keywords),
           },
         });
+        await queryClient.invalidateQueries({ queryKey: ["my-decks"] });
       } else {
         await updateCollectionPublishing(selectedItem.id, visibility, parseKeywords(keywords));
       }
       toast.success(
-        visibility === "public" ? "Published to Community." : "Publishing settings saved.",
+        visibility === "public"
+          ? "Published to Community."
+          : visibility === "private"
+            ? "Removed from Community. Only you can see it now."
+            : "Publishing settings saved.",
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not save publishing settings");
@@ -218,6 +227,7 @@ function PublishPage() {
                   <SelectContent>
                     <SelectItem value="public">Public</SelectItem>
                     <SelectItem value="unlisted">Unlisted</SelectItem>
+                    <SelectItem value="private">Private (not published)</SelectItem>
                   </SelectContent>
                 </Select>
               </label>
@@ -255,7 +265,9 @@ function PublishPage() {
               <p className="text-sm text-muted-foreground">
                 {visibility === "public"
                   ? "Public items can appear in Community."
-                  : "Unlisted items open only by direct link."}
+                  : visibility === "unlisted"
+                    ? "Unlisted items open only by direct link."
+                    : "Private items are hidden from Community and direct links."}
               </p>
               <Button className="rounded-full" onClick={handleSave} disabled={!isOnline || saving}>
                 {saving ? (

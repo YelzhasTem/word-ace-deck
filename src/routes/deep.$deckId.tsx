@@ -7,6 +7,7 @@ import {
   beginStudySession,
   issueStudyQuestion,
   prepareStudySession,
+  studyContentVersion,
   type IssuedStudyQuestion,
   type StudyDirection,
 } from "@/lib/study-session";
@@ -70,8 +71,9 @@ function DeepPage() {
 
   useEffect(() => {
     if (deck && canPlay) {
-      void prepareStudySession(deck.id, "deep").catch((error: unknown) =>
-        setQuestionError(error instanceof Error ? error.message : "Could not start this session"),
+      void prepareStudySession(deck.id, "deep", undefined, studyContentVersion(deck.cards)).catch(
+        (error: unknown) =>
+          setQuestionError(error instanceof Error ? error.message : "Could not start this session"),
       );
       setQuestions(buildQuestions(deck.cards, reverseSides, shuffleEnabled));
       setIdx(0);

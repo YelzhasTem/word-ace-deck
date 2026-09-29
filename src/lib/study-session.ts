@@ -34,11 +34,24 @@ export type CompletedStudySession =
   Database["public"]["Functions"]["complete_study_session"]["Returns"][number];
 
 const sessions = new Map<string, Promise<SessionHandle>>();
+// Cards the server snapshotted when each cached session started, so a session
+// is replaced when cards are added, removed or edited after it began.
+const sessionContentVersions = new Map<string, string>();
 const queues = new Map<string, Promise<unknown>>();
 const completions = new Map<string, Promise<CompletedStudySession>>();
 
 function sessionKey(deckId: string, mode: StudyMode) {
   return `${deckId}:${mode}`;
+}
+
+/** A cheap fingerprint of the cards a session is started with. */
+export function studyContentVersion(cards: { id: string; term: string; definition: string }[]) {
+  let hash = 0;
+  for (const card of cards) {
+    const text = `${card.id}\u0000${card.term}\u0000${card.definition}\u0001`;
+    for (let i = 0; i < text.length; i += 1) hash = (Math.imul(hash, 31) + text.charCodeAt(i)) | 0;
+  }
+  return `${cards.length}:${hash >>> 0}`;
 }
 
 function newKey() {
@@ -75,22 +88,49 @@ export function beginStudySession(
   deckId: string,
   mode: StudyMode,
   durationSeconds?: 30 | 60 | 120,
+  contentVersion?: string,
 ) {
   const key = sessionKey(deckId, mode);
   const session = createSession(deckId, mode, durationSeconds);
   sessions.set(key, session);
+  if (contentVersion) sessionContentVersions.set(key, contentVersion);
+  else sessionContentVersions.delete(key);
   queues.set(key, Promise.resolve());
   completions.delete(key);
+  // Do not cache a failed start: the next attempt should try again.
+  session.catch(() => {
+    if (sessions.get(key) === session) {
+      sessions.delete(key);
+      sessionContentVersions.delete(key);
+    }
+  });
   return session;
 }
 
+/**
+ * Returns the cached session for this deck and mode, or starts one. Pass
+ * contentVersion (see studyContentVersion) from pages that know the current
+ * cards, so a session started before cards changed is replaced.
+ */
 export function prepareStudySession(
   deckId: string,
   mode: StudyMode,
   durationSeconds?: 30 | 60 | 120,
+  contentVersion?: string,
 ) {
-  const existing = sessions.get(sessionKey(deckId, mode));
-  return existing ?? beginStudySession(deckId, mode, durationSeconds);
+  const key = sessionKey(deckId, mode);
+  const existing = sessions.get(key);
+  const stale =
+    contentVersion !== undefined &&
+    sessionContentVersions.has(key) &&
+    sessionContentVersions.get(key) !== contentVersion;
+  if (existing && !stale) {
+    if (contentVersion && !sessionContentVersions.has(key)) {
+      sessionContentVersions.set(key, contentVersion);
+    }
+    return existing;
+  }
+  return beginStudySession(deckId, mode, durationSeconds, contentVersion);
 }
 
 function enqueue<T>(key: string, operation: () => Promise<T>): Promise<T> {
@@ -290,12 +330,16 @@ export function completeStudySession(
   });
 
   completions.set(key, completion);
+  completion.catch(() => {
+    if (completions.get(key) === completion) completions.delete(key);
+  });
   return completion;
 }
 
 export function clearStudySession(deckId: string, mode: StudyMode) {
   const key = sessionKey(deckId, mode);
   sessions.delete(key);
+  sessionContentVersions.delete(key);
   queues.delete(key);
   completions.delete(key);
 }

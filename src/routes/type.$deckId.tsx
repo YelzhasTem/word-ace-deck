@@ -4,7 +4,7 @@ import { useDeck, type Card } from "@/lib/decks";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { recordStreakToday } from "@/lib/streak";
 import { recordTextAnswer, prioritise, accuracyFor, useDeckStats } from "@/lib/stats";
-import { beginStudySession, prepareStudySession } from "@/lib/study-session";
+import { beginStudySession, prepareStudySession, studyContentVersion } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -74,8 +74,9 @@ function TypePage() {
 
   useEffect(() => {
     if (!deck) return;
-    void prepareStudySession(deck.id, "type").catch((error: unknown) =>
-      setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
+    void prepareStudySession(deck.id, "type", undefined, studyContentVersion(deck.cards)).catch(
+      (error: unknown) =>
+        setSaveError(error instanceof Error ? error.message : "Could not start this study session"),
     );
   }, [deck]);
 

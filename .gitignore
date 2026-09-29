@@ -38,3 +38,6 @@ supabase/.temp/
 *.njsproj
 *.sln
 *.sw?
+
+# Supabase CLI local state
+supabase/.branches

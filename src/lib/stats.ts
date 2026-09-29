@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isUuid } from "@/lib/uuid";
 import { accountLearningDb } from "@/lib/account-learning-db";
 import {
   completeStudySession,
@@ -46,10 +47,6 @@ function dispatch(name: "stats:changed" | "speed:changed" | "assoc:changed" | "s
 
 function msFromIso(value?: string | null) {
   return value ? new Date(value).getTime() : undefined;
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 async function getUserId() {

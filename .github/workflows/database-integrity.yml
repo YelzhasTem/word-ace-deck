@@ -41,7 +41,7 @@ jobs:
       - run: npm ci
       - run: npm run check:database-integrity
       - run: npm run check:atomic-deck-creation
-      - run: node --experimental-strip-types --test tests/marketplace-errors.test.ts tests/marketplace-static.test.mjs
+      - run: node --experimental-strip-types --test tests/marketplace-errors.test.ts tests/marketplace-static.test.mjs tests/uuid.test.ts
       - run: node --experimental-strip-types --test tests/collection-replacement-errors.test.ts tests/collection-replacement-static.test.mjs
       - run: npm run test:decks:csv:unit && npx eslint src/lib/deck-csv.ts tests/deck-csv.test.ts
       - run: npx eslint src/lib/collection-replacement-errors.ts tests/collection-replacement-errors.test.ts tests/collection-replacement-static.test.mjs tests/collection-replacement.test.mjs

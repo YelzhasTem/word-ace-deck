@@ -4,7 +4,7 @@
 
 - This is a TanStack Start/Nitro app. Vercel must build Nitro's Vercel output, not a plain `dist/` static site.
 - Use project root `.` as the Vercel Root Directory.
-- Use npm for Vercel installs because `package-lock.json` is the committed npm lockfile. Do not let Vercel choose Bun just because `bun.lock` exists.
+- Use npm for Vercel installs because `package-lock.json` is the committed npm lockfile. Do not commit a `bun.lock` or other lockfile next to it.
 - Vercel settings:
   - Framework Preset: Other
   - Install Command: `npm install`
