@@ -30,7 +30,8 @@ import {
   Repeat,
 } from "lucide-react";
 import { generateStudyText } from "@/lib/ai.functions";
-import { downloadDeckCsv } from "@/lib/deck-csv";
+import { exportDeckCsv } from "@/lib/native";
+import { toast } from "sonner";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import {
@@ -384,7 +385,9 @@ function DeckPage() {
             <Button
               variant="outline"
               className="rounded-full"
-              onClick={() => downloadDeckCsv(deck)}
+              onClick={() => {
+                exportDeckCsv(deck).catch(() => toast.error("Could not export the deck."));
+              }}
               disabled={!deck.cards.length}
             >
               <Download className="h-4 w-4" /> Export CSV
