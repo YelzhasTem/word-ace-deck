@@ -19,7 +19,7 @@ import { AuthGate } from "@/components/AuthGate";
 import { playButtonSound } from "@/lib/sounds";
 import { OfflineBanner } from "@/components/OfflineBanner";
 
-const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password"]);
+const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password", "/privacy", "/terms", "/support"]);
 
 function isPublicPath(pathname: string) {
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
@@ -106,17 +106,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         name: "twitter:description",
         content: "A calm flashcard app for learning vocabulary.",
       },
-      {
-        property: "og:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png",
-      },
-      {
-        name: "twitter:image",
-        content:
-          "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/964d2b72-0f21-4f51-8319-987805ae2deb/id-preview-2e045e3f--3a135c0d-f234-4913-9571-bb8494c91bfa.lovable.app-1780305879892.png",
-      },
-      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

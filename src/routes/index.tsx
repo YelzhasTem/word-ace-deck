@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SiteHeader } from "@/components/SiteHeader";
+import { LegalLinks } from "@/components/LegalLinks";
+import { isNativeApp } from "@/lib/native";
 import {
   Brain,
   Clock,
@@ -42,6 +44,9 @@ function Landing() {
     supabase.auth.getSession().then(({ data }) => {
       if (data.session) {
         navigate({ to: "/dashboard", replace: true });
+      } else if (isNativeApp()) {
+        // The marketing page is for the website; the app opens straight on sign-in.
+        navigate({ to: "/auth", search: { mode: "login" }, replace: true });
       } else {
         setChecking(false);
       }
@@ -270,7 +275,8 @@ function Landing() {
             </div>
             <span>© {new Date().getFullYear()} Memora. Learn words for good.</span>
           </div>
-          <div className="flex items-center gap-5">
+          <div className="flex flex-wrap items-center justify-center gap-5">
+            <LegalLinks />
             <Link
               to="/auth"
               search={{ mode: "login" }}

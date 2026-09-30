@@ -5,6 +5,9 @@ import { type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { LegalLinks } from "@/components/LegalLinks";
+import { isNativeApp } from "@/lib/native";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -70,6 +73,14 @@ function AuthPage() {
   const [displayName, setDisplayName] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // Google blocks sign-in inside embedded web views, and Apple requires Sign in with Apple
+  // next to any third-party login, so the native app offers email and password only.
+  const [showGoogle, setShowGoogle] = useState(false);
+
+  useEffect(() => {
+    setShowGoogle(!isNativeApp());
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -116,6 +127,11 @@ function AuthPage() {
 
         if (!USERNAME_RE.test(normalizedUsername)) {
           toast.error("Use 3-24 lowercase letters, numbers, or underscores for username.");
+          return;
+        }
+
+        if (!acceptedTerms) {
+          toast.error("Accept the Terms of Use and Privacy Policy to create an account.");
           return;
         }
 
@@ -249,7 +265,9 @@ function AuthPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "login"
-                ? "Sign in with email and password or Google."
+                ? showGoogle
+                  ? "Sign in with email and password or Google."
+                  : "Sign in with your email and password."
                 : "Create an account to save your progress."}
             </p>
 
@@ -310,49 +328,81 @@ function AuthPage() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={loading || googleLoading}>
+              {mode === "signup" && (
+                <div className="flex items-start gap-3">
+                  <Checkbox
+                    id="accept-terms"
+                    checked={acceptedTerms}
+                    onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <Label htmlFor="accept-terms" className="text-sm font-normal leading-snug">
+                    <span>
+                      I agree to the{" "}
+                      <Link to="/terms" className="text-primary underline">
+                        Terms of Use
+                      </Link>{" "}
+                      and{" "}
+                      <Link to="/privacy" className="text-primary underline">
+                        Privacy Policy
+                      </Link>
+                      . Offensive content and abusive behavior are not allowed.
+                    </span>
+                  </Label>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={loading || googleLoading || (mode === "signup" && !acceptedTerms)}
+              >
                 {loading && <Loader2 className="h-4 w-4 animate-spin" />}
                 {mode === "login" ? "Sign in" : "Sign up"}
               </Button>
             </form>
 
-            <div className="mt-4 flex items-center gap-3">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-xs text-muted-foreground">or</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
+            {showGoogle && (
+              <>
+                <div className="mt-4 flex items-center gap-3">
+                  <div className="h-px flex-1 bg-border" />
+                  <span className="text-xs text-muted-foreground">or</span>
+                  <div className="h-px flex-1 bg-border" />
+                </div>
 
-            <Button
-              type="button"
-              variant="outline"
-              className="mt-4 w-full"
-              onClick={handleGoogleLogin}
-              disabled={loading || googleLoading}
-            >
-              {googleLoading ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden>
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.96l3.66-2.84z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
-                  />
-                </svg>
-              )}
-              Continue with Google
-            </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-4 w-full"
+                  onClick={handleGoogleLogin}
+                  disabled={loading || googleLoading}
+                >
+                  {googleLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24" aria-hidden>
+                      <path
+                        fill="#4285F4"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.75h3.57c2.08-1.92 3.28-4.74 3.28-8.07z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.75c-.99.66-2.25 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M5.84 14.12c-.22-.66-.35-1.36-.35-2.12s.13-1.46.35-2.12V7.04H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.96l3.66-2.84z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.04l3.66 2.84C6.71 7.31 9.14 5.38 12 5.38z"
+                      />
+                    </svg>
+                  )}
+                  Continue with Google
+                </Button>
+              </>
+            )}
 
             <div className="mt-4 flex justify-between text-sm">
               <button
@@ -375,6 +425,8 @@ function AuthPage() {
             </div>
           </>
         )}
+
+        <LegalLinks className="mt-6 justify-center text-xs text-muted-foreground" />
       </div>
     </div>
   );
