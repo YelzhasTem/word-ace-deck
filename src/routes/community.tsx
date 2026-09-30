@@ -589,6 +589,27 @@ function CommunityPage() {
           </div>
         )}
 
+        {searchTarget === "all" &&
+          !activeSearch &&
+          !homeError &&
+          home &&
+          home.trending.length +
+            home.popular.length +
+            home.newest.length +
+            home.topRated.length +
+            home.recommended.length ===
+            0 && (
+            <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+              <p className="font-display text-xl font-semibold">No public decks yet</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Be the first to share one: open any of your decks and choose Publish.
+              </p>
+              <Button asChild className="mt-5 rounded-full">
+                <Link to="/decks">Go to my decks</Link>
+              </Button>
+            </div>
+          )}
+
         {searchTarget === "all" && !activeSearch && !homeError && home && (
           <div className="space-y-10">
             <Section
