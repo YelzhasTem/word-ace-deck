@@ -38,6 +38,15 @@ function TypePage() {
   );
   const baseQueueKey = baseQueue.map((card) => card.id).join("|");
   const baseQueueIds = () => (baseQueueKey ? baseQueueKey.split("|") : []);
+  // Answers change mastery and with it the priority order. A refetch (for example when the app
+  // comes back from the background) must not restart the run, so only a change in the deck's
+  // set of cards does.
+  const cardIdsKey = deck
+    ? deck.cards
+        .map((card) => card.id)
+        .sort()
+        .join("|")
+    : "";
   const buildOrderIds = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
   const [orderIds, setOrderIds] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
@@ -63,7 +72,7 @@ function TypePage() {
     setWrongIds([]);
     setStartedAt(Date.now());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deckId, baseQueueKey]);
+  }, [deckId, cardIdsKey]);
 
   const queue = useMemo<Card[]>(() => {
     const byId = new Map(baseQueue.map((card) => [card.id, card]));

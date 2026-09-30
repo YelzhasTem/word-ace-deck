@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -61,6 +61,10 @@ import {
   LEARNING_LANGUAGE_OPTIONS,
   type LearningLanguage,
 } from "@/lib/languages";
+import {
+  loadDeckLanguagePreference,
+  saveDeckLanguagePreference,
+} from "@/lib/deck-language-preference";
 import { getUserErrorMessage } from "@/lib/user-errors";
 import { shrinkImageToFit } from "@/lib/image-resize";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
@@ -227,18 +231,29 @@ function Home() {
     result: Awaited<ReturnType<typeof genDeckFromUrl>>;
   } | null>(null);
 
+  // The server render cannot see the device languages, so the remembered or guessed pair is
+  // applied after mount.
+  useEffect(() => {
+    const preferred = loadDeckLanguagePreference();
+    setTargetLanguage(preferred.targetLanguage);
+    setDefinitionLanguageCode(preferred.definitionLanguage);
+  }, []);
+
   const handleTargetLanguageChange = (value: LearningLanguage) => {
+    const definition =
+      value === definitionLanguageCode
+        ? getDefinitionLanguageFor(value).code
+        : definitionLanguageCode;
     setTargetLanguage(value);
-    if (value === definitionLanguageCode) {
-      setDefinitionLanguageCode(getDefinitionLanguageFor(value).code);
-    }
+    setDefinitionLanguageCode(definition);
+    saveDeckLanguagePreference({ targetLanguage: value, definitionLanguage: definition });
   };
 
   const handleDefinitionLanguageChange = (value: LearningLanguage) => {
+    const target = value === targetLanguage ? getDefinitionLanguageFor(value).code : targetLanguage;
     setDefinitionLanguageCode(value);
-    if (value === targetLanguage) {
-      setTargetLanguage(getDefinitionLanguageFor(value).code);
-    }
+    setTargetLanguage(target);
+    saveDeckLanguagePreference({ targetLanguage: target, definitionLanguage: value });
   };
 
   const handleUrlGenerate = async () => {
@@ -1220,7 +1235,7 @@ function Home() {
                           <select
                             value={aiLevel}
                             onChange={(e) => setAiLevel(e.target.value)}
-                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring md:text-sm"
                           >
                             {["A1", "A2", "B1", "B2", "C1", "C2"].map((l) => (
                               <option key={l} value={l}>
@@ -1474,8 +1489,8 @@ function Home() {
                         </div>
                       </Link>
 
-                      <div className="mt-5 flex items-center justify-between">
-                        <div className="flex items-center gap-2">
+                      <div className="mt-5 flex items-start justify-between gap-2">
+                        <div className="flex min-w-0 flex-wrap items-center gap-2">
                           <Link
                             to="/study/$deckId"
                             params={{ deckId: deck.id }}

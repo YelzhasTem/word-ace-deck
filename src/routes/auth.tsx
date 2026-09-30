@@ -167,7 +167,11 @@ function AuthPage() {
           toast.success("Account created.");
           await navigate({ to: "/dashboard" });
         } else {
-          toast.success("Account created. Check your email to confirm it.");
+          // Supabase gives the same answer when the email already has an account, so the message
+          // covers both cases without revealing which one it is.
+          toast.success(
+            "Check your email to confirm your account. If you already have an account, sign in instead.",
+          );
           switchMode("login");
         }
       } else {
