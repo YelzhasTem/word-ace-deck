@@ -471,7 +471,7 @@ function CommunityPage() {
               aria-label="Sort results"
               value={sort}
               onChange={(e) => setSort(e.target.value)}
-              className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+              className="h-10 rounded-md border border-input bg-background px-3 text-base md:text-sm"
             >
               <option value="popular">Popularity</option>
               <option value="rating">Rating</option>

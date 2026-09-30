@@ -7,7 +7,10 @@
 
 ## Что нужно
 
-- Mac с Xcode 16 или новее и выбранным Apple ID (Xcode → Settings → Accounts).
+- Mac с Xcode 26 или новее и выбранным Apple ID (Xcode → Settings → Accounts). С 28 апреля 2026 года
+  App Store Connect принимает только сборки из Xcode 26+. Xcode 26.0–26.3 работает на macOS Sequoia 15.6
+  и новее, Xcode 26.4.1–26.6 на macOS Tahoe 26.2+, Xcode 27 на macOS Tahoe 26.6+.
+- Node.js 22 или новее (этого требует Capacitor 8).
 - Активный аккаунт Apple Developer Program.
 - Приложение в App Store Connect с Bundle ID из `capacitor.config.ts` (`com.yelzhastem.memora`).
   Если Bundle ID другой, поменяйте `appId` и `PRODUCT_BUNDLE_IDENTIFIER` в Xcode.
@@ -32,6 +35,16 @@ npm run ios:open      # открывает проект в Xcode
 5. В открывшемся Organizer: **Distribute App → App Store Connect → Upload**.
 6. Через 10–30 минут сборка появится в App Store Connect → TestFlight. Её можно поставить себе
    через TestFlight, затем выбрать в карточке версии для ревью.
+
+## Перед первой отправкой на ревью
+
+- Supabase → Authentication → SMTP: включить свою почту (например, Gmail с паролем приложения).
+  Встроенная почта Supabase пишет только участникам команды проекта и не больше 2 писем в час,
+  поэтому без этого новые пользователи не получат письмо для подтверждения email и сброса пароля.
+- Supabase → Authentication → URL Configuration: Site URL `https://<домен>`, в Redirect URLs
+  добавить `https://<домен>/**`.
+- Аккаунт владельца должен видеть пункт Moderation в меню (строка с ролью `admin` в `user_roles`):
+  Apple требует разбирать жалобы в течение 24 часов.
 
 ## Карточка в App Store Connect
 

@@ -213,7 +213,11 @@ export function useDecks() {
       requireOnline();
       return deleteDeckFn({ data: { id } });
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      // Collection pages list their decks, so a deleted deck must disappear there too.
+      queryClient.invalidateQueries({ queryKey: ["my-collections"] });
+    },
     onError: onError("Could not delete"),
   });
 

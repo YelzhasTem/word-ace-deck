@@ -18,6 +18,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import { AuthGate } from "@/components/AuthGate";
 import { playButtonSound } from "@/lib/sounds";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { AiConsentDialog } from "@/components/AiConsentDialog";
 import { supabase } from "@/integrations/supabase/client";
 
 const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password", "/privacy", "/terms", "/support"]);
@@ -194,6 +195,7 @@ function RootComponent() {
         </AuthGate>
         <OfflineBanner />
         <RecallNotifier />
+        <AiConsentDialog />
         <Toaster />
       </LanguageProvider>
     </QueryClientProvider>
