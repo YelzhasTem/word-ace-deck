@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E6DDFF"/></linearGradient><linearGradient id="cd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9063FF"/><stop offset="1" stop-color="#5B1FE8"/></linearGradient><filter id="sh" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="24" stdDeviation="28" flood-color="#5B1FE8" flood-opacity="0.45"/></filter></defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024"><defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1B1240"/><stop offset="1" stop-color="#0A0720"/></linearGradient>
+<linearGradient id="cd" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8F5CFF"/><stop offset="1" stop-color="#E0479E"/></linearGradient>
+<filter id="gl" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="30" stdDeviation="50" flood-color="#8F5CFF" flood-opacity="0.55"/></filter></defs>
 <rect width="1024" height="1024" fill="url(#bg)"/>
-<g transform="rotate(-11 512 540)"><rect x="282" y="262" width="420" height="540" rx="76" fill="#5B1FE8" fill-opacity="0.18"/></g>
-<g transform="rotate(7 512 512)" filter="url(#sh)"><rect x="322" y="232" width="420" height="540" rx="76" fill="url(#cd)"/><polyline points="422,612 422,392 532,512 642,392 642,612" fill="none" stroke="#FFFFFF" stroke-width="66" stroke-linecap="round" stroke-linejoin="round"/></g>
-<path d="M770,200 C778,250 794,266 844,274 C794,282 778,298 770,348 C762,298 746,282 696,274 C746,266 762,250 770,200 Z" fill="#FFC83D"/></svg>
+<g transform="rotate(-8 512 512)" filter="url(#gl)"><rect x="302" y="232" width="420" height="560" rx="84" fill="url(#cd)"/>
+<polyline points="412,622 412,402 512,512 612,402 612,622" fill="none" stroke="#FFFFFF" stroke-width="64" stroke-linecap="round" stroke-linejoin="round"/></g></svg>
