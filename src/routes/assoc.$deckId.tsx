@@ -16,6 +16,7 @@ import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { OFFLINE_AI_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import { SiteHeader } from "@/components/SiteHeader";
+import { StudyDeckFallback } from "@/components/StudyDeckFallback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -50,7 +51,7 @@ function shuffleList<T>(items: T[]): T[] {
 
 function AssocPage() {
   const { deckId } = Route.useParams();
-  const { deck } = useDeck(deckId);
+  const { deck, isLoading, isFetching, isError, refetchDecks } = useDeck(deckId);
   const gen = useServerFn(generateAssociation);
   const isOnline = useOnlineStatus();
   const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
@@ -63,6 +64,8 @@ function AssocPage() {
   const [orderIds, setOrderIds] = useState<string[]>([]);
   const [reverseSides, setReverseSides] = useState(false);
   const [answerPending, setAnswerPending] = useState(false);
+  const [finished, setFinished] = useState(false);
+  const [helpedCount, setHelpedCount] = useState(0);
 
   const deckCardIds = deck?.cards.map((card) => card.id).join("|") ?? "";
   const buildOrderIds = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
@@ -73,6 +76,8 @@ function AssocPage() {
     setIdx(0);
     setRevealed(false);
     setMy("");
+    setFinished(false);
+    setHelpedCount(0);
     void prepareStudySession(deck.id, "assoc", undefined, studyContentVersion(deck.cards)).catch(
       (sessionError: unknown) =>
         setError(
@@ -104,15 +109,11 @@ function AssocPage() {
 
   if (!deck) {
     return (
-      <div className="min-h-screen">
-        <SiteHeader />
-        <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">
-            Home
-          </Link>
-        </main>
-      </div>
+      <StudyDeckFallback
+        loading={isLoading || (isFetching && !isError)}
+        error={isError}
+        onRetry={() => void refetchDecks()}
+      />
     );
   }
 
@@ -122,6 +123,41 @@ function AssocPage() {
         <SiteHeader />
         <main className="mx-auto max-w-3xl px-6 py-20 text-center text-muted-foreground">
           This deck has no cards.
+        </main>
+      </div>
+    );
+  }
+
+  if (finished) {
+    return (
+      <div className="min-h-screen">
+        <SiteHeader />
+        <main className="mx-auto max-w-3xl px-6 py-20">
+          <div className="rounded-3xl border border-border bg-card p-12 text-center">
+            <h2 className="font-display text-3xl font-semibold">Run complete</h2>
+            <p className="mt-3 text-muted-foreground">
+              Associations helped with {helpedCount} of {total} words.
+            </p>
+            <div className="mt-8 flex justify-center gap-3">
+              <Button asChild variant="outline" className="rounded-full">
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>
+                  Back to deck
+                </Link>
+              </Button>
+              <Button
+                className="rounded-full"
+                onClick={() => {
+                  setOrderIds(buildOrderIds(deck.cards.map((card) => card.id)));
+                  setIdx(0);
+                  setHelpedCount(0);
+                  setRevealed(false);
+                  setFinished(false);
+                }}
+              >
+                Go again
+              </Button>
+            </div>
+          </div>
         </main>
       </div>
     );
@@ -205,8 +241,14 @@ function AssocPage() {
       });
       if (helped) playCorrectSound();
       else playWrongSound();
-      if (helped) recordStreakToday();
-      go(1);
+      if (helped) {
+        recordStreakToday();
+        setHelpedCount((count) => count + 1);
+      }
+      // The last card ends the run instead of staying on screen, so it
+      // cannot be marked again and again.
+      if (idx >= total - 1) setFinished(true);
+      else go(1);
     } catch (answerError) {
       setError(answerError instanceof Error ? answerError.message : "Could not save this answer");
     } finally {

@@ -221,7 +221,13 @@ function CommunityPage() {
   const [sort, setSort] = useState("popular");
   const [searchTarget, setSearchTarget] = useState<"all" | "decks" | "collections">("all");
   const [mode, setMode] = useState<"search" | "trending" | "following" | "saved">("search");
-  const [loading, setLoading] = useState(true);
+  const [homeLoading, setHomeLoading] = useState(true);
+  const [homeError, setHomeError] = useState("");
+  const [homeAttempt, setHomeAttempt] = useState(0);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [searchAttempt, setSearchAttempt] = useState(0);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [reportingCollectionId, setReportingCollectionId] = useState<string | null>(null);
   const [reportReason, setReportReason] = useState("");
   const [reportError, setReportError] = useState("");
@@ -234,25 +240,56 @@ function CommunityPage() {
   const collectionCopyActive = useRef(false);
 
   useEffect(() => {
+    let active = true;
+    setHomeLoading(true);
+    setHomeError("");
     loadHome()
-      .then(setHome)
-      .finally(() => setLoading(false));
-  }, [loadHome]);
+      .then((res) => {
+        if (active) setHome(res);
+      })
+      .catch((error: unknown) => {
+        if (active) {
+          setHomeError(error instanceof Error ? error.message : "Could not load the marketplace");
+        }
+      })
+      .finally(() => {
+        if (active) setHomeLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [loadHome, homeAttempt]);
+
+  // Wait for a pause in typing before searching, instead of one request per key.
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setDebouncedQuery("");
+      return;
+    }
+    const timer = window.setTimeout(() => setDebouncedQuery(trimmed), 300);
+    return () => window.clearTimeout(timer);
+  }, [query]);
 
   const activeSearch = useMemo(
-    () => Boolean(query) || mode === "following" || mode === "saved",
-    [query, mode],
+    () => Boolean(debouncedQuery) || mode === "following" || mode === "saved",
+    [debouncedQuery, mode],
   );
 
   useEffect(() => {
-    const shouldSearch = Boolean(query) || mode === "following" || mode === "saved";
-    if (!shouldSearch) {
+    if (!activeSearch) {
       setResults([]);
       setCollectionResults([]);
+      setSearchError("");
+      setSearchLoading(false);
       return;
     }
 
-    setLoading(true);
+    // Only the latest search may update the results; older responses are dropped.
+    let active = true;
+    const query = debouncedQuery;
+    setSearchLoading(true);
+    setSearchError("");
 
     const deckSearch =
       searchTarget === "decks" || searchTarget === "all"
@@ -279,11 +316,34 @@ function CommunityPage() {
 
     Promise.all([deckSearch, collectionSearch])
       .then(([deckRes, collectionRes]) => {
+        if (!active) return;
         setResults(deckRes.decks as CommunityDeck[]);
         setCollectionResults(collectionRes.collections as CommunityCollection[]);
       })
-      .finally(() => setLoading(false));
-  }, [activeSearch, mode, query, searchCollections, searchDecks, sort, searchTarget]);
+      .catch((error: unknown) => {
+        if (!active) return;
+        setResults([]);
+        setCollectionResults([]);
+        setSearchError(error instanceof Error ? error.message : "Search failed");
+      })
+      .finally(() => {
+        if (active) setSearchLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [
+    activeSearch,
+    debouncedQuery,
+    mode,
+    searchCollections,
+    searchDecks,
+    sort,
+    searchTarget,
+    searchAttempt,
+  ]);
+
+  const loading = activeSearch ? searchLoading : homeLoading;
 
   const onCopyDeck = async (deckId: string) => {
     if (deckCopyActive.current) return;
@@ -401,12 +461,14 @@ function CommunityPage() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 className="pl-10"
+                aria-label="Search public decks and collections"
                 placeholder="IELTS Vocabulary, Business English, Programming Terms..."
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
             <select
+              aria-label="Sort results"
               value={sort}
               onChange={(e) => setSort(e.target.value)}
               className="h-10 rounded-md border border-input bg-background px-3 text-sm"
@@ -423,6 +485,8 @@ function CommunityPage() {
             {(["search", "trending", "following", "saved"] as const).map((tab) => (
               <button
                 key={tab}
+                type="button"
+                aria-pressed={mode === tab}
                 onClick={() => setMode(tab)}
                 className={`rounded-full px-3 py-1.5 text-sm transition-colors ${mode === tab ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
               >
@@ -439,6 +503,7 @@ function CommunityPage() {
               <button
                 key={target}
                 type="button"
+                aria-pressed={searchTarget === target}
                 onClick={() => setSearchTarget(target)}
                 className={`rounded-full px-3 py-1.5 text-sm transition-colors ${searchTarget === target ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground hover:text-foreground"}`}
               >
@@ -458,10 +523,21 @@ function CommunityPage() {
           </div>
         )}
 
-        {!loading && (Boolean(query) || mode === "following" || mode === "saved") && (
+        {!loading && activeSearch && (
           <section className="space-y-4">
             <h2 className="font-display text-2xl font-bold tracking-tight">Results</h2>
-            {results.length === 0 && collectionResults.length === 0 ? (
+            {searchError ? (
+              <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+                <p className="text-muted-foreground">Could not search right now. {searchError}</p>
+                <Button
+                  variant="outline"
+                  className="mt-4 rounded-full"
+                  onClick={() => setSearchAttempt((n) => n + 1)}
+                >
+                  Try again
+                </Button>
+              </div>
+            ) : results.length === 0 && collectionResults.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
                 No public decks or collections found.
               </div>
@@ -500,7 +576,20 @@ function CommunityPage() {
           </section>
         )}
 
-        {searchTarget === "all" && !query && mode !== "following" && mode !== "saved" && home && (
+        {searchTarget === "all" && !activeSearch && !homeLoading && homeError && (
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+            <p className="text-muted-foreground">Could not load the marketplace. {homeError}</p>
+            <Button
+              variant="outline"
+              className="mt-4 rounded-full"
+              onClick={() => setHomeAttempt((n) => n + 1)}
+            >
+              Try again
+            </Button>
+          </div>
+        )}
+
+        {searchTarget === "all" && !activeSearch && !homeError && home && (
           <div className="space-y-10">
             <Section
               title="Trending Decks"
@@ -535,7 +624,7 @@ function CommunityPage() {
           </div>
         )}
 
-        {searchTarget !== "all" && !query && !loading && (
+        {searchTarget !== "all" && !activeSearch && !loading && (
           <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
             Start typing to search public {searchTarget === "decks" ? "decks" : "collections"}.
           </div>

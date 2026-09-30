@@ -34,7 +34,13 @@ type DeckDetails = {
   copies: number;
   liked: boolean;
   saved: boolean;
+  authorId: string;
+  authorName: string;
+  myRating: number | null;
+  isOwner: boolean;
 };
+
+type PendingAction = "like" | "save" | "rate" | "report";
 
 type PublicCard = { id: string; term: string; definition: string };
 
@@ -53,39 +59,85 @@ function CommunityDeckPage() {
   const [cards, setCards] = useState<PublicCard[]>([]);
   const [reportReason, setReportReason] = useState("");
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [loadAttempt, setLoadAttempt] = useState(0);
   const [duplicating, setDuplicating] = useState(false);
+  const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
+  const actionActive = useRef(false);
   const duplicateActive = useRef(false);
   const duplicateKey = useRef<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+    setLoading(true);
+    setLoadError("");
     loadDetails({ data: { deckId } })
       .then((res) => {
+        if (!active) return;
         setDeck(res.deck as DeckDetails);
         setCards(res.cards as PublicCard[]);
       })
-      .finally(() => setLoading(false));
-  }, [deckId, loadDetails]);
+      .catch((error: unknown) => {
+        if (!active) return;
+        setDeck(null);
+        setLoadError(error instanceof Error ? error.message : "Could not load this deck");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [deckId, loadDetails, loadAttempt]);
 
-  const onLike = async () => {
-    if (!deck) return;
+  // Runs one like/save/rate/report at a time, so a double click sends one request,
+  // and shows the server error instead of failing silently.
+  const runAction = async (
+    action: PendingAction,
+    work: () => Promise<void>,
+    failureMessage: string,
+  ) => {
+    if (!deck || actionActive.current) return;
     if (!isOnline) {
       toast.error(OFFLINE_SAVE_MESSAGE);
       return;
     }
-    const res = await likeDeck({ data: { deckId: deck.id } });
-    setDeck({ ...deck, liked: res.liked, likes: res.likes });
+    actionActive.current = true;
+    setPendingAction(action);
+    try {
+      await work();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : failureMessage);
+    } finally {
+      actionActive.current = false;
+      setPendingAction(null);
+    }
   };
 
-  const onSave = async () => {
-    if (!deck) return;
-    if (!isOnline) {
-      toast.error(OFFLINE_SAVE_MESSAGE);
-      return;
-    }
-    const res = await saveDeck({ data: { deckId: deck.id } });
-    setDeck({ ...deck, saved: res.saved });
-    toast.success(res.saved ? "Saved to your community list." : "Removed from saved decks.");
-  };
+  const onLike = () =>
+    runAction(
+      "like",
+      async () => {
+        if (!deck) return;
+        const res = await likeDeck({ data: { deckId: deck.id } });
+        setDeck((current) =>
+          current ? { ...current, liked: res.liked, likes: res.likes } : current,
+        );
+      },
+      "Could not update your like.",
+    );
+
+  const onSave = () =>
+    runAction(
+      "save",
+      async () => {
+        if (!deck) return;
+        const res = await saveDeck({ data: { deckId: deck.id } });
+        setDeck((current) => (current ? { ...current, saved: res.saved } : current));
+        toast.success(res.saved ? "Saved to your community list." : "Removed from saved decks.");
+      },
+      "Could not update saved decks.",
+    );
 
   const onDuplicate = async () => {
     if (!deck || duplicateActive.current) return;
@@ -111,25 +163,38 @@ function CommunityDeckPage() {
     }
   };
 
-  const onRate = async (rating: number) => {
-    if (!deck) return;
-    if (!isOnline) {
-      toast.error(OFFLINE_SAVE_MESSAGE);
-      return;
-    }
-    const res = await rate({ data: { deckId: deck.id, rating } });
-    setDeck({ ...deck, rating: Number(res.rating.toFixed(1)), ratingCount: res.ratingCount });
-  };
+  const onRate = (rating: number) =>
+    runAction(
+      "rate",
+      async () => {
+        if (!deck) return;
+        const res = await rate({ data: { deckId: deck.id, rating } });
+        setDeck((current) =>
+          current
+            ? {
+                ...current,
+                rating: Number(res.rating.toFixed(1)),
+                ratingCount: res.ratingCount,
+                myRating: rating,
+              }
+            : current,
+        );
+      },
+      "Could not save your rating.",
+    );
 
-  const onReport = async () => {
-    if (!deck || reportReason.trim().length < 3) return;
-    if (!isOnline) {
-      toast.error(OFFLINE_SAVE_MESSAGE);
-      return;
-    }
-    await report({ data: { deckId: deck.id, reason: reportReason.trim() } });
-    setReportReason("");
-    toast.success("Report sent for review.");
+  const onReport = () => {
+    if (reportReason.trim().length < 3) return;
+    return runAction(
+      "report",
+      async () => {
+        if (!deck) return;
+        await report({ data: { deckId: deck.id, reason: reportReason.trim() } });
+        setReportReason("");
+        toast.success("Report sent for review.");
+      },
+      "Could not send the report.",
+    );
   };
 
   if (loading) {
@@ -148,7 +213,19 @@ function CommunityDeckPage() {
       <div className="min-h-screen bg-background">
         <SiteHeader />
         <main className="mx-auto max-w-5xl px-6 py-16 text-center">
-          <h1 className="font-display text-3xl font-bold">Deck not found</h1>
+          <h1 className="font-display text-3xl font-bold">
+            {loadError ? "Could not load this deck" : "Deck not found"}
+          </h1>
+          {loadError && <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>}
+          {loadError && (
+            <Button
+              variant="outline"
+              className="mt-6 mr-2 rounded-full"
+              onClick={() => setLoadAttempt((n) => n + 1)}
+            >
+              Try again
+            </Button>
+          )}
           <Button asChild className="mt-6">
             <Link to="/community">Back to Community</Link>
           </Button>
@@ -172,6 +249,16 @@ function CommunityDeckPage() {
           <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
             <div>
               <h1 className="font-display text-4xl font-bold tracking-tight">{deck.title}</h1>
+              <p className="mt-2 text-sm text-muted-foreground">
+                by{" "}
+                <Link
+                  to="/creator/$userId"
+                  params={{ userId: deck.authorId }}
+                  className="font-medium text-foreground hover:text-primary"
+                >
+                  {deck.authorName}
+                </Link>
+              </p>
               <p className="mt-3 max-w-2xl text-muted-foreground">
                 {deck.description || "No description yet."}
               </p>
@@ -181,7 +268,9 @@ function CommunityDeckPage() {
                 variant="outline"
                 className="rounded-full"
                 onClick={onLike}
-                disabled={!isOnline}
+                disabled={!isOnline || pendingAction !== null}
+                aria-pressed={deck.liked}
+                aria-label={deck.liked ? "Unlike deck" : "Like deck"}
               >
                 <Heart className={`h-4 w-4 ${deck.liked ? "fill-current text-destructive" : ""}`} />{" "}
                 {deck.likes}
@@ -190,7 +279,8 @@ function CommunityDeckPage() {
                 variant="outline"
                 className="rounded-full"
                 onClick={onSave}
-                disabled={!isOnline}
+                disabled={!isOnline || pendingAction !== null}
+                aria-pressed={deck.saved}
               >
                 <Library className="h-4 w-4" /> {deck.saved ? "Saved" : "Save"}
               </Button>
@@ -227,21 +317,33 @@ function CommunityDeckPage() {
             </div>
           </div>
 
-          <div className="mt-6 flex flex-wrap items-center gap-2">
-            <span className="text-sm text-muted-foreground">Rate this deck:</span>
-            {[1, 2, 3, 4, 5].map((value) => (
-              <button
-                key={value}
-                onClick={() => onRate(value)}
-                disabled={!isOnline}
-                className="rounded-full p-1 text-primary hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
-                aria-label={`Rate ${value}`}
-              >
-                <Star className="h-5 w-5" />
-              </button>
-            ))}
-            <span className="text-xs text-muted-foreground">({deck.ratingCount} ratings)</span>
-          </div>
+          {deck.isOwner ? (
+            <p className="mt-6 text-sm text-muted-foreground">
+              {deck.ratingCount} ratings. You can't rate your own deck.
+            </p>
+          ) : (
+            <div className="mt-6 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">
+                {deck.myRating ? "Your rating:" : "Rate this deck:"}
+              </span>
+              {[1, 2, 3, 4, 5].map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onRate(value)}
+                  disabled={!isOnline || pendingAction !== null}
+                  className="rounded-full p-1 text-primary hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label={`Rate ${value}`}
+                  aria-pressed={deck.myRating === value}
+                >
+                  <Star
+                    className={`h-5 w-5 ${deck.myRating && value <= deck.myRating ? "fill-current" : ""}`}
+                  />
+                </button>
+              ))}
+              <span className="text-xs text-muted-foreground">({deck.ratingCount} ratings)</span>
+            </div>
+          )}
         </section>
 
         <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -266,6 +368,7 @@ function CommunityDeckPage() {
             </p>
             <Input
               className="mt-4"
+              aria-label="Reason for reporting this deck"
               placeholder="Reason"
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
@@ -274,7 +377,7 @@ function CommunityDeckPage() {
               variant="outline"
               className="mt-3 w-full rounded-full"
               onClick={onReport}
-              disabled={!isOnline || reportReason.trim().length < 3}
+              disabled={!isOnline || pendingAction !== null || reportReason.trim().length < 3}
             >
               <Flag className="h-4 w-4" /> Report deck
             </Button>

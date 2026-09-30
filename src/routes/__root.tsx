@@ -18,6 +18,7 @@ import { LanguageProvider } from "@/lib/i18n";
 import { AuthGate } from "@/components/AuthGate";
 import { playButtonSound } from "@/lib/sounds";
 import { OfflineBanner } from "@/components/OfflineBanner";
+import { supabase } from "@/integrations/supabase/client";
 
 const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password"]);
 
@@ -152,6 +153,25 @@ function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
   const requireAuth = !isPublicPath(location.pathname);
+
+  // Cached queries (decks, collections, friends) are not keyed by user. Drop
+  // them when the account changes so the next person on a shared browser
+  // never sees the previous account's data while their own loads.
+  useEffect(() => {
+    let currentUserId: string | null | undefined;
+    void supabase.auth.getSession().then(({ data }) => {
+      if (currentUserId === undefined) currentUserId = data.session?.user.id ?? null;
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      const nextUserId = session?.user.id ?? null;
+      const accountChanged =
+        event === "SIGNED_OUT" ||
+        (currentUserId !== undefined && currentUserId !== null && nextUserId !== currentUserId);
+      if (accountChanged) queryClient.clear();
+      currentUserId = nextUserId;
+    });
+    return () => sub.subscription.unsubscribe();
+  }, [queryClient]);
 
   useEffect(() => {
     const handlePointerUp = (event: PointerEvent) => {

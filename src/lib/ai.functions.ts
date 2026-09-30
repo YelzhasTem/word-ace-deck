@@ -21,6 +21,7 @@ import {
   validateImportImage,
 } from "@/lib/image-validation";
 import { httpError } from "@/lib/server-http-error";
+import { splitTranslationAlternatives } from "@/lib/translation-split";
 
 type DeckCard = { term: string; definition: string };
 type DeckPayload = { name?: string; description?: string; cards?: DeckCard[] };
@@ -123,12 +124,7 @@ function cleanText(value: unknown, maxLength: number) {
 function firstTranslation(value: unknown, maxLength = MAX_CARD_DEFINITION) {
   const text = cleanText(value, maxLength);
   if (!text) return "";
-  return (
-    text
-      .split(/\s*(?:[,;/|]|\bor\b|\bили\b)\s*/i)
-      .map((part) => part.trim())
-      .filter(Boolean)[0] ?? ""
-  );
+  return splitTranslationAlternatives(text)[0] ?? "";
 }
 
 function hasCyrillic(value: string) {
@@ -381,7 +377,7 @@ function parseJsonResponse<T>(raw: string, schema: z.ZodType<T>, errorMessage: s
 function uniqueTranslations(values: string[]) {
   const seen = new Set<string>();
   return values
-    .flatMap((value) => cleanText(value, 80).split(/\s*(?:[,;/|]|\bor\b|\bили\b)\s*/i))
+    .flatMap((value) => splitTranslationAlternatives(cleanText(value, 80)))
     .map((value) => cleanText(value, 80).toLowerCase())
     .filter(Boolean)
     .filter((value) => {

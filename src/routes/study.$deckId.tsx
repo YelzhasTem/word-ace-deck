@@ -8,8 +8,9 @@ import { prepareStudySession, studyContentVersion } from "@/lib/study-session";
 import { playCorrectSound, playWrongSound } from "@/lib/sounds";
 import { useDeckShuffleEnabled } from "@/lib/shuffle-settings";
 import { SiteHeader } from "@/components/SiteHeader";
+import { StudyDeckFallback } from "@/components/StudyDeckFallback";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat, Star, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, X, Shuffle, RotateCcw, Repeat, Star } from "lucide-react";
 import { rateDeck } from "@/lib/community.functions";
 
 export const Route = createFileRoute("/study/$deckId")({
@@ -27,7 +28,8 @@ function shuffleList<T>(items: T[]): T[] {
 
 function StudyPage() {
   const { deckId } = Route.useParams();
-  const { deck, markCard, resetProgress } = useDeck(deckId);
+  const { deck, markCard, resetProgress, isLoading, isFetching, isError, refetchDecks } =
+    useDeck(deckId);
   const rateOriginalDeck = useServerFn(rateDeck);
   const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
@@ -40,7 +42,6 @@ function StudyPage() {
   const [sessionWrong, setSessionWrong] = useState(0);
   const [pending, setPending] = useState(false);
   const [saveError, setSaveError] = useState("");
-  const autoResetDeckRef = useRef<string | null>(null);
   const pendingRef = useRef(false);
 
   const queueSource = useMemo(
@@ -52,7 +53,6 @@ function StudyPage() {
   const buildOrder = (ids: string[]) => (shuffleEnabled ? shuffleList(ids) : ids);
 
   useEffect(() => {
-    autoResetDeckRef.current = null;
     setOrder(buildOrder(queueSource));
     setIdx(0);
     setFlipped(false);
@@ -81,21 +81,6 @@ function StudyPage() {
   }, [queueSource]);
 
   useEffect(() => {
-    if (!deck || deck.cards.length === 0) return;
-    const sessionAnswered = sessionCorrect + sessionWrong;
-    const completedBeforeSession = sessionAnswered === 0 && deck.cards.every((card) => card.known);
-
-    if (!completedBeforeSession || autoResetDeckRef.current === deck.id) return;
-
-    autoResetDeckRef.current = deck.id;
-    resetProgress(deck.id);
-    setOrder(buildOrder(deck.cards.map((card) => card.id)));
-    setIdx(0);
-    setFlipped(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deck, resetProgress, sessionCorrect, sessionWrong]);
-
-  useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === " " || e.key === "Shift") {
         if (e.repeat) return;
@@ -122,15 +107,11 @@ function StudyPage() {
 
   if (!deck) {
     return (
-      <div className="min-h-screen">
-        <SiteHeader />
-        <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">
-            Home
-          </Link>
-        </main>
-      </div>
+      <StudyDeckFallback
+        loading={isLoading || (isFetching && !isError)}
+        error={isError}
+        onRetry={() => void refetchDecks()}
+      />
     );
   }
 
@@ -220,6 +201,15 @@ function StudyPage() {
     setFlipped(false);
   };
 
+  const startOver = () => {
+    resetProgress(deck.id);
+    setOrder(buildOrder(deck.cards.map((card) => card.id)));
+    setIdx(0);
+    setFlipped(false);
+    setSessionCorrect(0);
+    setSessionWrong(0);
+  };
+
   const finished = !current && !completedBeforeSession;
 
   const onRateOriginal = async (rating: number) => {
@@ -267,12 +257,9 @@ function StudyPage() {
               size="sm"
               className="rounded-full"
               onClick={() => {
-                resetProgress(deck.id);
-                setOrder(buildOrder(deck.cards.map((card) => card.id)));
-                setIdx(0);
-                setFlipped(false);
-                setSessionCorrect(0);
-                setSessionWrong(0);
+                if (window.confirm("Reset learned marks for every card in this deck?")) {
+                  startOver();
+                }
               }}
             >
               <RotateCcw className="h-4 w-4" /> Reset
@@ -300,11 +287,21 @@ function StudyPage() {
 
         {completedBeforeSession && !current ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
-            <Loader2 className="mx-auto mb-4 h-10 w-10 animate-spin text-accent" />
-            <h2 className="font-display text-3xl font-semibold">Starting a new run</h2>
+            <h2 className="font-display text-3xl font-semibold">You know every card</h2>
             <p className="mt-3 text-muted-foreground">
-              Preparing this deck for another study session.
+              All {total} cards in this deck are marked as learned. Start over to study them again;
+              this clears the learned marks.
             </p>
+            <div className="mt-8 flex justify-center gap-3">
+              <Button asChild variant="outline" className="rounded-full">
+                <Link to="/deck/$deckId" params={{ deckId: deck.id }}>
+                  Back to deck
+                </Link>
+              </Button>
+              <Button className="rounded-full" onClick={startOver}>
+                <RotateCcw className="h-4 w-4" /> Start over
+              </Button>
+            </div>
           </div>
         ) : finished ? (
           <div className="rounded-3xl border border-border bg-card p-12 text-center">
@@ -324,17 +321,7 @@ function StudyPage() {
                   Back to deck
                 </Link>
               </Button>
-              <Button
-                className="rounded-full"
-                onClick={() => {
-                  resetProgress(deck.id);
-                  setOrder(buildOrder(deck.cards.map((card) => card.id)));
-                  setIdx(0);
-                  setFlipped(false);
-                  setSessionCorrect(0);
-                  setSessionWrong(0);
-                }}
-              >
+              <Button className="rounded-full" onClick={startOver}>
                 <RotateCcw className="h-4 w-4" /> Study again
               </Button>
             </div>
@@ -368,12 +355,19 @@ function StudyPage() {
             {/* Card */}
             <div className="flip-scene h-[420px] mb-8">
               <div
+                // A new key per card mounts it unflipped with no transition, so
+                // the next answer is never shown on the back while turning.
+                key={`${idx}:${currentId}`}
                 className={`flip-card cursor-pointer ${flipped ? "is-flipped" : ""}`}
                 onClick={() => setFlipped((f) => !f)}
                 role="button"
                 aria-label="Flip card"
+                aria-pressed={flipped}
               >
-                <div className="flip-face rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
+                <div
+                  aria-hidden={flipped}
+                  className="flip-face rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center"
+                >
                   <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold mb-6">
                     {frontLabel}
                   </span>
@@ -384,7 +378,10 @@ function StudyPage() {
                     Click the card or press Space / Shift to flip
                   </span>
                 </div>
-                <div className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center">
+                <div
+                  aria-hidden={!flipped}
+                  className="flip-face flip-face--back rounded-3xl bg-primary text-primary-foreground shadow-[var(--shadow-card)] flex flex-col items-center justify-center p-10 text-center"
+                >
                   <span className="text-xs uppercase tracking-[0.2em] opacity-70 font-semibold mb-6">
                     {backLabel}
                   </span>
