@@ -6,6 +6,7 @@ import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from "
 import { toast } from "sonner";
 import { AuthGate } from "@/components/AuthGate";
 import { SiteHeader } from "@/components/SiteHeader";
+import { BlockedUsersCard } from "@/components/BlockedUsersCard";
 import { deleteMyAccount } from "@/lib/account.functions";
 import {
   AlertDialog,
@@ -404,6 +405,8 @@ function ProfilePage() {
             </form>
           )}
         </section>
+
+        <BlockedUsersCard />
 
         <section className="mt-6 rounded-2xl border border-destructive/30 bg-card p-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
