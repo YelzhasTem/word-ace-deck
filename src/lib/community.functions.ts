@@ -464,7 +464,18 @@ export const getPublicDeckDetails = createServerFn({ method: "GET" })
       .order("position", { ascending: true });
     if (cardsError) failMarketplace(cardsError);
 
-    return { deck: meta, cards: cards ?? [] };
+    const { data: myRating, error: myRatingError } = await supabase
+      .from("deck_ratings")
+      .select("rating")
+      .eq("deck_id", deck.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (myRatingError) failMarketplace(myRatingError);
+
+    return {
+      deck: { ...meta, myRating: myRating?.rating ?? null, isOwner: deck.user_id === userId },
+      cards: cards ?? [],
+    };
   });
 
 export const updateDeckPublishing = createServerFn({ method: "POST" })
@@ -665,8 +676,9 @@ export const getCreatorProfile = createServerFn({ method: "GET" })
       .from("profiles")
       .select("user_id, username, display_name, avatar_url")
       .eq("user_id", data.userId)
-      .single();
+      .maybeSingle();
     if (profileError) throw new Error(profileError.message);
+    if (!profile) throw new Error("Creator not found");
 
     const { data: decks, error: decksError } = await supabase
       .from("decks")
@@ -700,6 +712,7 @@ export const getCreatorProfile = createServerFn({ method: "GET" })
         totalLikes: publicDecks.reduce((sum, deck) => sum + deck.likes, 0),
         followers: followers ?? 0,
         followed: !!followed,
+        isSelf: data.userId === userId,
       },
       decks: publicDecks,
     };

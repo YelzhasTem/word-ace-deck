@@ -1499,7 +1499,7 @@ function Home() {
                         </div>
                         <button
                           onClick={() => setDeleteDeckId(deck.id)}
-                          className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+                          className="h-9 w-9 inline-flex items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100"
                           aria-label={t("home.deleteDeck")}
                         >
                           <Trash2 className="h-4 w-4" />

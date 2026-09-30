@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { SiteHeader } from "@/components/SiteHeader";
+import { StudyDeckFallback } from "@/components/StudyDeckFallback";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Check, X, Hourglass, RotateCcw, Repeat, Shuffle } from "lucide-react";
@@ -33,8 +34,8 @@ function shuffleList<T>(items: T[]): T[] {
 
 function RecallPage() {
   const { deckId } = Route.useParams();
-  const { deck } = useDeck(deckId);
-  const [enabled] = useDeckDelayedRecallEnabled(deckId);
+  const { deck, isLoading, isFetching, isError, refetchDecks } = useDeck(deckId);
+  const [enabled, , recallSettingsReady] = useDeckDelayedRecallEnabled(deckId);
   const [shuffleEnabled, setShuffleEnabled] = useDeckShuffleEnabled(deckId);
 
   const [queueIds, setQueueIds] = useState<string[]>([]);
@@ -124,20 +125,20 @@ function RecallPage() {
 
   if (!deck) {
     return (
-      <div className="min-h-screen">
-        <SiteHeader />
-        <main className="mx-auto max-w-3xl px-6 py-20 text-center">
-          <h1 className="font-display text-3xl">Deck not found</h1>
-          <Link to="/" className="mt-6 inline-block text-accent underline">
-            Home
-          </Link>
-        </main>
-      </div>
+      <StudyDeckFallback
+        loading={isLoading || (isFetching && !isError)}
+        error={isError}
+        onRetry={() => void refetchDecks()}
+      />
     );
   }
 
   const learningLanguage = getLearningLanguageOption(deck.targetLanguage);
   const definitionLanguage = getDefinitionLanguageFor(deck.targetLanguage, deck.definitionLanguage);
+
+  if (!enabled && !recallSettingsReady) {
+    return <StudyDeckFallback loading error={false} onRetry={() => undefined} />;
+  }
 
   if (!enabled) {
     return (

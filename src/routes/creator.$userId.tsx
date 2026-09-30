@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Heart, Star, Users } from "lucide-react";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 import { getCreatorProfile, toggleCreatorFollow } from "@/lib/community.functions";
 import { UserSafetyActions } from "@/components/UserSafetyActions";
 
@@ -18,6 +19,7 @@ type CreatorProfile = {
   totalLikes: number;
   followers: number;
   followed: boolean;
+  isSelf: boolean;
 };
 
 type CreatorDeck = {
@@ -36,29 +38,55 @@ function CreatorProfilePage() {
   const followCreator = useServerFn(toggleCreatorFollow);
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [decks, setDecks] = useState<CreatorDeck[]>([]);
+  const [loadError, setLoadError] = useState("");
+  const [followPending, setFollowPending] = useState(false);
 
   useEffect(() => {
-    loadProfile({ data: { userId } }).then((res) => {
-      setProfile(res.profile as CreatorProfile);
-      setDecks(res.decks as CreatorDeck[]);
-    });
+    let active = true;
+    setProfile(null);
+    setLoadError("");
+    loadProfile({ data: { userId } })
+      .then((res) => {
+        if (!active) return;
+        setProfile(res.profile as CreatorProfile);
+        setDecks(res.decks as CreatorDeck[]);
+      })
+      .catch((error: unknown) => {
+        if (!active) return;
+        setLoadError(error instanceof Error ? error.message : "Could not load this creator");
+      });
+    return () => {
+      active = false;
+    };
   }, [loadProfile, userId]);
 
   const onFollow = async () => {
-    if (!profile) return;
-    const res = await followCreator({ data: { creatorId: profile.userId } });
-    setProfile({
-      ...profile,
-      followed: res.followed,
-      followers: profile.followers + (res.followed ? 1 : -1),
-    });
+    if (!profile || profile.isSelf || followPending) return;
+    setFollowPending(true);
+    try {
+      const res = await followCreator({ data: { creatorId: profile.userId } });
+      const delta = res.followed === profile.followed ? 0 : res.followed ? 1 : -1;
+      setProfile({ ...profile, followed: res.followed, followers: profile.followers + delta });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update follow");
+    } finally {
+      setFollowPending(false);
+    }
   };
 
   return (
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-6 py-10">
-        {!profile ? (
+        {loadError ? (
+          <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+            <p className="font-display text-2xl">Creator not available</p>
+            <p className="mt-2 text-sm text-muted-foreground">{loadError}</p>
+            <Link to="/community" className="mt-4 inline-block text-primary underline">
+              Back to Community
+            </Link>
+          </div>
+        ) : !profile ? (
           <div className="rounded-2xl border border-dashed border-border p-10 text-center text-muted-foreground">
             Loading creator...
           </div>
@@ -79,9 +107,11 @@ function CreatorProfilePage() {
                     className="mt-4"
                   />
                 </div>
-                <Button className="rounded-full" onClick={onFollow}>
-                  {profile.followed ? "Following" : "Follow creator"}
-                </Button>
+                {!profile.isSelf && (
+                  <Button className="rounded-full" onClick={onFollow} disabled={followPending}>
+                    {profile.followed ? "Following" : "Follow creator"}
+                  </Button>
+                )}
               </div>
               <div className="mt-8 grid gap-3 sm:grid-cols-4">
                 <div className="rounded-2xl border border-border bg-background px-4 py-3">
