@@ -62,6 +62,7 @@ import {
   type LearningLanguage,
 } from "@/lib/languages";
 import { getUserErrorMessage } from "@/lib/user-errors";
+import { shrinkImageToFit } from "@/lib/image-resize";
 import { OFFLINE_AI_MESSAGE, OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
 import { cn } from "@/lib/utils";
 import { createAiIdempotencyKey, executeAiRequest } from "@/lib/ai-client";
@@ -456,17 +457,17 @@ function Home() {
       setImportError("Upload a PNG, JPG, or WEBP image.");
       return;
     }
-    if (file.size > MAX_IMPORT_IMAGE_BYTES) {
-      setImportError("Image must be 2.5 MB or smaller.");
-      return;
-    }
 
     setImportMode("image");
     setImportError("");
     setImportImageName(file.name);
     const idempotencyKey = createAiIdempotencyKey();
     try {
-      const dataUrl = await readFileAsDataUrl(file);
+      // Large photos (most iPhone camera shots) are resized instead of rejected.
+      const image = await shrinkImageToFit(file, MAX_IMPORT_IMAGE_BYTES);
+      if (!image) throw new Error("Image must be 2.5 MB or smaller.");
+      const mimeType: ImportImageMimeType = image === file ? file.type : "image/jpeg";
+      const dataUrl = await readFileAsDataUrl(image);
       const imageBase64 = dataUrl.split(",")[1] ?? dataUrl;
       const result = await executeAiRequest(
         () =>
@@ -474,7 +475,7 @@ function Home() {
             data: {
               idempotencyKey,
               imageBase64,
-              mimeType: file.type,
+              mimeType,
               targetLanguage,
               definitionLanguage: definitionLanguage.code,
             },

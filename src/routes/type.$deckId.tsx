@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDeck, type Card } from "@/lib/decks";
 import { getDefinitionLanguageFor, getLearningLanguageOption } from "@/lib/languages";
 import { recordStreakToday } from "@/lib/streak";
@@ -43,6 +43,7 @@ function TypePage() {
   const [idx, setIdx] = useState(0);
   const [input, setInput] = useState("");
   const [verdict, setVerdict] = useState<null | "ok" | "miss">(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [right, setRight] = useState(0);
   const [wrong, setWrong] = useState(0);
   const [wrongIds, setWrongIds] = useState<string[]>([]);
@@ -154,6 +155,14 @@ function TypePage() {
     setSaveError("");
     setInput("");
     setIdx((i) => i + 1);
+  };
+  // Keep the answer field focused when a button is tapped, so the phone keyboard stays open.
+  const keepInputFocus = (e: React.MouseEvent) => e.preventDefault();
+  const nextAndFocus = () => {
+    const hasMore = idx + 1 < total;
+    next();
+    // Focusing inside the tap handler lets iOS reopen the keyboard if it closed anyway.
+    if (hasMore) inputRef.current?.focus();
   };
   const restart = () => {
     setOrderIds(buildOrderIds(baseQueueIds()));
@@ -303,12 +312,25 @@ function TypePage() {
             </div>
 
             <form onSubmit={submit} className="space-y-3">
+              {/* Not disabled after Check: disabling blurs the field and closes the phone keyboard
+                  on every card. Edits are ignored instead, and Enter moves to the next card. */}
               <Input
+                ref={inputRef}
                 autoFocus
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => {
+                  if (!verdict && !pending) setInput(e.target.value);
+                }}
                 placeholder={answerPlaceholder}
-                disabled={!!verdict || pending}
+                aria-readonly={!!verdict || pending}
+                onKeyDown={(e) => {
+                  if (e.key !== "Enter" || e.nativeEvent.isComposing) return;
+                  if (verdict) {
+                    // Enter after Check moves to the next card.
+                    e.preventDefault();
+                    nextAndFocus();
+                  }
+                }}
                 className="h-14 text-lg rounded-2xl"
               />
               {verdict === "ok" && (
@@ -329,11 +351,17 @@ function TypePage() {
                     type="submit"
                     className="rounded-full"
                     disabled={!input.trim() || pending}
+                    onMouseDown={keepInputFocus}
                   >
                     {pending ? "Checking..." : "Check"}
                   </Button>
                 ) : (
-                  <Button type="button" className="rounded-full" onClick={next}>
+                  <Button
+                    type="button"
+                    className="rounded-full"
+                    onMouseDown={keepInputFocus}
+                    onClick={nextAndFocus}
+                  >
                     {idx + 1 < total ? "Next" : "Finish"}
                   </Button>
                 )}

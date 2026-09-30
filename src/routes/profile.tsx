@@ -25,6 +25,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { getUserErrorMessage } from "@/lib/user-errors";
+import { shrinkImageToFit } from "@/lib/image-resize";
 
 export const Route = createFileRoute("/profile")({
   head: () => ({
@@ -148,7 +149,7 @@ function ProfilePage() {
 
   const avatarFallback = (username || displayName || "ME").slice(0, 2).toUpperCase();
 
-  const handleAvatarChange = (event: ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     if (!file) return;
 
@@ -157,12 +158,14 @@ function ProfilePage() {
       return;
     }
 
-    if (file.size > MAX_AVATAR_SIZE) {
+    // Large photos (most iPhone camera shots) are resized instead of rejected.
+    const image = await shrinkImageToFit(file, MAX_AVATAR_SIZE, 1024);
+    if (!image) {
       toast.error("Avatar image must be 2 MB or smaller.");
       return;
     }
 
-    setAvatarFile(file);
+    setAvatarFile(image);
   };
 
   const uploadAvatar = async (userId: string) => {
