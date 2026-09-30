@@ -3,6 +3,7 @@ import { useCallback, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { useDecks } from "@/lib/decks";
 import { SiteHeader } from "@/components/SiteHeader";
+import { LegalLinks } from "@/components/LegalLinks";
 import { StreakCard } from "@/components/StreakCard";
 import { ReviewForecastCard } from "@/components/ReviewForecastCard";
 import { Button } from "@/components/ui/button";
@@ -1557,6 +1558,7 @@ function Home() {
 
       <footer className="mx-auto max-w-6xl px-6 py-10 text-center text-sm text-muted-foreground">
         {t("home.footer")}
+        <LegalLinks className="mt-3 justify-center" />
       </footer>
     </div>
   );

@@ -48,6 +48,21 @@ function describeValidationIssue(issue: ValidationIssue) {
   return "Please check the entered values and try again.";
 }
 
+const NETWORK_ERROR_RE = /failed to fetch|load failed|networkerror|network request failed/i;
+const SESSION_ERROR_RE =
+  /^HTTP 401\b|jwt expired|invalid jwt|unauthorized|authentication required/i;
+
+// Browser and transport errors are not written for people; say what happened instead.
+function friendlyTransportMessage(message: string) {
+  if (NETWORK_ERROR_RE.test(message)) {
+    return "No connection to the server. Check your internet connection and try again.";
+  }
+  if (SESSION_ERROR_RE.test(message)) {
+    return "Your session has expired. Please sign in again.";
+  }
+  return null;
+}
+
 export function getUserErrorMessage(error: unknown, fallback: string) {
   const message = error instanceof Error ? error.message : typeof error === "string" ? error : "";
   if (!message) return fallback;
@@ -55,5 +70,5 @@ export function getUserErrorMessage(error: unknown, fallback: string) {
   const issues = parseValidationIssues(message);
   if (issues?.length) return describeValidationIssue(issues[0]);
 
-  return message;
+  return friendlyTransportMessage(message) ?? message.replace(/^HTTP \d{3}:\s*/, "");
 }

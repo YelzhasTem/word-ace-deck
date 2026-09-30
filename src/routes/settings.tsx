@@ -1,5 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/SiteHeader";
+import { LegalLinks } from "@/components/LegalLinks";
+import { DailyReminderCard } from "@/components/DailyReminderCard";
 import { ArrowLeft, Loader2, Save, Settings, UserRound } from "lucide-react";
 import { useT } from "@/lib/i18n";
 import { supabase } from "@/integrations/supabase/client";
@@ -218,13 +220,23 @@ function SettingsPage() {
           </form>
         </section>
 
-        <section className="rounded-3xl border border-border bg-card p-6">
+        <section className="mb-6 rounded-3xl border border-border bg-card p-6">
           <h2 className="font-display text-xl flex items-center gap-2">
             <Settings className="h-5 w-5 text-accent" /> App settings
           </h2>
           <p className="mt-2 text-sm text-muted-foreground max-w-xl">
             Deck-specific study settings are managed from each deck page.
           </p>
+        </section>
+
+        <DailyReminderCard />
+
+        <section className="rounded-3xl border border-border bg-card p-6">
+          <h2 className="font-display text-xl">About</h2>
+          <p className="mt-2 text-sm text-muted-foreground max-w-xl">
+            Policies, help, and account deletion (in Profile).
+          </p>
+          <LegalLinks className="mt-4 text-muted-foreground" />
         </section>
       </main>
     </div>

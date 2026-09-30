@@ -1535,6 +1535,54 @@ export type Database = {
           },
         ];
       };
+      user_blocks: {
+        Row: {
+          blocked_id: string;
+          blocker_id: string;
+          created_at: string;
+        };
+        Insert: {
+          blocked_id: string;
+          blocker_id: string;
+          created_at?: string;
+        };
+        Update: {
+          blocked_id?: string;
+          blocker_id?: string;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      user_reports: {
+        Row: {
+          created_at: string;
+          id: string;
+          reason: string;
+          reported_user_id: string;
+          reporter_id: string;
+          reviewed_at: string | null;
+          status: Database["public"]["Enums"]["report_status"];
+        };
+        Insert: {
+          created_at?: string;
+          id?: string;
+          reason: string;
+          reported_user_id: string;
+          reporter_id: string;
+          reviewed_at?: string | null;
+          status?: Database["public"]["Enums"]["report_status"];
+        };
+        Update: {
+          created_at?: string;
+          id?: string;
+          reason?: string;
+          reported_user_id?: string;
+          reporter_id?: string;
+          reviewed_at?: string | null;
+          status?: Database["public"]["Enums"]["report_status"];
+        };
+        Relationships: [];
+      };
       user_roles: {
         Row: {
           created_at: string;
@@ -1645,6 +1693,7 @@ export type Database = {
         };
         Returns: boolean;
       };
+      is_blocked_by_me: { Args: { _owner_id: string }; Returns: boolean };
       is_public_profile: { Args: { _user_id: string }; Returns: boolean };
       is_study_answer_correct: {
         Args: { _expected: string; _submitted: string };

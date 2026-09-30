@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, Copy, Flag, Heart, Library, Star } from "lucide-react";
 import { toast } from "sonner";
 import { SiteHeader } from "@/components/SiteHeader";
+import { UserSafetyActions } from "@/components/UserSafetyActions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { OFFLINE_SAVE_MESSAGE, useOnlineStatus } from "@/lib/online-status";
@@ -381,6 +382,13 @@ function CommunityDeckPage() {
             >
               <Flag className="h-4 w-4" /> Report deck
             </Button>
+            {deck && !deck.isOwner && (
+              <UserSafetyActions
+                userId={deck.authorId}
+                name={deck.authorName}
+                className="mt-4 border-t border-border pt-4"
+              />
+            )}
           </aside>
         </section>
       </main>

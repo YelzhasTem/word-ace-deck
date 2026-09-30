@@ -6,6 +6,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getCreatorProfile, toggleCreatorFollow } from "@/lib/community.functions";
+import { UserSafetyActions } from "@/components/UserSafetyActions";
 
 export const Route = createFileRoute("/creator/$userId")({
   component: CreatorProfilePage,
@@ -100,6 +101,11 @@ function CreatorProfilePage() {
                   <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">
                     {profile.username}
                   </h1>
+                  <UserSafetyActions
+                    userId={profile.userId}
+                    name={profile.username}
+                    className="mt-4"
+                  />
                 </div>
                 {!profile.isSelf && (
                   <Button className="rounded-full" onClick={onFollow} disabled={followPending}>

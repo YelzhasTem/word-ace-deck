@@ -1,3 +1,5 @@
+import { hapticError, hapticSuccess } from "@/lib/native";
+
 type SoundKind = "button" | "correct" | "wrong";
 
 let audioContext: AudioContext | null = null;
@@ -66,8 +68,10 @@ export function playButtonSound() {
 
 export function playCorrectSound() {
   play("correct");
+  hapticSuccess();
 }
 
 export function playWrongSound() {
   play("wrong");
+  hapticError();
 }

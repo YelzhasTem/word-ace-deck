@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useLocation } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, BookOpen, FolderOpen, Globe2, Save } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { useQueryClient } from "@tanstack/react-query";
@@ -83,8 +83,13 @@ function PublishPage() {
   const [keywords, setKeywords] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // Fill the form once per item. Refetches after saving (or on tab focus) must not
+  // overwrite it: after unpublishing, the item is private again and the preset
+  // would flip the form back to Public, so saving again would republish it.
+  const initializedForRef = useRef<string | null>(null);
   useEffect(() => {
-    if (!selectedItem) return;
+    if (!selectedItem || initializedForRef.current === selectedItem.id) return;
+    initializedForRef.current = selectedItem.id;
     setVisibility(nextVisibility(selectedItem.visibility));
     setKeywords(selectedItem.keywords.join(", "));
   }, [selectedItem]);
