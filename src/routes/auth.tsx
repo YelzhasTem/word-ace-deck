@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { LegalLinks } from "@/components/LegalLinks";
+import { MINIMUM_AGE } from "@/lib/legal";
 import { isNativeApp } from "@/lib/native";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -131,7 +132,9 @@ function AuthPage() {
         }
 
         if (!acceptedTerms) {
-          toast.error("Accept the Terms of Use and Privacy Policy to create an account.");
+          toast.error(
+            `Confirm that you are ${MINIMUM_AGE} or older and accept the Terms of Use and Privacy Policy.`,
+          );
           return;
         }
 
@@ -338,7 +341,7 @@ function AuthPage() {
                   />
                   <Label htmlFor="accept-terms" className="text-sm font-normal leading-snug">
                     <span>
-                      I agree to the{" "}
+                      I am {MINIMUM_AGE} or older and agree to the{" "}
                       <Link to="/terms" className="text-primary underline">
                         Terms of Use
                       </Link>{" "}
@@ -401,6 +404,18 @@ function AuthPage() {
                   )}
                   Continue with Google
                 </Button>
+                <p className="mt-2 text-center text-xs leading-snug text-muted-foreground">
+                  By continuing with Google you confirm that you are {MINIMUM_AGE} or older and
+                  agree to the{" "}
+                  <Link to="/terms" className="text-primary underline">
+                    Terms of Use
+                  </Link>{" "}
+                  and{" "}
+                  <Link to="/privacy" className="text-primary underline">
+                    Privacy Policy
+                  </Link>
+                  .
+                </p>
               </>
             )}
 
