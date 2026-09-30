@@ -59,8 +59,11 @@ npm run ios:open      # открывает проект в Xcode
 - Notes for Review (пример): «Memora is a flashcard app. Users can publish decks to a community;
   every deck and creator page has Report and Block. Reports are reviewed within 24 hours in the
   in-app moderation queue. Account deletion: Profile → Delete account.»
-- App Privacy: Contact Info (email), User Content (колоды, фото), Identifiers (User ID),
-  Usage Data (прогресс учёбы). Всё «Linked to user», «Not used for tracking».
+- App Privacy: Contact Info (Email Address, Name), User Content (Photos or Videos, Other User
+  Content), Identifiers (User ID), Usage Data (Product Interaction). Всё «Linked to user»,
+  «Not used for tracking», цель App Functionality.
+  Те же типы данных записаны в `ios/App/App/PrivacyInfo.xcprivacy` вместе с причиной доступа
+  к датам файлов (C617.1, её требует плагин Filesystem). Если меняете анкету, поменяйте и файл.
 
 ## Если поменялся домен
 
