@@ -294,7 +294,7 @@ function DeepPage() {
               <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
                 {reverseSides ? "Choose the word" : "Choose the translation"}
               </span>
-              <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
+              <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight wrap-anywhere">
                 {current.prompt}
               </p>
             </div>

@@ -77,10 +77,11 @@ function AuthPage() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   // Google blocks sign-in inside embedded web views, and Apple requires Sign in with Apple
   // next to any third-party login, so the native app offers email and password only.
-  const [showGoogle, setShowGoogle] = useState(false);
+  // The app has no landing page either, so "Back home" is shown on the website only.
+  const [isWebsite, setIsWebsite] = useState(false);
 
   useEffect(() => {
-    setShowGoogle(!isNativeApp());
+    setIsWebsite(!isNativeApp());
   }, []);
 
   useEffect(() => {
@@ -244,9 +245,11 @@ function AuthPage() {
     >
       <div className="absolute inset-0 bg-slate-950/70" />
       <div className="relative w-full max-w-md rounded-2xl border border-border bg-card/95 p-8 shadow-sm backdrop-blur-xl">
-        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
-          Back home
-        </Link>
+        {isWebsite && (
+          <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+            Back home
+          </Link>
+        )}
 
         {session ? (
           <div className="mt-6 space-y-5">
@@ -272,7 +275,7 @@ function AuthPage() {
             </h1>
             <p className="mt-1 text-sm text-muted-foreground">
               {mode === "login"
-                ? showGoogle
+                ? isWebsite
                   ? "Sign in with email and password or Google."
                   : "Sign in with your email and password."
                 : "Create an account to save your progress."}
@@ -369,7 +372,7 @@ function AuthPage() {
               </Button>
             </form>
 
-            {showGoogle && (
+            {isWebsite && (
               <>
                 <div className="mt-4 flex items-center gap-3">
                   <div className="h-px flex-1 bg-border" />

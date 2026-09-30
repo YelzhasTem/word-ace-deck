@@ -327,7 +327,7 @@ function AssocPage() {
           <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
             {frontLabel}
           </span>
-          <p className="mt-4 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
+          <p className="mt-4 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight wrap-anywhere">
             {frontText}
           </p>
           {revealed ? (
@@ -418,7 +418,7 @@ function AssocPage() {
           </div>
         </section>
 
-        <div className="flex justify-between gap-3">
+        <div className="flex flex-wrap justify-between gap-3">
           <Button
             variant="outline"
             className="rounded-full"

@@ -166,12 +166,15 @@ export function ReviewForecastCard({ decks }: { decks: Deck[] }) {
         </div>
 
         {top && topDeck ? (
-          <Button asChild className="rounded-full px-5">
+          <Button asChild className="max-w-full rounded-full px-5">
             <Link
               to={top.source === "recall" ? "/recall/$deckId" : "/study/$deckId"}
               params={{ deckId: topDeck.id }}
             >
-              <Play className="h-4 w-4" /> {t("forecast.start")}: {topDeck.name}
+              <Play className="h-4 w-4" />
+              <span className="truncate">
+                {t("forecast.start")}: {topDeck.name}
+              </span>
             </Link>
           </Button>
         ) : (

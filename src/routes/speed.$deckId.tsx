@@ -354,7 +354,7 @@ function SpeedPage() {
             {cur ? (
               <>
                 <div className="rounded-3xl bg-card border border-border/70 shadow-[var(--shadow-card)] p-10 text-center mb-6">
-                  <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight">
+                  <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight wrap-anywhere">
                     {cur.prompt}
                   </p>
                 </div>

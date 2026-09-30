@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { getCreatorProfile, toggleCreatorFollow } from "@/lib/community.functions";
 import { UserSafetyActions } from "@/components/UserSafetyActions";
+import { getUserErrorMessage } from "@/lib/user-errors";
 
 export const Route = createFileRoute("/creator/$userId")({
   component: CreatorProfilePage,
@@ -53,7 +54,7 @@ function CreatorProfilePage() {
       })
       .catch((error: unknown) => {
         if (!active) return;
-        setLoadError(error instanceof Error ? error.message : "Could not load this creator");
+        setLoadError(getUserErrorMessage(error, "Could not load this creator"));
       });
     return () => {
       active = false;
@@ -68,7 +69,7 @@ function CreatorProfilePage() {
       const delta = res.followed === profile.followed ? 0 : res.followed ? 1 : -1;
       setProfile({ ...profile, followed: res.followed, followers: profile.followers + delta });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not update follow");
+      toast.error(getUserErrorMessage(error, "Could not update follow"));
     } finally {
       setFollowPending(false);
     }
@@ -98,7 +99,7 @@ function CreatorProfilePage() {
                   <p className="text-sm font-medium uppercase tracking-[0.14em] text-primary">
                     Creator Profile
                   </p>
-                  <h1 className="mt-2 font-display text-4xl font-bold tracking-tight">
+                  <h1 className="mt-2 font-display text-4xl font-bold tracking-tight wrap-anywhere">
                     {profile.username}
                   </h1>
                   <UserSafetyActions

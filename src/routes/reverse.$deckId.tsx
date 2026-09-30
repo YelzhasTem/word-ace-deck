@@ -384,11 +384,14 @@ function ReversePage() {
                   <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold mb-6">
                     {current!.dir === "fwd" ? "Word" : "Translation"}
                   </span>
-                  <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-foreground">
+                  <p className="font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight text-foreground wrap-anywhere">
                     {front}
                   </p>
-                  <span className="mt-8 text-xs text-muted-foreground">
+                  <span className="mt-8 text-xs text-muted-foreground pointer-coarse:hidden">
                     Think, then click or press Space / Shift to reveal the answer
+                  </span>
+                  <span className="mt-8 hidden text-xs text-muted-foreground pointer-coarse:inline">
+                    Think, then tap the card to reveal the answer
                   </span>
                 </div>
                 <div
@@ -398,7 +401,9 @@ function ReversePage() {
                   <span className="text-xs uppercase tracking-[0.2em] opacity-70 font-semibold mb-6">
                     {current!.dir === "fwd" ? "Translation" : "Word"}
                   </span>
-                  <p className="font-display text-3xl md:text-4xl font-bold leading-snug">{back}</p>
+                  <p className="font-display text-3xl md:text-4xl font-bold leading-snug wrap-anywhere">
+                    {back}
+                  </p>
                 </div>
               </div>
             </div>
@@ -425,7 +430,7 @@ function ReversePage() {
 
             {saveError && <p className="mt-3 text-sm text-destructive">{saveError}</p>}
 
-            <p className="mt-6 text-center text-xs text-muted-foreground">
+            <p className="mt-6 text-center text-xs text-muted-foreground pointer-coarse:hidden">
               <kbd className="px-1.5 py-0.5 rounded bg-secondary">Space</kbd> /{" "}
               <kbd className="px-1.5 py-0.5 rounded bg-secondary">Shift</kbd> — flip ·{" "}
               <kbd className="px-1.5 py-0.5 rounded bg-secondary">←</kbd> do not know ·{" "}

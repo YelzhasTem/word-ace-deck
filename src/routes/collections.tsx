@@ -96,7 +96,7 @@ function CollectionsPage() {
     <div className="min-h-screen bg-background">
       <SiteHeader />
       <main className="mx-auto max-w-6xl px-6 py-10">
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">{t("col.title")}</h1>
             <p className="text-sm text-muted-foreground mt-1">{t("col.subtitle")}</p>
