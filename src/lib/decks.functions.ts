@@ -36,7 +36,11 @@ export const getMyDecks = createServerFn({ method: "GET" })
       .from("cards")
       .select("id, deck_id, term, definition, known, position, created_at")
       .eq("user_id", userId)
-      .order("position", { ascending: true });
+      // Positions can tie (after a delete and an add). Without a tiebreak a refetch, which
+      // happens on every app resume, may return tied cards in a new order and restart a study run.
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
 
     if (decksRes.error) throw new Error(decksRes.error.message);
     if (cardsRes.error) throw new Error(cardsRes.error.message);
