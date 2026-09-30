@@ -75,7 +75,8 @@ function PrivacyPage() {
           <li>
             <strong>Google (Gemini API)</strong> — processes the text, links or images you submit to
             AI features. Only the content of that request is sent; your email and account details
-            are not.
+            are not. Before your first AI request on a device, the app asks for your permission, and
+            nothing is sent if you choose Not now.
           </li>
           <li>
             <strong>Google Fonts</strong> — delivers the app's typeface; your device requests the

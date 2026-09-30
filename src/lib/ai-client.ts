@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { AI_CONSENT_DECLINED_MESSAGE, requestAiConsent } from "@/lib/ai-consent";
 
 function statusFromError(error: unknown) {
   if (!error || typeof error !== "object") return null;
@@ -42,6 +43,7 @@ export function createAiIdempotencyKey() {
 }
 
 export async function executeAiRequest<T>(operation: () => Promise<T>, fallback: string) {
+  if (!(await requestAiConsent())) throw new Error(AI_CONSENT_DECLINED_MESSAGE);
   try {
     return await operation();
   } catch (firstError) {
