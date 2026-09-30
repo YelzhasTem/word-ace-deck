@@ -163,20 +163,18 @@ function ReversePage() {
       recordStreakToday();
       // Re-insert incorrect near the end for quick re-test.
       if (!correct) {
-        const currentIndex = queue.findIndex(
-          (item) => item.cardId === current.cardId && item.dir === current.dir,
-        );
+        // Answered items stay in the queue before idx, so the current card is
+        // always at idx. Move it a few places later; the next card slides into
+        // idx, so idx stays put (and a last card is simply asked again).
+        const currentIndex = idx;
         setQueue((prev) => {
-          if (prev.length <= 1 || currentIndex === -1) return prev;
+          if (prev.length <= 1 || currentIndex >= prev.length) return prev;
           const next = [...prev];
           const [cur] = next.splice(currentIndex, 1);
           const insertAt = Math.min(next.length, currentIndex + 3);
           next.splice(insertAt, 0, cur);
           return next;
         });
-        if (queue.length > 1 && currentIndex !== -1) {
-          setIdx(currentIndex >= queue.length - 1 ? 0 : currentIndex);
-        }
         setFlipped(false);
       } else {
         setFlipped(false);
