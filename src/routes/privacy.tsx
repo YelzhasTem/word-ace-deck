@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage, LegalSection } from "@/components/LegalPage";
-import { SUPPORT_EMAIL } from "@/lib/legal";
+import { MINIMUM_AGE, SUPPORT_EMAIL } from "@/lib/legal";
 
 export const Route = createFileRoute("/privacy")({
   head: () => ({
@@ -112,10 +112,11 @@ function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection title="Children">
+      <LegalSection title="Minimum age">
         <p>
-          Memora is not directed at children under 13, and we do not knowingly collect data from
-          them. If you believe a child has created an account, contact us and we will delete it.
+          Memora is only for people who are {MINIMUM_AGE} or older, and we do not knowingly collect
+          data from anyone younger. If you believe someone under {MINIMUM_AGE} has created an
+          account, contact us and we will delete it.
         </p>
       </LegalSection>
 

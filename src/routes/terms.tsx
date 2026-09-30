@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { LegalPage, LegalSection } from "@/components/LegalPage";
-import { SUPPORT_EMAIL } from "@/lib/legal";
+import { MINIMUM_AGE, SUPPORT_EMAIL } from "@/lib/legal";
 
 export const Route = createFileRoute("/terms")({
   head: () => ({
@@ -23,7 +23,7 @@ function TermsPage() {
       <LegalSection title="Your account">
         <p>
           You must give a valid email address and keep your password safe. You are responsible for
-          activity on your account. You must be at least 13 years old to use Memora.
+          activity on your account. You must be at least {MINIMUM_AGE} years old to use Memora.
         </p>
       </LegalSection>
 

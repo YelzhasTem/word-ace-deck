@@ -37,7 +37,10 @@ npm run ios:open      # открывает проект в Xcode
 
 - Privacy Policy URL: `https://<домен>/privacy`
 - Support URL: `https://<домен>/support`
-- Категория: Education. Возрастной рейтинг: 12+ (пользовательский контент).
+- Категория: Education.
+- Возрастной рейтинг: 18+. В анкете App Information → Age Ratings ответьте на вопросы честно,
+  затем выберите *Override to Higher Age Rating* → 18+. В Terms минимальный возраст 18 лет
+  (этого требуют условия Gemini API), а Apple требует, чтобы рейтинг был не ниже возраста из Terms.
 - Скриншоты iPhone 6.9" (1320×2868) обязательны; 6.5" (1284×2778) желательно.
 - App Review → Sign-in required: логин и пароль демо-аккаунта с подтверждённым email и парой колод.
 - Notes for Review (пример): «Memora is a flashcard app. Users can publish decks to a community;
