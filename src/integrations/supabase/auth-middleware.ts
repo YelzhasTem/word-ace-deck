@@ -6,7 +6,7 @@ import type { Database } from "./types";
 import { AuthTokenError, verifySupabaseAuthorization } from "./auth-token";
 import { httpError } from "@/lib/server-http-error";
 
-export const requireSupabaseAuth = createMiddleware({ type: "function" }).server(
+export const requireSupabaseSession = createMiddleware({ type: "function" }).server(
   async ({ next }) => {
     const SUPABASE_URL = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
     const SUPABASE_PUBLISHABLE_KEY =
@@ -75,3 +75,23 @@ export const requireSupabaseAuth = createMiddleware({ type: "function" }).server
     });
   },
 );
+
+// All normal authenticated server functions reject an account as soon as its
+// deletion job starts. The deletion endpoint uses requireSupabaseSession so it
+// can resume the job while the current access token is still valid.
+export const requireSupabaseAuth = createMiddleware({ type: "function" })
+  .middleware([requireSupabaseSession])
+  .server(async ({ next, context }) => {
+    const { data, error } = await context.supabase.rpc("is_account_deletion_pending");
+    if (error) {
+      httpError(503, "ACCOUNT_STATUS_UNAVAILABLE", "Your account is temporarily unavailable.");
+    }
+    if (data) {
+      httpError(
+        403,
+        "ACCOUNT_DELETION_ALREADY_IN_PROGRESS",
+        "Account deletion is already in progress.",
+      );
+    }
+    return next();
+  });

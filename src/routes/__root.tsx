@@ -21,9 +21,11 @@ import { OfflineBanner } from "@/components/OfflineBanner";
 
 const PUBLIC_PATHS = new Set(["/", "/auth", "/reset-password"]);
 
-function isPublicPath(pathname: string) {
+function requiresRootAuth(pathname: string) {
   const normalized = pathname.length > 1 ? pathname.replace(/\/+$/, "") : pathname;
-  return PUBLIC_PATHS.has(normalized);
+  // Profile owns its auth guard so its post-deletion notice can outlive sign-out.
+  const usesRouteAuthGuard = normalized.toLowerCase() === "/profile";
+  return !PUBLIC_PATHS.has(normalized) && !usesRouteAuthGuard;
 }
 
 function NotFoundComponent() {
@@ -151,7 +153,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const location = useLocation();
-  const requireAuth = !isPublicPath(location.pathname);
+  const requireAuth = requiresRootAuth(location.pathname);
 
   useEffect(() => {
     const handlePointerUp = (event: PointerEvent) => {
