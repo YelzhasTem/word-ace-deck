@@ -46,7 +46,7 @@ jobs:
       - run: npm run test:decks:csv:unit && npx eslint src/lib/deck-csv.ts tests/deck-csv.test.ts
       - run: npx eslint src/lib/collection-replacement-errors.ts tests/collection-replacement-errors.test.ts tests/collection-replacement-static.test.mjs tests/collection-replacement.test.mjs
       - run: npx eslint scripts/verify-marketplace-reconciliation.mjs src/lib/marketplace-errors.ts src/lib/collections.functions.ts tests/marketplace-boundaries.test.mjs tests/marketplace-errors.test.ts tests/marketplace-static.test.mjs
-      - run: npx eslint scripts/check-database-integrity-static.mjs scripts/check-atomic-deck-creation-static.mjs src/lib/ai.functions.ts src/lib/decks.functions.ts src/lib/community.functions.ts src/lib/deck-creation-errors.ts src/lib/decks.ts src/routes/dashboard.tsx src/routes/community.tsx 'src/routes/community.$deckId.tsx'
+      - run: npx eslint scripts/check-database-integrity-static.mjs scripts/check-atomic-deck-creation-static.mjs src/lib/ai.functions.ts src/lib/decks.functions.ts src/lib/community.functions.ts src/lib/deck-creation-errors.ts src/lib/decks.ts src/routes/dashboard.tsx src/routes/community.tsx 'src/routes/community_.$deckId.tsx'
       - run: npm run build
 
   supabase-integration:

@@ -15,7 +15,7 @@ const communityFunctions = fs.readFileSync(
 const dashboard = fs.readFileSync(path.join(root, "src/routes/dashboard.tsx"), "utf8");
 const aiFunctions = fs.readFileSync(path.join(root, "src/lib/ai.functions.ts"), "utf8");
 const community = fs.readFileSync(path.join(root, "src/routes/community.tsx"), "utf8");
-const communityDeck = fs.readFileSync(path.join(root, "src/routes/community.$deckId.tsx"), "utf8");
+const communityDeck = fs.readFileSync(path.join(root, "src/routes/community_.$deckId.tsx"), "utf8");
 const generatedTypes = fs.readFileSync(
   path.join(root, "src/integrations/supabase/types.ts"),
   "utf8",
