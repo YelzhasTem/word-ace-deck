@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { getReportReasonValidationMessage } from "@/lib/report-validation";
 import { blockUser, getBlockStatus, reportUser, unblockUser } from "@/lib/safety.functions";
+import { getUserErrorMessage } from "@/lib/user-errors";
 
 type Props = {
   userId: string;
@@ -81,7 +82,7 @@ export function UserSafetyActions({ userId, name, className }: Props) {
       toast.success(`${name} is blocked. You will no longer see their content.`);
       await navigate({ to: "/community" });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not block this user.");
+      toast.error(getUserErrorMessage(error, "Could not block this user."));
     } finally {
       setBusy(null);
     }
@@ -95,7 +96,7 @@ export function UserSafetyActions({ userId, name, className }: Props) {
       await queryClient.invalidateQueries();
       toast.success(`${name} is unblocked.`);
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not unblock this user.");
+      toast.error(getUserErrorMessage(error, "Could not unblock this user."));
     } finally {
       setBusy(null);
     }
@@ -117,7 +118,7 @@ export function UserSafetyActions({ userId, name, className }: Props) {
       setReason("");
       toast.success("Report sent. We review reports within 24 hours.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not send the report.");
+      toast.error(getUserErrorMessage(error, "Could not send the report."));
     } finally {
       setBusy(null);
     }

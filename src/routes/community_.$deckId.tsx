@@ -17,8 +17,9 @@ import {
   toggleDeckSave,
 } from "@/lib/community.functions";
 import { createContentIdempotencyKey } from "@/lib/deck-creation-errors";
+import { getUserErrorMessage } from "@/lib/user-errors";
 
-export const Route = createFileRoute("/community/$deckId")({
+export const Route = createFileRoute("/community_/$deckId")({
   component: CommunityDeckPage,
 });
 
@@ -81,7 +82,7 @@ function CommunityDeckPage() {
       .catch((error: unknown) => {
         if (!active) return;
         setDeck(null);
-        setLoadError(error instanceof Error ? error.message : "Could not load this deck");
+        setLoadError(getUserErrorMessage(error, "Could not load this deck"));
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -108,7 +109,7 @@ function CommunityDeckPage() {
     try {
       await work();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : failureMessage);
+      toast.error(getUserErrorMessage(error, failureMessage));
     } finally {
       actionActive.current = false;
       setPendingAction(null);
@@ -157,7 +158,7 @@ function CommunityDeckPage() {
       toast.success("Deck copied into your library.");
       navigate({ to: "/deck/$deckId", params: { deckId: res.id } });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add deck to your library.");
+      toast.error(getUserErrorMessage(error, "Could not add deck to your library."));
     } finally {
       duplicateActive.current = false;
       setDuplicating(false);

@@ -30,6 +30,7 @@ import {
   safeReportClientErrorMessage,
 } from "@/lib/report-validation";
 import { createContentIdempotencyKey } from "@/lib/deck-creation-errors";
+import { getUserErrorMessage } from "@/lib/user-errors";
 
 export const Route = createFileRoute("/community")({
   component: CommunityPage,
@@ -249,7 +250,7 @@ function CommunityPage() {
       })
       .catch((error: unknown) => {
         if (active) {
-          setHomeError(error instanceof Error ? error.message : "Could not load the marketplace");
+          setHomeError(getUserErrorMessage(error, "Could not load the marketplace"));
         }
       })
       .finally(() => {
@@ -324,7 +325,7 @@ function CommunityPage() {
         if (!active) return;
         setResults([]);
         setCollectionResults([]);
-        setSearchError(error instanceof Error ? error.message : "Search failed");
+        setSearchError(getUserErrorMessage(error, "Search failed"));
       })
       .finally(() => {
         if (active) setSearchLoading(false);
@@ -361,7 +362,7 @@ function CommunityPage() {
       toast.success("Deck copied into your library.");
       navigate({ to: "/deck/$deckId", params: { deckId: res.id } });
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add deck to your library.");
+      toast.error(getUserErrorMessage(error, "Could not add deck to your library."));
     } finally {
       deckCopyActive.current = false;
       setCopyingDeckId(null);
@@ -384,9 +385,7 @@ function CommunityPage() {
       collectionCopyKeys.current.delete(collectionId);
       toast.success("Collection copied into your library.");
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Could not add collection to your library.",
-      );
+      toast.error(getUserErrorMessage(error, "Could not add collection to your library."));
     } finally {
       collectionCopyActive.current = false;
       setCopyingCollectionId(null);

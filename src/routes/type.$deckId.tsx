@@ -307,7 +307,7 @@ function TypePage() {
               <span className="text-xs uppercase tracking-[0.2em] text-accent font-semibold">
                 {promptLabel}
               </span>
-              <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight">
+              <p className="mt-6 font-display text-5xl md:text-6xl font-extrabold leading-tight tracking-tight wrap-anywhere">
                 {promptText}
               </p>
               {(() => {

@@ -32,7 +32,7 @@ import { Route as RecallDeckIdRouteImport } from './routes/recall.$deckId'
 import { Route as DeepDeckIdRouteImport } from './routes/deep.$deckId'
 import { Route as DeckDeckIdRouteImport } from './routes/deck.$deckId'
 import { Route as CreatorUserIdRouteImport } from './routes/creator.$userId'
-import { Route as CommunityDeckIdRouteImport } from './routes/community.$deckId'
+import { Route as CommunityDeckIdRouteImport } from './routes/community_.$deckId'
 import { Route as CollectionsCollectionIdRouteImport } from './routes/collections_.$collectionId'
 import { Route as AssocDeckIdRouteImport } from './routes/assoc.$deckId'
 
@@ -152,9 +152,9 @@ const CreatorUserIdRoute = CreatorUserIdRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const CommunityDeckIdRoute = CommunityDeckIdRouteImport.update({
-  id: '/$deckId',
-  path: '/$deckId',
-  getParentRoute: () => CommunityRoute,
+  id: '/community_/$deckId',
+  path: '/community/$deckId',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const CollectionsCollectionIdRoute = CollectionsCollectionIdRouteImport.update({
   id: '/collections_/$collectionId',
@@ -171,7 +171,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/collections': typeof CollectionsRoute
-  '/community': typeof CommunityRouteWithChildren
+  '/community': typeof CommunityRoute
   '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
@@ -199,7 +199,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/collections': typeof CollectionsRoute
-  '/community': typeof CommunityRouteWithChildren
+  '/community': typeof CommunityRoute
   '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
@@ -228,7 +228,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/collections': typeof CollectionsRoute
-  '/community': typeof CommunityRouteWithChildren
+  '/community': typeof CommunityRoute
   '/community-admin': typeof CommunityAdminRoute
   '/dashboard': typeof DashboardRoute
   '/decks': typeof DecksRoute
@@ -242,7 +242,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/assoc/$deckId': typeof AssocDeckIdRoute
   '/collections_/$collectionId': typeof CollectionsCollectionIdRoute
-  '/community/$deckId': typeof CommunityDeckIdRoute
+  '/community_/$deckId': typeof CommunityDeckIdRoute
   '/creator/$userId': typeof CreatorUserIdRoute
   '/deck/$deckId': typeof DeckDeckIdRoute
   '/deep/$deckId': typeof DeepDeckIdRoute
@@ -328,7 +328,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/assoc/$deckId'
     | '/collections_/$collectionId'
-    | '/community/$deckId'
+    | '/community_/$deckId'
     | '/creator/$userId'
     | '/deck/$deckId'
     | '/deep/$deckId'
@@ -343,7 +343,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   CollectionsRoute: typeof CollectionsRoute
-  CommunityRoute: typeof CommunityRouteWithChildren
+  CommunityRoute: typeof CommunityRoute
   CommunityAdminRoute: typeof CommunityAdminRoute
   DashboardRoute: typeof DashboardRoute
   DecksRoute: typeof DecksRoute
@@ -357,6 +357,7 @@ export interface RootRouteChildren {
   TermsRoute: typeof TermsRoute
   AssocDeckIdRoute: typeof AssocDeckIdRoute
   CollectionsCollectionIdRoute: typeof CollectionsCollectionIdRoute
+  CommunityDeckIdRoute: typeof CommunityDeckIdRoute
   CreatorUserIdRoute: typeof CreatorUserIdRoute
   DeckDeckIdRoute: typeof DeckDeckIdRoute
   DeepDeckIdRoute: typeof DeepDeckIdRoute
@@ -530,12 +531,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CreatorUserIdRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/community/$deckId': {
-      id: '/community/$deckId'
-      path: '/$deckId'
+    '/community_/$deckId': {
+      id: '/community_/$deckId'
+      path: '/community/$deckId'
       fullPath: '/community/$deckId'
       preLoaderRoute: typeof CommunityDeckIdRouteImport
-      parentRoute: typeof CommunityRoute
+      parentRoute: typeof rootRouteImport
     }
     '/collections_/$collectionId': {
       id: '/collections_/$collectionId'
@@ -554,23 +555,11 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface CommunityRouteChildren {
-  CommunityDeckIdRoute: typeof CommunityDeckIdRoute
-}
-
-const CommunityRouteChildren: CommunityRouteChildren = {
-  CommunityDeckIdRoute: CommunityDeckIdRoute,
-}
-
-const CommunityRouteWithChildren = CommunityRoute._addFileChildren(
-  CommunityRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   CollectionsRoute: CollectionsRoute,
-  CommunityRoute: CommunityRouteWithChildren,
+  CommunityRoute: CommunityRoute,
   CommunityAdminRoute: CommunityAdminRoute,
   DashboardRoute: DashboardRoute,
   DecksRoute: DecksRoute,
@@ -584,6 +573,7 @@ const rootRouteChildren: RootRouteChildren = {
   TermsRoute: TermsRoute,
   AssocDeckIdRoute: AssocDeckIdRoute,
   CollectionsCollectionIdRoute: CollectionsCollectionIdRoute,
+  CommunityDeckIdRoute: CommunityDeckIdRoute,
   CreatorUserIdRoute: CreatorUserIdRoute,
   DeckDeckIdRoute: DeckDeckIdRoute,
   DeepDeckIdRoute: DeepDeckIdRoute,

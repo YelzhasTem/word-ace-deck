@@ -57,8 +57,10 @@ npm run ios:open      # открывает проект в Xcode
 - Скриншоты iPhone 6.9" (1320×2868) обязательны; 6.5" (1284×2778) желательно.
 - App Review → Sign-in required: логин и пароль демо-аккаунта с подтверждённым email и парой колод.
 - Notes for Review (пример): «Memora is a flashcard app. Users can publish decks to a community;
-  every deck and creator page has Report and Block. Reports are reviewed within 24 hours in the
-  in-app moderation queue. Account deletion: Profile → Delete account.»
+  every deck page has Report and Block in the Moderation section at the bottom, and every creator
+  page has Report and Block. Reports are reviewed within 24 hours in the in-app moderation queue.
+  Account deletion: Profile → Delete account. Please try it with a new account from Sign up, so
+  the demo account stays available for later reviews.»
 - App Privacy: Contact Info (Email Address, Name), User Content (Photos or Videos, Other User
   Content), Identifiers (User ID), Usage Data (Product Interaction). Всё «Linked to user»,
   «Not used for tracking», цель App Functionality.
