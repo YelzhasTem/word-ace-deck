@@ -8,6 +8,13 @@ for (const name of ["SUPABASE_URL", "SUPABASE_PUBLISHABLE_KEY", "SUPABASE_SERVIC
 }
 
 const supabaseUrl = process.env.SUPABASE_URL;
+
+// This fixture creates and deletes users with the service-role key, so never point it at production.
+const fixtureHost = new URL(supabaseUrl).hostname;
+assert.ok(
+  fixtureHost === "127.0.0.1" || fixtureHost === "localhost",
+  "This fixture is restricted to local Supabase",
+);
 const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 assert.notEqual(serviceRoleKey, publishableKey, "Service-role and publishable keys must differ");

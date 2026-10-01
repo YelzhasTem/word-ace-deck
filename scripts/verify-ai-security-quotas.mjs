@@ -8,6 +8,13 @@ const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const allowConfigMutation = process.env.AI_SECURITY_TEST_CONFIG_MUTATION === "true";
 assert.ok(url && publishableKey && serviceRoleKey, "Supabase test environment is incomplete");
 
+// This fixture creates and deletes users with the service-role key, so never point it at production.
+const fixtureHost = new URL(url).hostname;
+assert.ok(
+  fixtureHost === "127.0.0.1" || fixtureHost === "localhost",
+  "This fixture is restricted to local Supabase",
+);
+
 const admin = createClient(url, serviceRoleKey, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
